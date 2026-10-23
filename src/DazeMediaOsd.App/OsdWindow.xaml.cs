@@ -53,6 +53,9 @@ public sealed partial class OsdWindow : Window
             presenter.IsResizable = false;
             presenter.IsMaximizable = false;
             presenter.IsMinimizable = false;
+            // The presenter strips WS_EX_TOPMOST and rewrites HWND_TOPMOST unless it agrees (D-018): without
+            // this a maximized foreground window covers the OSD.
+            presenter.IsAlwaysOnTop = true;
         }
         _hwnd = Win32Interop.GetWindowFromWindowId(AppWindow.Id);
         OverlayWindow.Apply(_hwnd);
