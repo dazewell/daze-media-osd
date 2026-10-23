@@ -71,6 +71,25 @@ public sealed class SettingsStoreTests : IDisposable
     }
 
     [Fact]
+    public void FailedSaveKeepsTheChangeAndReportsIt()
+    {
+        var store = new SettingsStore(_directory);
+        Directory.CreateDirectory(SettingsFile); // a folder where the file goes: the move fails
+
+        store.Update(s => s with { ShowInput = false });
+
+        Assert.False(store.Current.ShowInput);
+        Assert.NotNull(store.SaveError);
+        Assert.False(File.Exists(SettingsFile + ".tmp"));
+
+        Directory.Delete(SettingsFile);
+        store.Update(s => s with { ShowInput = true });
+
+        Assert.Null(store.SaveError);
+        Assert.True(new SettingsStore(_directory).Current.ShowInput);
+    }
+
+    [Fact]
     public void InvalidFileGivesDefaultsAndIsKeptAside()
     {
         Directory.CreateDirectory(_directory);

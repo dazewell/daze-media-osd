@@ -28,11 +28,14 @@ public sealed partial class SettingsWindow : Window
         HideAfterBox.Maximum = AppSettings.MaxHideAfterSeconds;
         VersionText.Text = "Version " + ShortVersion();
 
-        var scale = OverlayWindow.Scale(Win32Interop.GetWindowFromWindowId(AppWindow.Id));
+        Handle = Win32Interop.GetWindowFromWindowId(AppWindow.Id);
+        var scale = OverlayWindow.Scale(Handle);
         AppWindow.Resize(new SizeInt32((int)(WidthDip * scale), (int)(HeightDip * scale)));
     }
 
     public SettingsViewModel ViewModel { get; }
+
+    public nint Handle { get; }
 
     // The SDK appends "+<full commit sha>"; seven characters identify the build.
     private static string ShortVersion()
