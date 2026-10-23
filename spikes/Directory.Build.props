@@ -1,0 +1,3 @@
+<Project>
+  <!-- Spikes are throwaway probes: stop the repo-wide props (warnings as errors, TFM) from applying. -->
+</Project>

@@ -1,0 +1,15 @@
+<Solution>
+  <Configurations>
+    <Platform Name="x64" />
+  </Configurations>
+  <Folder Name="/src/">
+    <Project Path="src/DazeMediaOsd.App/DazeMediaOsd.App.csproj" />
+    <Project Path="src/DazeMediaOsd.Core/DazeMediaOsd.Core.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/DazeMediaOsd.Core.Tests/DazeMediaOsd.Core.Tests.csproj" />
+  </Folder>
+  <Folder Name="/spikes/">
+    <Project Path="spikes/FlyoutProbe/FlyoutProbe.csproj" />
+  </Folder>
+</Solution>

@@ -41,14 +41,15 @@ this file and know what to build next. History of *why* lives in [DECISIONS.md](
 - [x] .NET 10 SDK on the dev machine (10.0.402) (2026-10-22)
 - [x] Spike Q1: native flyout detected + suppressed on build 26300 → minimize while running, launcher
   restores on any exit (D-006) (2026-10-22)
-- [ ] Solution skeleton per ARCHITECTURE layout; update `build` skill with real commands
+- [x] Solution skeleton: launcher/`--app` split, native flyout minimized while running; `build` skill
+  updated (2026-10-22)
 - [ ] Core: audio endpoint volume + default device tracking
 - [ ] OSD window (Win11 look) with device names
 - [ ] Tray icon + settings window + persisted settings
 - [ ] Media session info in OSD
 - [ ] Autostart, publish to a local folder, daily-driver test
 
-**Next step:** solution skeleton per ARCHITECTURE → Layout (slnx, global.json, Directory.*.props,
-Core/App/Tests projects, WinUI 3 unpackaged per D-003) with the custom Main's launcher/`--app` split
-and `NativeFlyout` minimize/restore wired per "Process lifecycle"; measure Q5; add `scripts/stop.ps1`;
-rewrite the `build` skill commands to match.
+**Next step:** Core audio: `AudioService` (default render + capture endpoint name, volume, mute, change
+events via Core Audio COM through CsWin32) and `KeySource` (raw-input volume keys) feeding an immutable
+`OsdState`, with unit tests for state building. While the app runs there is currently **no** volume
+OSD at all — the OSD window step should follow right after.

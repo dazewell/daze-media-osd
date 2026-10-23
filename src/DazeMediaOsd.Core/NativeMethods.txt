@@ -1,0 +1,12 @@
+EVENT_OBJECT_CREATE
+EVENT_OBJECT_SHOW
+FindWindowEx
+GetClassName
+GetWindowThreadProcessId
+IsIconic
+SetWinEventHook
+ShowWindowAsync
+UnhookWinEvent
+WINEVENT_OUTOFCONTEXT
+WINEVENT_SKIPOWNPROCESS
+EVENT_OBJECT_DESTROY
