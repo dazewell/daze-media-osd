@@ -278,11 +278,12 @@ public sealed class CoreAudioService : IAudioService
             }
             if (isActive == wasActive)
                 return;
+            // Before touching the set: a failed name read must not swallow the transition.
+            var name = device is null ? "?" : TryFriendlyName(device);
             if (isActive)
                 _active[id] = flow;
             else
                 _active.Remove(id);
-            var name = device is null ? "?" : FriendlyName(device);
             Log.Info($"audio device {(isActive ? "connected" : "disconnected")}: {flow} \"{name}\"");
             Raise(_current, flow, isActive ? AudioChangeKind.DeviceConnected : AudioChangeKind.DeviceDisconnected);
         }
@@ -290,6 +291,18 @@ public sealed class CoreAudioService : IAudioService
         {
             if (device is not null)
                 Marshal.ReleaseComObject(device);
+        }
+    }
+
+    private static string TryFriendlyName(IMMDevice device)
+    {
+        try
+        {
+            return FriendlyName(device);
+        }
+        catch (COMException)
+        {
+            return "?"; // only for the log; a disconnecting device may already refuse
         }
     }
 

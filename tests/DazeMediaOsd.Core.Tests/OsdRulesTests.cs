@@ -50,7 +50,7 @@ public class OsdRulesTests
     [Theory]
     [InlineData(AudioChangeKind.DeviceConnected, OsdReason.DeviceConnected)]
     [InlineData(AudioChangeKind.DeviceDisconnected, OsdReason.DeviceDisconnected)]
-    public void NonDefaultDeviceConnectShows(AudioChangeKind kind, OsdReason expected) =>
+    public void DeviceConnectOrDisconnectShowsDefaultOrNot(AudioChangeKind kind, OsdReason expected) =>
         Assert.Equal(expected, Reason(Before, EndpointFlow.Input, kind));
 
     [Fact]

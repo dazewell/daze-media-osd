@@ -193,6 +193,44 @@ public class OsdControllerTests
     }
 
     [Fact]
+    public void CallbackQueuedBeforeADefaultSwitchShowsNothing()
+    {
+        var headset = new EndpointState("out-2", "Headset", 0.4f, false);
+        using var audio = new FakeAudio { Current = new AudioSnapshot(Speakers, Mic) };
+        using var keys = new FakeKeys();
+        var time = new ManualTime();
+        using var controller = new OsdController(audio, keys, new FakeMedia(), time);
+        var shown = Record(controller);
+
+        audio.Change(audio.Current, EndpointFlow.Output, AudioChangeKind.DeviceConnected);
+        audio.Change(new AudioSnapshot(headset, Mic), EndpointFlow.Output, AudioChangeKind.DefaultDevice);
+        time.Advance(OsdController.DeviceSettle);
+        time.RunAllCallbacks(); // the pool ran the settled callback late, after the cancel
+
+        Assert.Equal([OsdReason.OutputDeviceChanged], shown.Select(s => s.Reason));
+    }
+
+    [Fact]
+    public void StaleCallbackAfterReArmWaitsForTheBurst()
+    {
+        using var audio = new FakeAudio { Current = new AudioSnapshot(Speakers, Mic) };
+        using var keys = new FakeKeys();
+        var time = new ManualTime();
+        using var controller = new OsdController(audio, keys, new FakeMedia(), time);
+        var shown = Record(controller);
+
+        audio.Change(audio.Current, EndpointFlow.Output, AudioChangeKind.DeviceConnected);
+        time.Advance(TimeSpan.FromMilliseconds(400));
+        audio.Change(audio.Current, EndpointFlow.Input, AudioChangeKind.DeviceConnected);
+        time.Advance(TimeSpan.FromMilliseconds(100));
+        time.RunAllCallbacks(); // the first arming's callback, queued just before the re-arm
+        Assert.Empty(shown);
+        time.Advance(TimeSpan.FromMilliseconds(400));
+
+        Assert.Single(shown);
+    }
+
+    [Fact]
     public void DisconnectShowsDisconnected()
     {
         using var audio = new FakeAudio { Current = new AudioSnapshot(Speakers, Mic) };
@@ -219,6 +257,7 @@ public class OsdControllerTests
         audio.Change(audio.Current, EndpointFlow.Output, AudioChangeKind.DeviceConnected);
         controller.Dispose();
         time.Advance(OsdController.DeviceSettle);
+        time.RunAllCallbacks(); // one already queued when Dispose ran
 
         Assert.Empty(shown);
     }
@@ -257,8 +296,17 @@ public class OsdControllerTests
                 timer.FireIfDue(_ticks);
         }
 
+        /// <summary>Runs every timer's callback, due or not: one the pool queued before a Change/Dispose.</summary>
+        public void RunAllCallbacks()
+        {
+            foreach (var timer in _timers.ToList())
+                timer.Run();
+        }
+
         private sealed class ManualTimer(ManualTime time, TimerCallback callback, object? state) : ITimer
         {
+            public void Run() => callback(state);
+
             private long? _dueAt;
 
             public bool Change(TimeSpan dueTime, TimeSpan period)

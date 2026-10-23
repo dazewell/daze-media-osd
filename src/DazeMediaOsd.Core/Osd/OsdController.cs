@@ -26,8 +26,14 @@ public sealed class OsdController : IDisposable
     private readonly Lock _gate = new();
     private OsdState? _lastRequested;
     private long _lastRequestedAt;
+    // Held across the decide-and-request of a device or default-device show, so a pending device show is
+    // either requested before a default switch or not at all. Always taken before _gate.
+    private readonly Lock _deviceGate = new();
     private ITimer? _deviceTimer;
     private OsdReason _deviceReason;
+    private bool _devicePending;
+    private long _deviceArmedAt;
+    private bool _disposed;
 
     public OsdController(IAudioService audio, IKeySource keys, IMediaService media, TimeProvider? time = null)
     {
@@ -62,8 +68,11 @@ public sealed class OsdController : IDisposable
                 break;
             case (OsdReason.OutputDeviceChanged or OsdReason.InputDeviceChanged) and var reason:
                 // It shows the new default right away; a pending device show would only repeat it.
-                CancelDeviceShow();
-                Request(OsdState.From(e.Current, _media.Current, reason));
+                lock (_deviceGate)
+                {
+                    _devicePending = false;
+                    Request(OsdState.From(e.Current, _media.Current, reason));
+                }
                 break;
             case { } reason:
                 Request(OsdState.From(e.Current, _media.Current, reason));
@@ -73,31 +82,36 @@ public sealed class OsdController : IDisposable
 
     private void DeferDeviceShow(OsdReason reason)
     {
-        lock (_gate)
+        lock (_deviceGate)
         {
+            if (_disposed)
+                return;
             _deviceReason = reason; // the last one of a burst names it
+            _devicePending = true;
+            _deviceArmedAt = _time.GetTimestamp();
             _deviceTimer ??= _time.CreateTimer(_ => OnDeviceSettled(), null, Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
             _deviceTimer.Change(DeviceSettle, Timeout.InfiniteTimeSpan);
         }
     }
 
-    private void CancelDeviceShow()
-    {
-        lock (_gate)
-            _deviceTimer?.Change(Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
-    }
-
     // Reads the state now, after the burst: the current defaults, not the device that came or went.
+    // The flags, not the timer, decide: a callback already queued when the show was cancelled, re-armed
+    // or disposed still runs.
     private void OnDeviceSettled()
     {
-        OsdReason reason;
-        lock (_gate)
+        lock (_deviceGate)
         {
-            if (_deviceTimer is null)
-                return; // disposed while the callback was in flight
-            reason = _deviceReason;
+            if (!_devicePending || _disposed)
+                return;
+            var left = DeviceSettle - _time.GetElapsedTime(_deviceArmedAt);
+            if (left > TimeSpan.Zero)
+            {
+                _deviceTimer!.Change(left, Timeout.InfiniteTimeSpan); // stale callback from before a re-arm
+                return;
+            }
+            _devicePending = false;
+            Request(Snapshot(_deviceReason));
         }
-        Request(Snapshot(reason));
     }
 
     // The key arrives before Windows applies it, so this state may still show the old level; the
@@ -130,8 +144,9 @@ public sealed class OsdController : IDisposable
         _audio.Changed -= OnAudioChanged;
         _keys.KeyPressed -= OnKeyPressed;
         _media.Changed -= OnMediaChanged;
-        lock (_gate)
+        lock (_deviceGate)
         {
+            _disposed = true;
             _deviceTimer?.Dispose();
             _deviceTimer = null;
         }
