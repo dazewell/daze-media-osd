@@ -378,6 +378,48 @@ public class OsdControllerTests
         Assert.Equal([new DeviceNotice("Technics EAH-AZ80", EndpointFlow.Output, false, true)], shown.Select(s => s.Device));
     }
 
+    // Real disconnect (log, 2026-10-23): default switch 29 ms after the headphones, hands-free endpoint
+    // 850 ms after that, well past DeviceSettle from the switch's announce. One show.
+    [Fact]
+    public void LateSecondEndpointAfterDefaultSwitchDoesNotRepeat()
+    {
+        var headphones = new EndpointState("out-2", "Headphones (Technics EAH-AZ80)", 0.34f, false);
+        using var audio = new FakeAudio { Current = new AudioSnapshot(headphones, Mic) };
+        using var keys = new FakeKeys();
+        var time = new ManualTime();
+        using var controller = new OsdController(audio, keys, new FakeMedia(), time);
+        var shown = Record(controller);
+
+        audio.Device(new DeviceEvent("Headphones (Technics EAH-AZ80)", EndpointFlow.Output, false, true));
+        time.Advance(TimeSpan.FromMilliseconds(29));
+        audio.Change(new AudioSnapshot(Speakers, Mic), EndpointFlow.Output, AudioChangeKind.DefaultDevice);
+        time.Advance(TimeSpan.FromMilliseconds(850));
+        audio.Device(new DeviceEvent("Headset (Technics EAH-AZ80)", EndpointFlow.Input, false, true));
+        time.Advance(OsdController.DeviceSettle * 2);
+
+        var notice = new DeviceNotice("Technics EAH-AZ80", EndpointFlow.Output, false, true);
+        Assert.Equal([new OsdState(Speakers, Mic, null, OsdReason.OutputDeviceChanged, notice)], shown);
+    }
+
+    [Fact]
+    public void FlapWithinRepeatWindowShows()
+    {
+        using var audio = new FakeAudio { Current = new AudioSnapshot(Speakers, Mic) };
+        using var keys = new FakeKeys();
+        var time = new ManualTime();
+        using var controller = new OsdController(audio, keys, new FakeMedia(), time);
+        var shown = Record(controller);
+
+        audio.Device(new DeviceEvent("Headphones (Technics EAH-AZ80)", EndpointFlow.Output, true, true));
+        time.Advance(OsdController.DeviceSettle); // announced connected
+        audio.Device(new DeviceEvent("Headphones (Technics EAH-AZ80)", EndpointFlow.Output, false, true));
+        time.Advance(TimeSpan.FromMilliseconds(100));
+        audio.Device(new DeviceEvent("Headphones (Technics EAH-AZ80)", EndpointFlow.Output, true, true));
+        time.Advance(OsdController.DeviceSettle); // one burst ending "connected", but it went and came back
+
+        Assert.Equal([true, true], shown.Select(s => s.Device!.Connected));
+    }
+
     [Fact]
     public void SameDeviceAgainLaterShowsAgain()
     {
@@ -389,7 +431,7 @@ public class OsdControllerTests
 
         audio.Device(new DeviceEvent("Headphones (Technics EAH-AZ80)", EndpointFlow.Output, true, true));
         time.Advance(OsdController.DeviceSettle); // announced
-        time.Advance(OsdController.DeviceSettle); // a reconnect after the window is news again
+        time.Advance(OsdController.RepeatWindow); // a reconnect after the window is news again
         audio.Device(new DeviceEvent("Headphones (Technics EAH-AZ80)", EndpointFlow.Output, true, true));
         time.Advance(OsdController.DeviceSettle);
         audio.Device(new DeviceEvent("Headphones (Technics EAH-AZ80)", EndpointFlow.Output, false, true));

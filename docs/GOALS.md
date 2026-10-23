@@ -67,18 +67,17 @@ this file and know what to build next. History of *why* lives in [DECISIONS.md](
 - [x] Autostart toggle (HKCU Run, registry is the only state) + `scripts/install.ps1` publish to
   `%LOCALAPPDATA%\Programs\DazeMediaOsd`; installed and set to start with Windows on the dev machine
   (D-015, X-004) (2026-10-22)
-- [ ] Daily-driver test
+- [x] Daily-driver day 1 from the log (2026-10-23): 9 h up, no crash; BT connect/disconnect with a
+  default switch carries the device line; a late hands-free endpoint popped a second show → fixed
+  (D-016). Media retries (0x8001010E) recover with Telegram too
+- [x] Daily-driver test: no native flyout flashes (user, 2026-10-23). Autostart at sign-in and a USB
+  device deferred by the user (2026-10-23) — see "When convenient"
 
-**Next step:** daily-driver test of the installed copy. Ask the user how it went after a sign-in: did it
-start (log `launcher: started app` right after sign-in), any native flyout flashes, crashes
-(`launcher: app exited with` non-zero), annoyances. Fix what comes up; then pick the next feature with
-the user (open PR #8 has a survey of similar apps; "Later" below).
+**Next step:** after this PR merges, re-run `scripts/install.ps1` so the installed copy has D-016. Then
+pick the next feature with the user: open PR #8 has a survey of similar apps; also "Later" above.
 
-**Daily-driver checks** for D-013/D-014: one Bluetooth headset is verified (user, 2026-10-22: one
-named show per connect/disconnect). Still to see: a BT connect that switches the default (one show
-with the line and the new default, log `show OutputDeviceChanged … device=…`), and a USB device.
-
-When convenient: OSD + settings window in light theme, OSD on a second monitor, tray icon on a light
-taskbar and after an explorer restart, an app/window icon (the exe and settings window have none yet),
+When convenient: autostart at sign-in (log `launcher: started app` right after one), a USB audio
+device (one show per connect/disconnect, D-013/D-014/D-016), OSD + settings window in light theme,
+OSD on a second monitor, tray icon on a light taskbar and after an explorer restart, an app/window icon (the exe and settings window have none yet),
 media keys from a physical Consumer Control device (only the keyboard path is verified), media info
-with Spotify/Media Player (only Chromium verified).
+with Spotify/Media Player (Chromium and Telegram verified).

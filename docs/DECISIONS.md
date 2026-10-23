@@ -191,7 +191,7 @@ Supersedes: D-011 (adds device connect/disconnect; its key and media rules stand
   apps that create virtual endpoints on the fly (e.g. voice chat) cause popups.
 
 ## D-014 · 2026-10-22 · Device connect/disconnect: one event line at the top of the OSD
-Status: accepted
+Status: superseded by D-016 (repeat window widened; everything else stands)
 Supersedes: D-013 (adds what the show says and drops repeated bursts; when it pops is unchanged)
 - Decision: a device show carries `OsdState.Device` (`DeviceNotice`: name, flow, connected, Bluetooth,
   others), rendered as one header line above the media/device rows: Fluent glyph (Bluetooth E702, else
@@ -240,3 +240,16 @@ Status: accepted
   Why not leave StartupApproved alone on "on": the Run value would stay disabled and the toggle would
   snap back off.
 - Revisit if: packaging moves to MSIX (then `StartupTask` in the manifest).
+
+## D-016 · 2026-10-23 · Repeat drop measured against its own 2 s window, not `DeviceSettle`
+Status: accepted
+Supersedes: D-014 (only the repeat window; the event line and burst rules stand)
+- Decision: a device burst is dropped as a repeat if it starts within `OsdController.RepeatWindow`
+  (2 s) of announcing the same device doing the same thing. `DeviceSettle` (500 ms) still times the show.
+- Why: daily use (log, 2026-10-23) — Technics EAH-AZ80 disconnect with a default switch 29 ms after the
+  headphones announced at once; the hands-free endpoint followed 850 ms later, past 500 ms, and popped
+  the same line again. D-014 had measured gaps up to 930 ms but only tested the settled path, where the
+  announce itself comes 500 ms late.
+- Why a wide window is free: only the same name *and* direction count, and only a one-way burst: one
+  that went and came back (a flap merged into one burst) always shows (PR #14 review).
+- Revisit if: a real second device with the same "(…)" product within 2 s is hidden.
