@@ -161,6 +161,8 @@ unit-tested with fakes. App never P/Invokes directly; window styling goes throug
 
 - Created once at startup (before suppression; failure → exit, Windows untouched), hidden between shows.
   Never `Activate()`d: `SetWindowPos(HWND_TOPMOST, SWP_NOACTIVATE|SWP_SHOWWINDOW)` renders XAML fine.
+  Topmost only sticks with `OverlappedPresenter.IsAlwaysOnTop = true`: the presenter strips
+  `WS_EX_TOPMOST` and rewrites `HWND_TOPMOST` otherwise (D-018).
 - Ex styles `NOACTIVATE|TOOLWINDOW|TOPMOST|TRANSPARENT|LAYERED` + `SetLayeredWindowAttributes(alpha 255)`:
   the acrylic backdrop and XAML still draw on the layered window; `WindowFromPoint` over it returns the
   window below (click-through); foreground window unchanged by a show.
