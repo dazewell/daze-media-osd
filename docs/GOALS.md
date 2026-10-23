@@ -89,23 +89,27 @@ build the two features below, in this order, one PR each.
 - Record a decision (glyph replaces level glyph; why not a second glyph: row width). Verify with the
   Technics headset, the laptop speakers and the Dell monitor (HDMI/DP).
 
-**Plan B — quick device switching** (M, 1–2 days; surfaces pending the user's OK)
+**Plan B — quick device switching** (M, 1–2 days; tray + hotkey + OSD-click spike: user, 2026-10-23)
 - Core: `IAudioService.Endpoints(flow)` (active only: id, name, kind) and `SetDefault(id, flow)`. Setting
   the default needs the undocumented `IPolicyConfig` COM interface (no documented API: `MediaDevice`
   only reads, `AudioRoutingManager` is phone-only). No admin, no injection; EarTrumpet and SoundSwitch
   ship it. Set roles eConsole + eMultimedia, as Settings does; leave eCommunications. A failure only
   logs. Short spike first: confirm the interface and IID on 26300, record the result as D-xxx/X-xxx.
-- Surface 1 (recommended): tray menu gets "Output" and "Input" submenus with a check on the
+- Surface 1: tray menu gets "Output" and "Input" submenus with a check on the
   current default (native menu, D-009; the tray may take focus). The OSD shows the switch through the
   existing `OutputDeviceChanged` path.
-- Surface 2 (recommended): a global hotkey cycles the default output (`RegisterHotKey`, no hook, no
+- Surface 2: a global hotkey cycles the default output (`RegisterHotKey`, no hook, no
   admin); the OSD shows the new default. Configurable in Settings, default to agree with the user (avoid
   Win+Ctrl+V: Windows 11's own output picker). A failed registration shows in Settings. Pure
   `DeviceCycle.Next(endpoints, currentId)` (sorted by name), unit-tested. Same plumbing later gives
   the survey's "show OSD on demand" hotkey for free.
-- Not planned: clicking device rows in the OSD itself. The OSD is click-through and never activates
-  (D-008, hard rule); making rows clickable needs hover-to-stay-open and click handling without
-  activation. Spike it separately if the user wants it.
+- Surface 3, spike first (user asked, 2026-10-23): click a device row in the OSD to pick another
+  device. Conflicts with D-008 (click-through) and must keep the hard rule (never take focus or
+  activation). Questions: can a `WS_EX_NOACTIVATE` window without `WS_EX_TRANSPARENT` take XAML clicks
+  without activating (foreground window unchanged)? Hover keeps the OSD open, leave hides it; only the
+  rows are hit-testable, the rest stays click-through (`WM_NCHITTEST` → `HTTRANSPARENT`?). How does
+  the list open — a non-activating popup inside the OSD, not a `Flyout` that grabs focus. Result goes
+  in DECISIONS (superseding D-008) or DEADENDS; drop the surface if it can't keep the rule.
 - Risks: Bluetooth hands-free outputs ("Headset (…)") may show up as a separate output on some
   machines; consider hiding them from the cycle.
 
