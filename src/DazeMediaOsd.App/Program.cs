@@ -1,3 +1,4 @@
+using DazeMediaOsd.Core.Diagnostics;
 using DazeMediaOsd.Core.Lifecycle;
 using DazeMediaOsd.Core.NativeFlyout;
 using Microsoft.UI.Dispatching;
@@ -11,6 +12,7 @@ public static class Program
     public static int Main(string[] args)
     {
         var launch = LaunchArgs.Parse(args);
+        Log.Initialize(Log.DefaultDirectory);
         if (launch.Mode == LaunchMode.Launcher)
             return Launcher.Run();
 

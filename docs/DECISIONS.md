@@ -85,3 +85,16 @@ Supersedes: D-005
 - Revisit if: launcher-mode working set is heavy (→ tiny AOT launcher exe), or Q4 confirms brightness
   etc. disappear and the user won't accept that.
 - Ref: probe modes `minimize`/`restore` in `spikes/FlyoutProbe`.
+
+## D-007 · 2026-10-22 · When our OSD pops up
+Status: accepted
+- Decision: show on a volume key (raw input), an output volume (displayed % changed) or mute change from
+  any source, a default output/input device switch, and a mic mute change. Never on mic level alone or
+  a device rename. Rules live in `OsdRules`.
+- Why: with the native flyout minimized, ours must cover what it did (keys, incl. at 0 %/100 %) plus
+  the user's ask (device changes). Volume changes can't be attributed to a key reliably, so any source
+  counts; mic mute matters because the OSD shows it.
+- Why not keys only: misses hardware knobs/headset buttons that don't arrive as keyboard input and
+  device switches. Why not mic level: auto-gain in call apps moves it constantly → OSD spam.
+- Revisit if: daily use shows popups from apps changing master volume, or Quick Settings slider drags
+  feel noisy (then: ignore changes while Quick Settings is open, or use the event context GUID).

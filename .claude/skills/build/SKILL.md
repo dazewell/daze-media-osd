@@ -36,8 +36,14 @@ dotnet publish src/DazeMediaOsd.App -c Release -r win-x64 -o artifacts/publish  
 need to keep working, and stop it with `scripts/stop.ps1`. The Debug exe is
 `src/DazeMediaOsd.App/bin/Debug/net10.0-windows10.0.26100.0/win-x64/DazeMediaOsd.exe`.
 
-Checking the native flyout while the app runs: `dotnet run --project spikes/FlyoutProbe -- watch`
-presses Mute twice (net zero) and logs the host. Minimized = tiny rect, no SHOW/HIDE ~2.5 s apart.
+Seeing what the app did: `%LOCALAPPDATA%\DazeMediaOsd\logs\app.log` (both processes, pid per line).
+
+Driving it without touching hardware:
+- `pwsh scripts/press-key.ps1 175,174` — Volume Up then Down (173 = Mute); raw input sees these.
+- `pwsh scripts/audio-device.ps1` lists render endpoints; `-SetDefault "<id>"` switches the default
+  output. Switch back to the original afterwards — it's the user's machine.
+- `dotnet run --project spikes/FlyoutProbe -- watch` presses Mute twice (net zero) and logs the native
+  flyout host. Minimized = tiny rect, no SHOW/HIDE ~2.5 s apart.
 
 ## Verifying UI changes
 

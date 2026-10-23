@@ -17,9 +17,9 @@ core that builds an `OsdState`; the OSD window renders it.
  ─────────                       ─────────────────                  ──────────────────────────
  flyout host create ─WinEvent───► NativeFlyout (minimize/restore)
  volume keys ───────raw input───► KeySource ──────┐
- endpoint volume/mute ─COM cb───► AudioService ───┼─► OsdState ───► OsdWindow (topmost, no-activate,
- default device change ─COM cb──► AudioService ───┤   (immutable)    click-through, Mica/Acrylic)
- media session (GSMTC) ─WinRT───► MediaService ───┘
+ endpoint volume/mute ─COM cb───► AudioService ───┼─► OsdController ─► OsdState ─► OsdWindow (topmost,
+ default device change ─COM cb──► AudioService ───┤   (OsdRules)      (immutable)  no-activate, click-
+ media session (GSMTC) ─WinRT───► MediaService ───┘                                 through, Mica/Acrylic)
                                   SettingsStore ◄────────────────── SettingsWindow (MVVM)
                                                                     TrayIcon
 ```
@@ -31,13 +31,15 @@ DazeMediaOsd.slnx
 global.json                      pins .NET 10 SDK; opts `dotnet test` into Microsoft.Testing.Platform
 Directory.Build.props            shared props: TFM net10.0-windows10.0.26100.0, nullable, warnings as errors
 Directory.Packages.props         central package versions
-src/DazeMediaOsd.Core/           no UI; Win32 via CsWin32 (NativeMethods.txt). Lifecycle/ (LaunchArgs,
-                                 Launcher), NativeFlyout/ (FlyoutHost, FlyoutSuppressor). Later: audio,
-                                 media, settings.
+src/DazeMediaOsd.Core/           no UI; Win32/COM via CsWin32 (NativeMethods.txt). Lifecycle/ (LaunchArgs,
+                                 Launcher), NativeFlyout/ (FlyoutHost, FlyoutSuppressor), Audio/
+                                 (CoreAudioService), Input/ (RawInputKeySource), Osd/ (OsdState, OsdRules,
+                                 OsdController), Diagnostics/Log. Later: media, settings.
 src/DazeMediaOsd.App/            WinUI 3 exe `DazeMediaOsd.exe`: Program.Main → launcher or `--app` mode;
-                                 App. Later: TrayIcon, OsdWindow, SettingsWindow, ViewModels
-tests/DazeMediaOsd.Core.Tests/   xUnit v3; logic only (args, host matching; later state, settings)
-scripts/stop.ps1                 stop the app without leaving the native flyout minimized
+                                 App wires services. Later: TrayIcon, OsdWindow, SettingsWindow, ViewModels
+tests/DazeMediaOsd.Core.Tests/   xUnit v3; logic only, fakes for IAudioService / IKeySource
+scripts/                         stop.ps1 (safe stop), press-key.ps1 (SendInput volume keys),
+                                 audio-device.ps1 (list / set default output, dev only)
 spikes/FlyoutProbe/              console probe for the native flyout — re-run after Windows updates.
                                  Own Directory.*.props opt out of the repo-wide ones.
 ```
@@ -49,13 +51,14 @@ unit-tested with fakes. App never P/Invokes directly except window styling.
 
 | Component | Responsibility | Key APIs |
 |---|---|---|
-| `AudioService` | Default render + capture endpoint: name, volume, mute; raise on change | `IMMDeviceEnumerator`, `IMMNotificationClient` (`OnDefaultDeviceChanged`), `IAudioEndpointVolume` + `IAudioEndpointVolumeCallback`, `PKEY_Device_FriendlyName` |
+| `CoreAudioService` (`IAudioService`) | Default render + capture endpoint (role eConsole): name, volume, mute; raise on change, rename, default switch | `IMMDeviceEnumerator`, `IMMNotificationClient`, `IAudioEndpointVolume` + `IAudioEndpointVolumeCallback`, `PKEY_Device_FriendlyName` |
+| `OsdController` + `OsdRules` | Audio changes + keys → `ShowRequested(OsdState)`; the rules decide what pops the OSD (D-007) | — (pure, unit-tested) |
 | `NativeFlyout` | Minimize the native flyout host while the app runs, re-minimize a re-created host, restore on exit | `SetWinEventHook` (out-of-context, `EVENT_OBJECT_CREATE`) on explorer.exe, `ShowWindowAsync` |
-| `KeySource` _(planned)_ | Trigger: volume/mute key presses, incl. at 0 %/100 % where the volume doesn't change | `RegisterRawInputDevices` + `RIDEV_INPUTSINK` (passive, no input latency) |
+| `RawInputKeySource` (`IKeySource`) | Trigger: volume/mute key downs, incl. at 0 %/100 % where the volume doesn't change | Message-only window, `RegisterRawInputDevices` + `RIDEV_INPUTSINK` (passive, no input latency) |
 | `Launcher` | Start `--app`, wait on its handle, restore the native flyout when it exits (D-006) | `Process`, `WaitForSingleObject` |
 | `MediaService` | Current media session: title, artist, thumbnail, playback state, controls | `GlobalSystemMediaTransportControlsSessionManager` |
 | `SettingsStore` | Load/save JSON, versioned schema, change notifications | `System.Text.Json` source-gen (AOT-safe) |
-| `OsdWindow` | Render `OsdState`, auto-hide timer, position per settings | WinUI 3 `AppWindow`, backdrop, `WS_EX_NOACTIVATE \| WS_EX_TOOLWINDOW \| WS_EX_TRANSPARENT` |
+| `OsdWindow` _(planned; today App logs each show)_ | Render `OsdState`, auto-hide timer, position per settings | WinUI 3 `AppWindow`, backdrop, `WS_EX_NOACTIVATE \| WS_EX_TOOLWINDOW \| WS_EX_TRANSPARENT` |
 | `SettingsWindow` | Fluent settings UI | WinUI 3 `NavigationView`, CommunityToolkit.Mvvm |
 | `TrayIcon` | Open settings, pause, exit | TBD (Q3) |
 
@@ -84,11 +87,31 @@ unit-tested with fakes. App never P/Invokes directly except window styling.
 
 - COM callbacks (Core Audio) arrive on arbitrary MTA threads: never touch UI there. Marshal to the UI via
   `DispatcherQueue.TryEnqueue`. Keep callbacks tiny — Core Audio docs warn against blocking in them.
+- `CoreAudioService` owns one MTA worker thread that makes every COM call. Callbacks copy their
+  arguments (pointers die with the call) and post to it — Register/Unregister must never run inside a
+  Core Audio callback. `Changed` is raised on that worker.
+- `RawInputKeySource` runs its own thread + message-only window; `KeyPressed` is raised there.
+- `OsdController.ShowRequested` therefore arrives on either thread: App marshals with
+  `DispatcherQueue.TryEnqueue`.
 - WinEvent hooks need a thread with a message loop: `FlyoutSuppressor` is created on the UI thread.
 - `Process.Exited` (launcher watch) fires on a pool thread: marshal to the UI thread before touching
   the suppressor.
 - `OsdState` is an immutable record; services publish a new instance, the window diffs nothing — it
   just rebinds.
+
+## Audio and keys (verified on build 26300, 2026-10-22)
+
+- One volume key press: raw input key-down first, then ~5 ms later **two** endpoint volume
+  notifications with slightly different floats → `OsdRules` compares the displayed percent.
+- `SendInput` volume keys reach raw input (hDevice 0) and Windows alike → `scripts/press-key.ps1`
+  exercises the real path.
+- Default-device switch: `OnDefaultDeviceChanged` fires per role; we act on eConsole only and re-attach
+  the volume callback; a late notification from the old endpoint is dropped by endpoint id.
+- Raw input registration is per process and per device class: if a future window (settings) or WinUI
+  itself registers keyboard raw input, one overrides the other — check text input when SettingsWindow
+  lands.
+- Log: `%LOCALAPPDATA%\DazeMediaOsd\logs\app.log`, both processes (pid per line). Until OsdWindow
+  exists every would-be show is a `show <reason>: out=… in=…` line.
 
 ## Process lifecycle (D-006)
 

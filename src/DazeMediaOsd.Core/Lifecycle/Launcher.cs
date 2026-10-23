@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using DazeMediaOsd.Core.Diagnostics;
 using DazeMediaOsd.Core.NativeFlyout;
 
 namespace DazeMediaOsd.Core.Lifecycle;
@@ -15,7 +16,10 @@ public static class Launcher
     {
         using var mutex = new Mutex(initiallyOwned: true, SingleInstanceMutex, out var isFirst);
         if (!isFirst)
+        {
+            Log.Info("launcher: another instance is running, exiting");
             return 0;
+        }
 
         var start = new ProcessStartInfo(Environment.ProcessPath!, LaunchArgs.ForApp(Environment.ProcessId))
         {
@@ -24,7 +28,9 @@ public static class Launcher
         try
         {
             using var app = Process.Start(start)!;
+            Log.Info($"launcher: started app {app.Id}");
             app.WaitForExit();
+            Log.Info($"launcher: app exited with {app.ExitCode}, restoring native flyout");
             return app.ExitCode;
         }
         finally
