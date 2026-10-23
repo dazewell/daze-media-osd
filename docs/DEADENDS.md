@@ -16,3 +16,10 @@ here (an option rejected on paper belongs in the "Why not" of a decision). Forma
   0–2 % the indicator template draws a stray dot at the left edge (user, 2026-10-22).
 - Evidence: build 26300, WinAppSDK 2.5.1, PR #4 first commit.
 - Retry only if: never for a fast-updating level; use the track + fill in `OsdWindow.xaml`.
+
+## X-003 · 2026-10-22 · Defaults as property initializers on an init-only record for System.Text.Json
+- Tried: `AppSettings` with `{ get; init; } = default` properties, deserialized via source-gen context.
+- Failed because: source-gen sets every init-only property in the object initializer, so a property
+  missing from the JSON comes back as `default(T)` (`HideAfterSeconds` 0), not the initializer value.
+- Evidence: `SettingsStoreTests.MissingPropertiesKeepDefaults`, .NET 10.0.402.
+- Retry only if: never; put defaults on the primary constructor's parameters (STJ honours those).

@@ -126,3 +126,16 @@ Status: accepted
   same trade as WinUIEx in D-008; its AOT/trim status wasn't verified. Why not a WinUI `MenuFlyout`
   menu: needs an extra activatable window just to host it.
 - Revisit if: the menu needs rich content (toggles, sliders) — then host a WinUI flyout window.
+
+## D-010 · 2026-10-22 · Settings window: own card styles, save on every change
+Status: accepted
+- Decision: `SettingsWindow` is a WinUI `Window` (Mica, `TitleBar`, `NavigationView` swapping page
+  panels) with Windows-Settings-like cards from a local `Grid` style; `SettingsViewModel` (CommunityToolkit.Mvvm
+  partial properties) writes every edit straight to `SettingsStore`, which saves and raises `Changed`;
+  the OSD previews the result. Left-click on the tray icon opens it.
+- Why: no extra package beyond D-001's MVVM toolkit; partial properties are the AOT-safe form for WinRT.
+  Instant apply is how Windows Settings behaves and makes the preview meaningful.
+- Why not CommunityToolkit.WinUI `SettingsCard`: a second toolkit package for three cards, WinAppSDK 2.x
+  support not checked. Why not `Frame` + pages: two pages, nothing to navigate back to. Why not an
+  Apply/OK button: extra state and unlike native settings.
+- Revisit if: pages grow past ~4 or need deep links (→ `Frame`), or cards need expanders (→ `SettingsCard`).

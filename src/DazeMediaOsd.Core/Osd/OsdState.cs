@@ -12,6 +12,8 @@ public enum OsdReason
     OutputDeviceChanged,
     InputDeviceChanged,
     InputMuteChanged,
+    /// <summary>A setting changed: show the OSD so its effect is visible.</summary>
+    SettingsPreview,
 }
 
 /// <summary>Everything the OSD window renders. Immutable: a new instance per show, the window just rebinds.</summary>
