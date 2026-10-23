@@ -24,7 +24,8 @@ If a skill or this file is wrong, fix it in the same change that found the probl
 
 ## Hard rules
 
-- Fail-open: never permanently disable the native flyout; if our app dies, Windows must behave as stock.
+- Fail-open: the native flyout is suppressed only while our app runs; every exit path, crashes included,
+  must restore it so Windows behaves as stock (D-006).
 - The OSD window never takes focus or activation.
 - No code injection into `explorer.exe` or other processes (D-002). No admin rights.
 - Don't contradict a recorded decision silently — follow it, or ask the user and record a superseding one.
