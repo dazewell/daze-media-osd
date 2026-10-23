@@ -11,6 +11,8 @@ $exe = Join-Path $Destination 'DazeMediaOsd.exe'
 $staging = "$Destination.new"
 $backup = "$Destination.old"
 if (Test-Path $staging) { Remove-Item $staging -Recurse -Force }
+# A stale backup must go before the app is stopped: failing here leaves it running.
+if (Test-Path $backup) { Remove-Item $backup -Recurse -Force }
 dotnet publish (Join-Path $root 'src/DazeMediaOsd.App') -c Release -r win-x64 -o $staging -v q -nologo
 if ($LASTEXITCODE -ne 0) { Write-Error "Publish failed ($LASTEXITCODE); installed copy unchanged and still running." }
 
@@ -18,7 +20,6 @@ if ($LASTEXITCODE -ne 0) { Write-Error "Publish failed ($LASTEXITCODE); installe
 & (Join-Path $PSScriptRoot 'stop.ps1')
 
 # Swap with rollback: the old copy is only deleted once the new one is in place.
-if (Test-Path $backup) { Remove-Item $backup -Recurse -Force }
 try {
     if (Test-Path $Destination) { Move-Item $Destination $backup }
     Move-Item $staging $Destination
@@ -27,7 +28,11 @@ try {
     if (Test-Path $exe) { Start-Process -FilePath $exe -WorkingDirectory $Destination | Out-Null }
     throw "Install failed, previous copy restored and restarted: $_"
 }
-if (Test-Path $backup) { Remove-Item $backup -Recurse -Force }
+# Leftover backup is harmless (the next run removes it): never let it keep the new copy from starting.
+if (Test-Path $backup) {
+    Remove-Item $backup -Recurse -Force -ErrorAction SilentlyContinue
+    if (Test-Path $backup) { Write-Warning "Couldn't remove $backup; the next install retries." }
+}
 
 Start-Process -FilePath $exe -WorkingDirectory $Destination | Out-Null
 $run = (Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run' -Name DazeMediaOsd -ErrorAction SilentlyContinue).DazeMediaOsd
