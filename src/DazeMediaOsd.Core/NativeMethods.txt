@@ -43,3 +43,13 @@ GetRawInputDeviceInfo
 HidP_GetUsagesEx
 HidP_MaxUsageListLength
 HIDP_STATUS_SUCCESS
+GetWindowLong
+SetWindowLong
+SetWindowPos
+ShowWindow
+GetDpiForWindow
+DwmSetWindowAttribute
+DWMWINDOWATTRIBUTE
+DWM_WINDOW_CORNER_PREFERENCE
+SetLayeredWindowAttributes
+HWND_TOPMOST

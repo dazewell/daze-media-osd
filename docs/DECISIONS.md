@@ -98,3 +98,18 @@ Status: accepted
   device switches. Why not mic level: auto-gain in call apps moves it constantly → OSD spam.
 - Revisit if: daily use shows popups from apps changing master volume, or Quick Settings slider drags
   feel noisy (then: ignore changes while Quick Settings is open, or use the event context GUID).
+
+## D-008 · 2026-10-22 · OSD window: plain WinUI Window, native frame, always-active acrylic
+Status: accepted
+- Decision: `OsdWindow` is a stock WinUI 3 `Window` with `SetBorderAndTitleBar(true, false)`, a custom
+  `SystemBackdrop` driving `DesktopAcrylicController` with `IsInputActive = true`, and Win32 ex styles
+  from `Core.Windowing.OverlayWindow` (layered + transparent for click-through, no-activate, tool, topmost).
+  Shown/moved only via `SetWindowPos(SWP_NOACTIVATE)`; `Activate()` is never called. Answers Q2.
+- Why: native DWM frame = Win11 rounded corners, outline and shadow with zero custom drawing; acrylic
+  matches the native flyout; no extra dependency. Verified visually and by hit-test on 26300.
+- Why not WinUIEx: a package for ~4 window calls we already make via CsWin32. Why not borderless +
+  own rounded clip: loses the system outline/shadow. Why not stock `DesktopAcrylicBackdrop`: by design
+  falls back to a solid colour while the window is inactive, and ours never activates (not tried).
+  Why not `AppWindow.Show(false)` / `IsAlwaysOnTop`: SetWindowPos does move+size+show+topmost in one call.
+- Revisit if: a WinAppSDK update breaks drawing on layered windows (drop LAYERED/TRANSPARENT, accept
+  no click-through), or show latency/memory is a problem (D-001 revisit trigger).
