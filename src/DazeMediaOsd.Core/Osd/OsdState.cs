@@ -41,7 +41,7 @@ public sealed record OsdState(
     public string Describe() =>
         $"{Reason}: {Describe(new AudioSnapshot(Output, Input))}{(Media is null ? "" : $" media=\"{Media.Title}\"{(Media.IsPlaying ? " playing" : "")}")}"
         + (Device is null ? "" : $" device=\"{Device.Name}\" {(Device.Connected ? "connected" : "disconnected")}"
-            + $"{(Device.Bluetooth ? " bt" : "")}{(Device.Others > 0 ? " +" + Device.Others.ToString(CultureInfo.InvariantCulture) : "")}");
+            + $"{(Device.Bluetooth ? " bt" : "")}{(Device.Kind == DeviceKind.Other ? "" : " " + Device.Kind)}{(Device.Others > 0 ? " +" + Device.Others.ToString(CultureInfo.InvariantCulture) : "")}");
 
     public static string Describe(AudioSnapshot audio)
     {
