@@ -402,6 +402,25 @@ public class OsdControllerTests
     }
 
     [Fact]
+    public void FlapWithinRepeatWindowShows()
+    {
+        using var audio = new FakeAudio { Current = new AudioSnapshot(Speakers, Mic) };
+        using var keys = new FakeKeys();
+        var time = new ManualTime();
+        using var controller = new OsdController(audio, keys, new FakeMedia(), time);
+        var shown = Record(controller);
+
+        audio.Device(new DeviceEvent("Headphones (Technics EAH-AZ80)", EndpointFlow.Output, true, true));
+        time.Advance(OsdController.DeviceSettle); // announced connected
+        audio.Device(new DeviceEvent("Headphones (Technics EAH-AZ80)", EndpointFlow.Output, false, true));
+        time.Advance(TimeSpan.FromMilliseconds(100));
+        audio.Device(new DeviceEvent("Headphones (Technics EAH-AZ80)", EndpointFlow.Output, true, true));
+        time.Advance(OsdController.DeviceSettle); // one burst ending "connected", but it went and came back
+
+        Assert.Equal([true, true], shown.Select(s => s.Device!.Connected));
+    }
+
+    [Fact]
     public void SameDeviceAgainLaterShowsAgain()
     {
         using var audio = new FakeAudio { Current = new AudioSnapshot(Speakers, Mic) };

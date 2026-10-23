@@ -131,8 +131,10 @@ public sealed class OsdController : IDisposable
                 return;
             }
             _devicePending = false;
+            // A flap (went and came back) is news even though it ends where the announce left off.
+            var oneWay = _deviceEvents.All(e => e.Connected == _deviceEvents[0].Connected);
             var device = TakeDeviceNotice();
-            if (RepeatsAnnounced(device))
+            if (oneWay && RepeatsAnnounced(device))
                 return;
             if (device is not null)
                 (_announced, _announcedAt) = (device, _time.GetTimestamp());

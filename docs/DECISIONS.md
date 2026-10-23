@@ -250,6 +250,6 @@ Supersedes: D-014 (only the repeat window; the event line and burst rules stand)
   headphones announced at once; the hands-free endpoint followed 850 ms later, past 500 ms, and popped
   the same line again. D-014 had measured gaps up to 930 ms but only tested the settled path, where the
   announce itself comes 500 ms late.
-- Why a wide window is free: only the same name *and* direction count, and a device can't connect twice
-  without disconnecting in between (which resets `_announced`).
+- Why a wide window is free: only the same name *and* direction count, and only a one-way burst: one
+  that went and came back (a flap merged into one burst) always shows (PR #14 review).
 - Revisit if: a real second device with the same "(…)" product within 2 s is hidden.
