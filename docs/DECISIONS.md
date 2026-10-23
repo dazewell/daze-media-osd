@@ -113,3 +113,16 @@ Status: accepted
   Why not `AppWindow.Show(false)` / `IsAlwaysOnTop`: SetWindowPos does move+size+show+topmost in one call.
 - Revisit if: a WinAppSDK update breaks drawing on layered windows (drop LAYERED/TRANSPARENT, accept
   no click-through), or show latency/memory is a problem (D-001 revisit trigger).
+
+## D-009 · 2026-10-22 · Tray icon: own `Shell_NotifyIcon` via CsWin32, native popup menu
+Status: accepted
+- Decision: `Core.Tray.TrayIcon` calls `Shell_NotifyIcon` (NOTIFYICON_VERSION_4) from a hidden top-level
+  window on its own thread; the menu is `TrackPopupMenuEx`, dark/light via uxtheme ordinals 135/136
+  (`SetPreferredAppMode`, `FlushMenuThemes`) following the taskbar theme. Monochrome glyph icons, one per
+  taskbar theme (`scripts/make-icon.ps1`). Answers Q3.
+- Why: AOT-safe by construction (CsWin32 source-gen), no new dependency, keeps interop in Core like the
+  rest; the menu is a few items. The native menu renders Win11-style (rounded, dark) on 26300.
+- Why not H.NotifyIcon.WinUI: a package (+ its WinUI flyout window machinery) for ~6 Win32 calls, the
+  same trade as WinUIEx in D-008; its AOT/trim status wasn't verified. Why not a WinUI `MenuFlyout`
+  menu: needs an extra activatable window just to host it.
+- Revisit if: the menu needs rich content (toggles, sliders) — then host a WinUI flyout window.

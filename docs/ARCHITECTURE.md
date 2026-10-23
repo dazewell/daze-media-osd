@@ -34,11 +34,12 @@ Directory.Packages.props         central package versions
 src/DazeMediaOsd.Core/           no UI; Win32/COM via CsWin32 (NativeMethods.txt). Lifecycle/ (LaunchArgs,
                                  Launcher), NativeFlyout/ (FlyoutHost, FlyoutSuppressor), Audio/
                                  (CoreAudioService), Input/ (RawInputKeySource), Osd/ (OsdState, OsdRules,
-                                 OsdController), Windowing/ (OverlayWindow styles), Diagnostics/Log.
-                                 Later: media, settings.
+                                 OsdController), Windowing/ (OverlayWindow styles), Tray/ (TrayIcon),
+                                 Diagnostics/Log. Later: media, settings.
 src/DazeMediaOsd.App/            WinUI 3 exe `DazeMediaOsd.exe`: Program.Main → launcher or `--app` mode;
-                                 App wires services; OsdWindow (+ AlwaysActiveAcrylicBackdrop). Later:
-                                 TrayIcon, SettingsWindow, ViewModels
+                                 App wires services; OsdWindow (+ AlwaysActiveAcrylicBackdrop); Assets/
+                                 tray-dark/light.ico (from scripts/make-icon.ps1). Later: SettingsWindow,
+                                 ViewModels
 tests/DazeMediaOsd.Core.Tests/   xUnit v3; logic only, fakes for IAudioService / IKeySource
 scripts/                         stop.ps1 (safe stop), press-key.ps1 (SendInput volume keys),
                                  audio-device.ps1 (list / set default output, dev only)
@@ -62,7 +63,7 @@ unit-tested with fakes. App never P/Invokes directly; window styling goes throug
 | `SettingsStore` | Load/save JSON, versioned schema, change notifications | `System.Text.Json` source-gen (AOT-safe) |
 | `OsdWindow` + `OverlayWindow` | Render `OsdState` (output name/level/mute, mic name/level/mute), auto-hide 2.5 s after the last show, bottom-centre of the primary work area (D-008) | WinUI 3 `Window`, `OverlappedPresenter.SetBorderAndTitleBar(true,false)`, `DesktopAcrylicController`, `SetWindowPos(SWP_NOACTIVATE)` |
 | `SettingsWindow` | Fluent settings UI | WinUI 3 `NavigationView`, CommunityToolkit.Mvvm |
-| `TrayIcon` | Open settings, pause, exit | TBD (Q3) |
+| `TrayIcon` | Notification-area icon + menu (Exit today; settings, pause later) (D-009) | `Shell_NotifyIcon` v4, `TrackPopupMenuEx`, uxtheme #135/#136 for the dark menu, `TaskbarCreated` |
 
 ## Native flyout (verified on build 26300; strategy D-006)
 
@@ -93,6 +94,8 @@ unit-tested with fakes. App never P/Invokes directly; window styling goes throug
   arguments (pointers die with the call) and post to it — Register/Unregister must never run inside a
   Core Audio callback. `Changed` is raised on that worker.
 - `RawInputKeySource` runs its own thread + message-only window; `KeyPressed` is raised there.
+- `TrayIcon` runs its own thread + hidden **top-level** window (a message-only window misses the
+  `TaskbarCreated` and `WM_SETTINGCHANGE` broadcasts); `ExitRequested` is raised there.
 - `OsdController.ShowRequested` therefore arrives on either thread: App marshals with
   `DispatcherQueue.TryEnqueue`.
 - WinEvent hooks need a thread with a message loop: `FlyoutSuppressor` is created on the UI thread.
@@ -137,6 +140,18 @@ unit-tested with fakes. App never P/Invokes directly; window styling goes throug
 - `--app` with the window: ~176 MB working set / 86 MB private (launcher 36 / 9 MB). Watch against D-001.
 - Not verified yet: light theme, multi-monitor/DPI change, show latency.
 
+## Tray icon (verified on build 26300, 2026-10-22; D-009)
+
+- Win11 puts a new icon in the overflow flyout; the user pins it. `Shell_NotifyIconGetRect` then returns
+  the chevron's rect until the overflow is open.
+- Icon by `uID` + hwnd, not a GUID (a GUID binds to the exe path and breaks across Debug/publish folders).
+- Right-click, left-click and keyboard select all open the menu (nothing else to do on click yet).
+  `SetForegroundWindow` before `TrackPopupMenuEx` is required for the menu to close on an outside click.
+- Theme: icon + menu follow `SystemUsesLightTheme` (taskbar), re-read on `WM_SETTINGCHANGE`
+  "ImmersiveColorSet". Seen: dark taskbar → white glyph, dark rounded menu. Not verified yet: light
+  taskbar swap, re-add after explorer restart (`TaskbarCreated`), runtime DPI change (icon size is
+  loaded at system DPI).
+
 ## Process lifecycle (D-006)
 
 - Launcher mode (no args): start self with `--app`, wait. On child exit (clean, crash, killed): restore
@@ -155,8 +170,10 @@ unit-tested with fakes. App never P/Invokes directly; window styling goes throug
 - Per-show mode starts by restoring the host, clearing a minimized state left by an earlier double kill.
 - Launcher identity: same process name as us and started before us, else it's a recycled pid.
 - Launcher mode costs ~9 MB private / ~34 MB working set (2026-10-22), so it stays the same exe.
+- Clean exit: tray Exit → `Application.Exit()` on the UI thread → `Program`'s `finally` disposes App and
+  restores → `--app` exits 0 → launcher restores again (harmless) and exits.
 - Verified 2026-10-22 on 26300: running → no native flyout; kill `--app` → launcher restores, exits;
-  kill launcher → app restores, hides per show. Clean exit untested until the tray has an Exit item.
+  kill launcher → app restores, hides per show; tray Exit → both exit, native flyout stock again.
 
 ## Invariants
 
@@ -168,7 +185,6 @@ unit-tested with fakes. App never P/Invokes directly; window styling goes throug
 
 ## Open questions
 
-- **Q3:** tray icon: H.NotifyIcon.WinUI vs. own `Shell_NotifyIcon` via CsWin32 (pick the AOT-safe one).
 - **Q4:** the same host very likely also shows the brightness / airplane-mode / other hardware-key
   flyouts, so minimizing it probably hides those too. Not tested: brightness keys aren't scriptable on
   the dev machine. If confirmed, ask the user: accept, or show those in our OSD (brightness is already

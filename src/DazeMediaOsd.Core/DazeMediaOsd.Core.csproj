@@ -2,6 +2,8 @@
 
   <PropertyGroup>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <!-- NOTIFYICONDATAW's layout is per-architecture; the app is win-x64 only (D-003). -->
+    <CsWin32PlatformTarget>x64</CsWin32PlatformTarget>
   </PropertyGroup>
 
   <ItemGroup>
