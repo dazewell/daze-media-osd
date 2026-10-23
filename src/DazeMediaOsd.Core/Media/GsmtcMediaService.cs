@@ -21,7 +21,7 @@ public sealed class GsmtcMediaService : IMediaService
 
     private readonly Lock _gate = new();
     private SessionManager? _manager;
-    private Session? _session; // the one whose events we're subscribed to; refresh loop only
+    private Session? _session; // the one whose events we're subscribed to; under _gate
     private int _refreshing;
     private int _dirty;
     private volatile bool _disposed;
@@ -130,7 +130,15 @@ public sealed class GsmtcMediaService : IMediaService
         return true;
     }
 
+    // Under _gate, like Dispose: otherwise a refresh could subscribe after Dispose unsubscribed and leave
+    // handlers attached to GSMTC.
     private void Follow(Session? session)
+    {
+        lock (_gate)
+            SwapSession(_disposed ? null : session);
+    }
+
+    private void SwapSession(Session? session)
     {
         if (ReferenceEquals(session, _session))
             return;
@@ -199,13 +207,8 @@ public sealed class GsmtcMediaService : IMediaService
                 _manager.CurrentSessionChanged -= OnSessionEvent;
                 _manager.SessionsChanged -= OnSessionEvent;
             }
+            SwapSession(null);
         }
-        // A refresh still running only reads and publishes; Changed handlers ignore it after exit.
-        var session = _session;
-        if (session is not null)
-        {
-            session.MediaPropertiesChanged -= OnMediaPropertiesChanged;
-            session.PlaybackInfoChanged -= OnPlaybackInfoChanged;
-        }
+        // A refresh still running only reads; it publishes nothing once _disposed is set.
     }
 }

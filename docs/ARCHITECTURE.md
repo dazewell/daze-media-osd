@@ -115,9 +115,10 @@ unit-tested with fakes. App never P/Invokes directly; window styling goes throug
 - One volume key press: raw input key-down first, then ~5 ms later **two** endpoint volume
   notifications with slightly different floats → `OsdRules` compares the displayed percent.
 - `SendInput` volume and media keys reach raw input (hDevice 0) and Windows alike (a media key also
-  reaches the player) → `scripts/press-key.ps1` exercises the keyboard path. It can't produce Consumer Control HID reports: that path is only
-  verified with a physical media key/knob (log line `consumer-control key …`). The dev machine has 9
-  consumer-control collections. A press seen on both paths raises twice; `OsdController` drops an
+  reaches the player) → `scripts/press-key.ps1` exercises the keyboard path. It can't produce
+  Consumer Control HID reports, so that path can only be checked with a physical media key/knob (log
+  line `consumer-control key …`): **not verified yet**, neither the volume nor the media usages
+  (2026-10-22). The dev machine has 9 consumer-control collections. A press seen on both paths raises twice; `OsdController` drops an
   identical request within 100 ms.
 - Default-device switch attaches the device id the notification carries (re-querying the default
   could still return the old one).
