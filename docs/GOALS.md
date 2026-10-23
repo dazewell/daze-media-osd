@@ -73,13 +73,13 @@ this file and know what to build next. History of *why* lives in [DECISIONS.md](
   default switch carries the device line; a late hands-free endpoint popped a second show → fixed
   (D-016). Media retries (0x8001010E) recover with Telegram too
 - [x] Device-type icons: form factor → headphones / headset / monitor glyph, speakers keep the level
-  glyph (D-017); speakers + mic seen in the OSD, headphones/headset/monitor not yet (no device at hand)
-  (2026-10-23)
+  glyph (D-017); seen in the OSD: speakers, mic, Technics EAH-AZ80 headphones (row glyph + event
+  line `connected bt Headphones`, one show) (2026-10-23)
 - [x] Daily-driver test: no native flyout flashes (user, 2026-10-23). Autostart at sign-in and a USB
   device deferred by the user (2026-10-23) — see "When convenient"
 
-**Next step:** see the new glyphs with the Technics headset (output headphones, and its hands-free
-input as headset when it is the default mic) and the Dell monitor; then Plan B below.
+**Next step:** Plan B below. When convenient: the headset glyph (Technics hands-free as default mic)
+and the monitor glyph (Dell over DisplayPort).
 
 **Plan B — quick device switching** (M, 1–2 days; tray + hotkey + OSD-click spike: user, 2026-10-23)
 - Core: `IAudioService.Endpoints(flow)` (active only: id, name, kind) and `SetDefault(id, flow)`. Setting
