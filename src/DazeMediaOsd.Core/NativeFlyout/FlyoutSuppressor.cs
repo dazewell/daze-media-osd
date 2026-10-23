@@ -33,8 +33,15 @@ public sealed class FlyoutSuppressor : IDisposable
         if (_hook == HWINEVENTHOOK.Null)
             throw new InvalidOperationException("SetWinEventHook failed.");
         if (mode == SuppressionMode.Minimize)
+        {
             foreach (var host in FlyoutHost.FindAll())
                 FlyoutHost.Minimize((HWND)host);
+        }
+        else
+        {
+            // A host left minimized by an earlier double kill raises SHOW only sometimes: clear it first.
+            FlyoutHost.RestoreAll();
+        }
     }
 
     public SuppressionMode Mode { get; private set; }

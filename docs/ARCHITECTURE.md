@@ -127,7 +127,11 @@ unit-tested with fakes. App never P/Invokes directly except window styling.
 - The app watches the launcher **before** choosing a mode: Minimize only with a live, watched
   launcher; `--app` without `--launcher-pid`, a dead/recycled pid, or any process-query race starts
   in per-show mode.
-- Single instance: a `Local\DazeMediaOsd.Launcher` mutex; a second launcher exits at once.
+- Single instance: a `Local\DazeMediaOsd.Launcher` mutex; a second launcher exits at once. The app
+  holds `Local\DazeMediaOsd.App` too, so an app orphaned by a killed launcher blocks a second app
+  (the new launcher's app exits, the launcher restores and exits).
+- Per-show mode starts by restoring the host, clearing a minimized state left by an earlier double kill.
+- Launcher identity: same process name as us and started before us, else it's a recycled pid.
 - Launcher mode costs ~9 MB private / ~34 MB working set (2026-10-22), so it stays the same exe.
 - Verified 2026-10-22 on 26300: running → no native flyout; kill `--app` → launcher restores, exits;
   kill launcher → app restores, hides per show. Clean exit untested until the tray has an Exit item.
