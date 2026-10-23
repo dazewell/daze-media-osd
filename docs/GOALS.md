@@ -107,7 +107,8 @@ surface, clicking a device row in the OSD, was dropped (Non-goals).
 
 Plan C (a hotkey per device) is done (D-022). A paired Bluetooth device that isn't connected gets
 connected, then switched to (D-023); a device that can't be asked (wired, unpaired, old pairing) shows
-"<name> · Not connected" and doesn't switch (user, 2026-10-23).
+"<name> · Not connected" and doesn't switch (user, 2026-10-23). A tray Output/Input pick doesn't cancel a pending
+connect (only shortcuts do); the user left that for now (2026-10-23).
 
 When convenient: autostart at sign-in (log `launcher: started app` right after one), a USB audio
 device (one show per connect/disconnect, D-013/D-014/D-016), OSD + settings window in light theme,
