@@ -54,7 +54,7 @@ unit-tested with fakes. App never P/Invokes directly except window styling.
 | `CoreAudioService` (`IAudioService`) | Default render + capture endpoint (role eConsole): name, volume, mute; raise on change, rename, default switch | `IMMDeviceEnumerator`, `IMMNotificationClient`, `IAudioEndpointVolume` + `IAudioEndpointVolumeCallback`, `PKEY_Device_FriendlyName` |
 | `OsdController` + `OsdRules` | Audio changes + keys → `ShowRequested(OsdState)`; the rules decide what pops the OSD (D-007) | — (pure, unit-tested) |
 | `NativeFlyout` | Minimize the native flyout host while the app runs, re-minimize a re-created host, restore on exit | `SetWinEventHook` (out-of-context, `EVENT_OBJECT_CREATE`) on explorer.exe, `ShowWindowAsync` |
-| `RawInputKeySource` (`IKeySource`) | Trigger: volume/mute key downs, incl. at 0 %/100 % where the volume doesn't change | Message-only window, `RegisterRawInputDevices` + `RIDEV_INPUTSINK` (passive, no input latency) |
+| `RawInputKeySource` (`IKeySource`) | Trigger: volume/mute key downs, incl. at 0 %/100 % where the volume doesn't change. Keyboard VKs + Consumer Control HID reports (`ConsumerKeyTracker`: usages 0xE9/0xEA/0xE2, raise on newly held) | Message-only window, `RegisterRawInputDevices` (0x01/0x06 and 0x0C/0x01) + `RIDEV_INPUTSINK` (passive, no input latency), `HidP_GetUsagesEx` |
 | `Launcher` | Start `--app`, wait on its handle, restore the native flyout when it exits (D-006) | `Process`, `WaitForSingleObject` |
 | `MediaService` | Current media session: title, artist, thumbnail, playback state, controls | `GlobalSystemMediaTransportControlsSessionManager` |
 | `SettingsStore` | Load/save JSON, versioned schema, change notifications | `System.Text.Json` source-gen (AOT-safe) |
@@ -104,7 +104,9 @@ unit-tested with fakes. App never P/Invokes directly except window styling.
 - One volume key press: raw input key-down first, then ~5 ms later **two** endpoint volume
   notifications with slightly different floats → `OsdRules` compares the displayed percent.
 - `SendInput` volume keys reach raw input (hDevice 0) and Windows alike → `scripts/press-key.ps1`
-  exercises the real path.
+  exercises the keyboard path. It can't produce Consumer Control HID reports: that path is only
+  verified with a physical media key/knob (log line `consumer-control key …`). The dev machine has 9
+  consumer-control collections. A press seen on both paths raises twice (harmless: show is idempotent).
 - Default-device switch: `OnDefaultDeviceChanged` fires per role; we act on eConsole only and re-attach
   the volume callback; a late notification from the old endpoint is dropped by endpoint id.
 - Raw input registration is per process and per device class: if a future window (settings) or WinUI

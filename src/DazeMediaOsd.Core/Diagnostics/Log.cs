@@ -15,10 +15,18 @@ public static class Log
     public static string DefaultDirectory { get; } =
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "DazeMediaOsd", "logs");
 
+    /// <summary>Starts writing to <c>app.log</c> in <paramref name="directory"/>; stays debugger-only if it can't.</summary>
     public static void Initialize(string directory)
     {
-        Directory.CreateDirectory(directory);
-        _path = Path.Combine(directory, "app.log");
+        try
+        {
+            Directory.CreateDirectory(directory);
+            _path = Path.Combine(directory, "app.log");
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            Debug.WriteLine($"Log disabled, {directory} not writable: {e.Message}");
+        }
     }
 
     public static void Info(string message) => Write("INFO", message);
@@ -38,9 +46,9 @@ public static class Log
             {
                 File.AppendAllText(_path, line + Environment.NewLine);
             }
-            catch (IOException)
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException)
             {
-                // Logging must never take the app down.
+                // Logging must never take the app down; it is called from audio and input callbacks.
             }
         }
     }

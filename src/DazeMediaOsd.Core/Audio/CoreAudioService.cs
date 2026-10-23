@@ -59,10 +59,16 @@ public sealed class CoreAudioService : IAudioService
         Attach(_input);
     }
 
+    // Callbacks can still be in flight while Dispose completes the queue: late posts are dropped.
     private void Post(Action action)
     {
-        if (!_work.IsAddingCompleted)
+        try
+        {
             _work.Add(action);
+        }
+        catch (Exception e) when (e is InvalidOperationException or ObjectDisposedException)
+        {
+        }
     }
 
     private void RunWorker()
@@ -73,8 +79,10 @@ public sealed class CoreAudioService : IAudioService
             {
                 action();
             }
-            catch (Exception e) when (e is COMException or InvalidCastException or InvalidOperationException)
+            catch (Exception e) when (e is not OutOfMemoryException)
             {
+                // One failed step (e.g. a device vanishing mid-attach) must not kill the worker, and with
+                // it the process: log it and keep serving the queue.
                 Log.Error("Core Audio", e);
             }
         }
@@ -231,6 +239,7 @@ public sealed class CoreAudioService : IAudioService
     {
         if (_work.IsAddingCompleted)
             return;
+        // Unregistering happens on the worker; callbacks that race it hit the tolerant Post above.
         Post(() =>
         {
             Detach(_output);
