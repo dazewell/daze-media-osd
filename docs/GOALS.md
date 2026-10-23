@@ -18,7 +18,9 @@ this file and know what to build next. History of *why* lives in [DECISIONS.md](
 - Tray-resident app that replaces the native volume OSD with its own Win11-styled OSD (see D-002).
 - OSD shows: volume level + mute state, **default output device name**, **default input device name**
   (+ mic mute state). Media info (title/artist/controls) when a media session is active.
-- OSD also appears when the default output/input device changes.
+- OSD also appears when the default output/input device changes, and on media keys
+  (play/pause/next/previous) (user, 2026-10-22).
+- OSD animates in and out like the native flyout (user, 2026-10-22).
 - Settings window: enable/disable sections, position, timeout, theme follows system, start with Windows.
 - Only our OSD is ever visible — the native flyout must not flash (user, 2026-10-22; D-006).
 - Fail-open: if the app is closed or crashes, the native OSD keeps working.
@@ -51,13 +53,22 @@ this file and know what to build next. History of *why* lives in [DECISIONS.md](
   (2026-10-22)
 - [x] Settings window (tray left-click / menu) + `settings.json`: position, hide-after, mic row; live
   preview (D-010) (2026-10-22)
-- [ ] Media session info in OSD
+- [ ] Media session info in OSD; media keys pop it
+- [ ] OSD show/hide animation
 - [ ] Autostart, publish to a local folder, daily-driver test
 
 **Next step:** media session info in the OSD — `MediaService` over GSMTC
 (`GlobalSystemMediaTransportControlsSessionManager`, CsWinRT, D-001): title, artist, thumbnail,
 playback state of the current session, a media row in `OsdWindow`, a "Media" toggle in settings
-(`AppSettings.ShowMedia` — no version bump: a missing property gets its default). Decide with the user whether media keys
-(play/pause/next) should pop the OSD (D-007 doesn't cover them yet). When convenient: OSD + settings
-window in light theme, OSD on a second monitor, tray icon on a light taskbar and after an explorer
-restart, an app/window icon (the exe and settings window have none yet).
+(`AppSettings.ShowMedia` — no version bump: a missing property gets its default). Media keys
+(play/pause/next/previous; keyboard VKs + Consumer Control usages in `RawInputKeySource`) pop the OSD:
+the user decided this, record it as a decision superseding D-007.
+
+**Then:** OSD show/hide animation, its own PR. Constraints: the first frame must not be later than
+today (a key press shows at once); a held key re-shows the visible OSD without restarting the
+animation; honour Windows "Animation effects" off (`SPI_GETCLIENTAREAANIMATION`). Composition
+animations on `Root` don't move the DWM frame/shadow/acrylic; the window is already layered, so a
+`SetLayeredWindowAttributes` alpha fade is the first thing to try (D-008).
+
+When convenient: OSD + settings window in light theme, OSD on a second monitor, tray icon on a light
+taskbar and after an explorer restart, an app/window icon (the exe and settings window have none yet).
