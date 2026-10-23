@@ -28,6 +28,7 @@ public sealed class CoreAudioService : IAudioService
     private readonly Dictionary<string, ActiveEndpoint> _active = [];
     private IMMDeviceEnumerator? _enumerator;
     private volatile AudioSnapshot _current = AudioSnapshot.Empty;
+    private volatile Task? _listing; // the last Endpoints request handed to the worker
 
     /// <exception cref="InvalidOperationException">Core Audio could not be initialized.</exception>
     public CoreAudioService()
@@ -71,21 +72,16 @@ public sealed class CoreAudioService : IAudioService
     public IReadOnlyList<AudioEndpoint> Endpoints(EndpointFlow flow)
     {
         if (Thread.CurrentThread == _worker)
-            return ReadEndpoints(flow); // from a Changed handler: waiting on ourselves would deadlock
+            return TryReadEndpoints(flow); // from a Changed handler: waiting on ourselves would deadlock
+        // A worker that missed the last deadline is still stuck: answer at once, so a menu asking for both
+        // flows waits at most one deadline in total.
+        if (_listing is { IsCompleted: false })
+            return [];
         var result = new TaskCompletionSource<IReadOnlyList<AudioEndpoint>>();
-        Post(() =>
-        {
-            try
-            {
-                result.SetResult(ReadEndpoints(flow));
-            }
-            catch (Exception e) when (e is not OutOfMemoryException)
-            {
-                Log.Error($"listing {flow} endpoints", e);
-                result.SetResult([]);
-            }
-        });
-        // A menu must not hang on a stuck audio service (or one already disposed): show no devices instead.
+        if (!Post(() => result.SetResult(TryReadEndpoints(flow))))
+            return []; // disposed
+        _listing = result.Task;
+        // A menu must not hang on a stuck audio service: show no devices instead.
         if (result.Task.Wait(TimeSpan.FromSeconds(2)))
             return result.Task.Result;
         Log.Info($"listing {flow} endpoints timed out");
@@ -113,6 +109,20 @@ public sealed class CoreAudioService : IAudioService
                 Marshal.ReleaseComObject(policy);
             }
         });
+    }
+
+    private List<AudioEndpoint> TryReadEndpoints(EndpointFlow flow)
+    {
+        try
+        {
+            return ReadEndpoints(flow);
+        }
+        catch (Exception e) when (e is not OutOfMemoryException)
+        {
+            // Includes an enumerator already released by Dispose.
+            Log.Error($"listing {flow} endpoints", e);
+            return [];
+        }
     }
 
     private List<AudioEndpoint> ReadEndpoints(EndpointFlow flow)
@@ -173,15 +183,17 @@ public sealed class CoreAudioService : IAudioService
         Attach(_input, DefaultDevice(EndpointFlow.Input));
     }
 
-    // Callbacks can still be in flight while Dispose completes the queue: late posts are dropped.
-    private void Post(Action action)
+    // Callbacks can still be in flight while Dispose completes the queue: late posts are dropped (false).
+    private bool Post(Action action)
     {
         try
         {
             _work.Add(action);
+            return true;
         }
         catch (Exception e) when (e is InvalidOperationException or ObjectDisposedException)
         {
+            return false;
         }
     }
 
