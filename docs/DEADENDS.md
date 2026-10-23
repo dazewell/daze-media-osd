@@ -31,3 +31,11 @@ here (an option rejected on paper belongs in the "Why not" of a decision). Forma
 - Evidence: build 26300, WinAppSDK in `Directory.Packages.props`, .NET 10.0.402.
 - Retry only if: never; keep `EnableMsixTooling=true` in the App csproj (publish then emits the .pri
   with the XAML in it). After a WinAppSDK upgrade, check the publish folder has `DazeMediaOsd.pri`.
+
+## X-005 · 2026-10-23 · `KSPROPERTY_ONESHOT_RECONNECT`/`DISCONNECT` on the offloaded A2DP endpoint only
+- Tried: the BtAudio one-shot properties on "Headphones (Technics EAH-AZ80)" (filter `intcbttoporender_…`,
+  Intel Smart Sound BT offload), as the device shortcut's own endpoint.
+- Failed because: the filter accepts both (`S_OK`, basic support OK) and does nothing — no state change in
+  15 s. The same requests on the "Headset" (hands-free, `intcbttopocapture_…`) endpoint work for the whole device.
+- Evidence: build 26300, `spikes/BtProbe`, app log 15:46 (timed out) vs 15:51 (connected), D-023.
+- Retry only if: never as the only target; D-023 sends to every endpoint of the container.

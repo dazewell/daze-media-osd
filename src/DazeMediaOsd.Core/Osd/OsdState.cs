@@ -24,7 +24,7 @@ public enum OsdReason
     SettingsPreview,
     /// <summary>
     /// A shortcut found nothing to switch: no other output to cycle to (D-020), or its device is already the
-    /// default or isn't connected (D-022). Show the current devices as the answer.
+    /// default or isn't connected (D-022), or is being connected (D-023). Show the current devices as the answer.
     /// </summary>
     Hotkey,
 }
@@ -45,7 +45,13 @@ public sealed record OsdState(
     /// <summary>One line for the log.</summary>
     public string Describe() =>
         $"{Reason}: {Describe(new AudioSnapshot(Output, Input))}{(Media is null ? "" : $" media=\"{Media.Title}\"{(Media.IsPlaying ? " playing" : "")}")}"
-        + (Device is null ? "" : $" device=\"{Device.Name}\" {(Device.Absent ? "not connected" : Device.Connected ? "connected" : "disconnected")}"
+        + (Device is null ? "" : $" device=\"{Device.Name}\" {Device.Answer switch
+        {
+            PressAnswer.NotConnected => "not connected",
+            PressAnswer.Connecting => "connecting",
+            PressAnswer.ConnectFailed => "connect failed",
+            _ => Device.Connected ? "connected" : "disconnected",
+        }}"
             + $"{(Device.Bluetooth ? " bt" : "")}{(Device.Kind == DeviceKind.Other ? "" : " " + Device.Kind)}{(Device.Others > 0 ? " +" + Device.Others.ToString(CultureInfo.InvariantCulture) : "")}");
 
     public static string Describe(AudioSnapshot audio)

@@ -66,8 +66,10 @@ public enum AudioChangeKind
 /// <summary>
 /// One endpoint that connected or disconnected. <paramref name="Name"/> is its friendly name ("" when it
 /// could no longer be read); <paramref name="Bluetooth"/> when a Bluetooth enumerator created it.
+/// <paramref name="Id"/> is the endpoint id ("" when not known).
 /// </summary>
-public sealed record DeviceEvent(string Name, EndpointFlow Flow, bool Connected, bool Bluetooth, DeviceKind Kind = DeviceKind.Other);
+public sealed record DeviceEvent(
+    string Name, EndpointFlow Flow, bool Connected, bool Bluetooth, DeviceKind Kind = DeviceKind.Other, string Id = "");
 
 public sealed class AudioChangedEventArgs(
     AudioSnapshot previous, AudioSnapshot current, EndpointFlow flow, AudioChangeKind kind, DeviceEvent? device = null)
@@ -84,6 +86,16 @@ public sealed class AudioChangedEventArgs(
 /// <summary>An active endpoint one can switch to. <paramref name="Bluetooth"/> as in <see cref="DeviceEvent"/>.</summary>
 public sealed record AudioEndpoint(string Id, string Name, DeviceKind Kind, bool Bluetooth = false);
 
+/// <summary>What asking a paired, disconnected device to connect did (D-023).</summary>
+public enum ConnectResult
+{
+    /// <summary>Bluetooth took the request; the endpoint turns active once the device answers, or never.</summary>
+    Requested,
+    AlreadyConnected,
+    /// <summary>Not a paired Bluetooth endpoint: unpaired, disabled, wired, or a driver without the request.</summary>
+    NotSupported,
+}
+
 public interface IAudioService : IDisposable
 {
     AudioSnapshot Current { get; }
@@ -96,6 +108,12 @@ public interface IAudioService : IDisposable
     /// failure only logs, success shows up as a <see cref="AudioChangeKind.DefaultDevice"/> change.
     /// </summary>
     void SetDefault(string id, EndpointFlow flow);
+
+    /// <summary>
+    /// Asks the paired Bluetooth device behind endpoint <paramref name="id"/> to connect (D-023). Waits at most
+    /// a couple of seconds; success shows up later as a <see cref="AudioChangeKind.DeviceConnected"/> change.
+    /// </summary>
+    ConnectResult Connect(string id);
 
     /// <summary>Raised on the service's own thread; handlers must marshal before touching UI.</summary>
     event EventHandler<AudioChangedEventArgs>? Changed;

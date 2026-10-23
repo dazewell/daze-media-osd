@@ -2,19 +2,35 @@ using DazeMediaOsd.Core.Audio;
 
 namespace DazeMediaOsd.Core.Osd;
 
+/// <summary>What the event line says to a device shortcut press; None for a real connect/disconnect.</summary>
+public enum PressAnswer
+{
+    None,
+    /// <summary>Unplugged, off or disabled, and no way to connect it (D-022).</summary>
+    NotConnected,
+    /// <summary>Bluetooth was asked to connect it (D-023).</summary>
+    Connecting,
+    /// <summary>Asked to connect, but its endpoint didn't turn active in time (D-023).</summary>
+    ConnectFailed,
+}
+
 /// <summary>
 /// What one device connect/disconnect burst shows in the OSD's event line (D-014): the device, as one item
 /// even when it is several endpoints, and whether it came or went. <paramref name="Others"/> counts further
 /// devices in the same burst. <paramref name="Name"/> is "" when Windows no longer gave one.
-/// <paramref name="Kind"/> is that of the endpoint whose flow the notice shows. <paramref name="Absent"/>: nothing
-/// came or went; a device shortcut was pressed for a device that isn't connected (D-022).
+/// <paramref name="Kind"/> is that of the endpoint whose flow the notice shows. <paramref name="Answer"/>: nothing
+/// came or went; a device shortcut was pressed for a device that isn't connected (D-022, D-023).
 /// </summary>
 public sealed record DeviceNotice(
     string Name, EndpointFlow Flow, bool Connected, bool Bluetooth, int Others = 0, DeviceKind Kind = DeviceKind.Other,
-    bool Absent = false)
+    PressAnswer Answer = PressAnswer.None)
 {
-    /// <summary>The event line for a shortcut whose device isn't active: its stored name, "Not connected".</summary>
-    public static DeviceNotice NotConnected(string name, EndpointFlow flow) => new(name, flow, false, false, Absent: true);
+    /// <summary>
+    /// The event line for a shortcut whose device isn't active: its stored name and the answer. Only Bluetooth
+    /// devices can be asked to connect, so those answers carry its glyph.
+    /// </summary>
+    public static DeviceNotice ForPress(string name, EndpointFlow flow, PressAnswer answer) =>
+        new(name, flow, false, answer != PressAnswer.NotConnected, Answer: answer);
 
     /// <summary>
     /// One notice for a burst, null for none. Endpoints of one product ("Headphones (WH-1000XM5)" +

@@ -29,6 +29,7 @@ public sealed partial class App : Application, IDisposable
     private SettingsStore? _settings;
     private SettingsWindow? _settingsWindow;
     private GlobalHotkey? _hotkey;
+    private DeviceConnector? _connector;
     private volatile IReadOnlyList<Shortcut> _shortcuts = []; // read on the hotkey thread
 
     public App(LaunchArgs args)
@@ -71,6 +72,8 @@ public sealed partial class App : Application, IDisposable
         _osd = new OsdController(_audio, _keys, _media);
         _osd.ShowRequested += (_, state) => ui.TryEnqueue(() => Show(state));
         _osd.RefreshRequested += (_, state) => ui.TryEnqueue(() => _window.Refresh(state));
+        _connector = new DeviceConnector(_audio);
+        _connector.TimedOut += (_, device) => ShowAnswer(device, PressAnswer.ConnectFailed, ui);
         // Optional like the tray: without it only the hotkey is missing.
         try
         {
@@ -156,10 +159,19 @@ public sealed partial class App : Application, IDisposable
                 ui.TryEnqueue(() => Show(_osd!.Snapshot(OsdReason.Hotkey)));
                 break;
             case DevicePress.NotActive:
-                var notice = DeviceNotice.NotConnected(device.Name, device.Flow);
-                ui.TryEnqueue(() => Show(_osd!.Snapshot(OsdReason.Hotkey) with { Device = notice }));
+                // A paired Bluetooth device gets asked to connect; once it does, the connector switches (D-023).
+                var result = _connector!.Connect(device);
+                Log.Info($"hotkey: connect \"{device.Name}\": {result}");
+                if (result != ConnectResult.AlreadyConnected)
+                    ShowAnswer(device, result == ConnectResult.Requested ? PressAnswer.Connecting : PressAnswer.NotConnected, ui);
                 break;
         }
+    }
+
+    private void ShowAnswer(DeviceHotkey device, PressAnswer answer, DispatcherQueue ui)
+    {
+        var notice = DeviceNotice.ForPress(device.Name, device.Flow, answer);
+        ui.TryEnqueue(() => Show(_osd!.Snapshot(OsdReason.Hotkey) with { Device = notice }));
     }
 
     private void CycleOutput(DispatcherQueue ui)
@@ -195,7 +207,7 @@ public sealed partial class App : Application, IDisposable
         {
             if (state.Reason is OsdReason.DeviceConnected or OsdReason.DeviceDisconnected)
                 return;
-            if (state.Device is { Absent: false })
+            if (state.Device is { Answer: PressAnswer.None })
                 state = state with { Device = null }; // a default switch still shows, without the event line
         }
         Log.Info($"show {state.Describe()}");
@@ -208,6 +220,7 @@ public sealed partial class App : Application, IDisposable
         _settingsWindow?.Close();
         _tray?.Dispose();
         _hotkey?.Dispose();
+        _connector?.Dispose();
         _osd?.Dispose();
         _keys?.Dispose();
         _media?.Dispose();
