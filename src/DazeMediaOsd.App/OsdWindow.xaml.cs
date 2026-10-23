@@ -1,7 +1,9 @@
 using System.ComponentModel;
 using System.Globalization;
+using System.Runtime.InteropServices;
 using DazeMediaOsd.Core.Audio;
 using DazeMediaOsd.Core.Diagnostics;
+using DazeMediaOsd.Core.Media;
 using DazeMediaOsd.Core.Osd;
 using DazeMediaOsd.Core.Settings;
 using DazeMediaOsd.Core.Windowing;
@@ -9,6 +11,7 @@ using Microsoft.UI;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Media.Imaging;
 using Windows.Foundation;
 
 namespace DazeMediaOsd.App;
@@ -22,6 +25,8 @@ public sealed partial class OsdWindow : Window
     private readonly DispatcherQueueTimer _hideTimer;
     private AppSettings _settings = AppSettings.Default;
     private int _outputPercent;
+    private byte[]? _thumbnail;
+    private bool _visible;
 
     public OsdWindow(AppSettings settings)
     {
@@ -42,7 +47,11 @@ public sealed partial class OsdWindow : Window
         _hideTimer = DispatcherQueue.CreateTimer();
         _hideTimer.IsRepeating = false;
         Apply(settings);
-        _hideTimer.Tick += (_, _) => OverlayWindow.Hide(_hwnd);
+        _hideTimer.Tick += (_, _) =>
+        {
+            _visible = false;
+            OverlayWindow.Hide(_hwnd);
+        };
         // Before the first layout the track has no width yet.
         OutputTrack.SizeChanged += (_, _) => SizeFill();
     }
@@ -59,11 +68,73 @@ public sealed partial class OsdWindow : Window
     public void Show(OsdState state)
     {
         ArgumentNullException.ThrowIfNull(state);
+        Render(state);
+        _visible = true;
+        _hideTimer.Stop();
+        _hideTimer.Start();
+    }
+
+    /// <summary>Re-renders while visible, leaving the hide countdown alone; ignored while hidden. UI thread only.</summary>
+    public void Refresh(OsdState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        if (_visible)
+            Render(state);
+    }
+
+    private void Render(OsdState state)
+    {
+        RenderMedia(state.Media);
         RenderOutput(state.Output);
         RenderInput(state.Input);
         Place();
-        _hideTimer.Stop();
-        _hideTimer.Start();
+    }
+
+    private void RenderMedia(MediaState? media)
+    {
+        if (media is null || !_settings.ShowMedia)
+        {
+            MediaRow.Visibility = Visibility.Collapsed;
+            return;
+        }
+        MediaRow.Visibility = Visibility.Visible;
+        MediaTitle.Text = media.Title;
+        MediaArtist.Text = media.Artist;
+        MediaArtist.Visibility = media.Artist.Length == 0 ? Visibility.Collapsed : Visibility.Visible;
+        MediaPlayback.Glyph = media.IsPlaying ? "" : ""; // Play / Pause
+        RenderThumbnail(media.Thumbnail);
+    }
+
+    // The service keeps the same array while the cover is unchanged, so this decodes once per cover.
+    private async void RenderThumbnail(byte[]? bytes)
+    {
+        if (ReferenceEquals(bytes, _thumbnail))
+            return;
+        _thumbnail = bytes;
+        MediaThumbnail.Source = null;
+        MediaPlaceholder.Visibility = Visibility.Visible;
+        if (bytes is null)
+            return;
+        try
+        {
+            var image = new BitmapImage();
+            using (var stream = new MemoryStream(bytes).AsRandomAccessStream())
+                await image.SetSourceAsync(stream);
+            if (!ReferenceEquals(bytes, _thumbnail))
+                return; // a newer cover arrived while this one decoded
+            MediaThumbnail.Source = image;
+            MediaPlaceholder.Visibility = Visibility.Collapsed;
+        }
+        catch (Exception e) when (e is COMException or ArgumentException)
+        {
+            Log.Error($"media thumbnail ({bytes.Length} B) could not be decoded", e);
+        }
+    }
+
+    private void OnThumbnailFailed(object sender, ExceptionRoutedEventArgs e)
+    {
+        MediaThumbnail.Source = null;
+        MediaPlaceholder.Visibility = Visibility.Visible;
     }
 
     private void RenderOutput(EndpointState? output)

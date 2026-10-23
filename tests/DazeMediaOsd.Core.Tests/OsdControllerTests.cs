@@ -1,5 +1,6 @@
 using DazeMediaOsd.Core.Audio;
 using DazeMediaOsd.Core.Input;
+using DazeMediaOsd.Core.Media;
 using DazeMediaOsd.Core.Osd;
 
 namespace DazeMediaOsd.Core.Tests;
@@ -14,12 +15,12 @@ public class OsdControllerTests
     {
         using var audio = new FakeAudio { Current = new AudioSnapshot(Speakers, Mic) };
         using var keys = new FakeKeys();
-        using var controller = new OsdController(audio, keys);
+        using var controller = new OsdController(audio, keys, new FakeMedia());
         var shown = Record(controller);
 
-        keys.Press(VolumeKey.Up); // at the maximum no volume change follows
+        keys.Press(MediaKey.VolumeUp); // at the maximum no volume change follows
 
-        Assert.Equal([new OsdState(Speakers, Mic, OsdReason.VolumeKey)], shown);
+        Assert.Equal([new OsdState(Speakers, Mic, null, OsdReason.VolumeKey)], shown);
     }
 
     [Fact]
@@ -28,12 +29,12 @@ public class OsdControllerTests
         var headphones = new EndpointState("out-2", "Headphones", 0.3f, false);
         using var audio = new FakeAudio { Current = new AudioSnapshot(Speakers, Mic) };
         using var keys = new FakeKeys();
-        using var controller = new OsdController(audio, keys);
+        using var controller = new OsdController(audio, keys, new FakeMedia());
         var shown = Record(controller);
 
         audio.Change(new AudioSnapshot(headphones, Mic), EndpointFlow.Output, AudioChangeKind.DefaultDevice);
 
-        Assert.Equal([new OsdState(headphones, Mic, OsdReason.OutputDeviceChanged)], shown);
+        Assert.Equal([new OsdState(headphones, Mic, null, OsdReason.OutputDeviceChanged)], shown);
     }
 
     [Fact]
@@ -41,7 +42,7 @@ public class OsdControllerTests
     {
         using var audio = new FakeAudio { Current = new AudioSnapshot(Speakers, Mic) };
         using var keys = new FakeKeys();
-        using var controller = new OsdController(audio, keys);
+        using var controller = new OsdController(audio, keys, new FakeMedia());
         var shown = Record(controller);
 
         audio.Change(new AudioSnapshot(Speakers, Mic with { Volume = 0.2f }), EndpointFlow.Input, AudioChangeKind.VolumeOrMute);
@@ -54,11 +55,11 @@ public class OsdControllerTests
     {
         using var audio = new FakeAudio { Current = new AudioSnapshot(Speakers, Mic) };
         using var keys = new FakeKeys();
-        var controller = new OsdController(audio, keys);
+        var controller = new OsdController(audio, keys, new FakeMedia());
         var shown = Record(controller);
 
         controller.Dispose();
-        keys.Press(VolumeKey.Mute);
+        keys.Press(MediaKey.Mute);
 
         Assert.Empty(shown);
     }
@@ -69,14 +70,14 @@ public class OsdControllerTests
         using var audio = new FakeAudio { Current = new AudioSnapshot(Speakers, Mic) };
         using var keys = new FakeKeys();
         var time = new ManualTime();
-        using var controller = new OsdController(audio, keys, time);
+        using var controller = new OsdController(audio, keys, new FakeMedia(), time);
         var shown = Record(controller);
 
-        keys.Press(VolumeKey.Up); // keyboard path
+        keys.Press(MediaKey.VolumeUp); // keyboard path
         time.Advance(TimeSpan.FromMilliseconds(5));
-        keys.Press(VolumeKey.Up); // same press via Consumer Control
+        keys.Press(MediaKey.VolumeUp); // same press via Consumer Control
         time.Advance(OsdController.CoalesceWindow);
-        keys.Press(VolumeKey.Up); // held key, after the window
+        keys.Press(MediaKey.VolumeUp); // held key, after the window
 
         Assert.Equal(2, shown.Count);
     }
@@ -86,14 +87,73 @@ public class OsdControllerTests
     {
         using var audio = new FakeAudio { Current = new AudioSnapshot(Speakers with { Volume = 0.5f }, Mic) };
         using var keys = new FakeKeys();
-        using var controller = new OsdController(audio, keys, new ManualTime());
+        using var controller = new OsdController(audio, keys, new FakeMedia(), new ManualTime());
         var shown = Record(controller);
 
-        keys.Press(VolumeKey.Up);
+        keys.Press(MediaKey.VolumeUp);
         audio.Change(new AudioSnapshot(Speakers with { Volume = 0.52f }, Mic), EndpointFlow.Output, AudioChangeKind.VolumeOrMute);
 
         Assert.Equal([OsdReason.VolumeKey, OsdReason.VolumeChanged], shown.Select(s => s.Reason));
     }
+
+    [Fact]
+    public void MediaKeyWithSessionShowsMedia()
+    {
+        using var audio = new FakeAudio { Current = new AudioSnapshot(Speakers, Mic) };
+        using var keys = new FakeKeys();
+        using var media = new FakeMedia { Current = Song };
+        using var controller = new OsdController(audio, keys, media);
+        var shown = Record(controller);
+
+        keys.Press(MediaKey.NextTrack);
+
+        Assert.Equal([new OsdState(Speakers, Mic, Song, OsdReason.MediaKey)], shown);
+    }
+
+    [Fact]
+    public void MediaKeyWithoutSessionShowsNothing()
+    {
+        using var audio = new FakeAudio { Current = new AudioSnapshot(Speakers, Mic) };
+        using var keys = new FakeKeys();
+        using var controller = new OsdController(audio, keys, new FakeMedia());
+        var shown = Record(controller);
+
+        keys.Press(MediaKey.PlayPause);
+
+        Assert.Empty(shown);
+    }
+
+    [Fact]
+    public void MediaChangeRefreshesButNeverShows()
+    {
+        using var audio = new FakeAudio { Current = new AudioSnapshot(Speakers, Mic) };
+        using var keys = new FakeKeys();
+        using var media = new FakeMedia();
+        using var controller = new OsdController(audio, keys, media);
+        var shown = Record(controller);
+        var refreshed = new List<OsdState>();
+        controller.RefreshRequested += (_, state) => refreshed.Add(state);
+
+        media.Change(Song);
+
+        Assert.Empty(shown);
+        Assert.Equal([new OsdState(Speakers, Mic, Song, OsdReason.MediaChanged)], refreshed);
+    }
+
+    [Fact]
+    public void AudioChangeCarriesCurrentMedia()
+    {
+        using var audio = new FakeAudio { Current = new AudioSnapshot(Speakers, Mic) };
+        using var keys = new FakeKeys();
+        using var controller = new OsdController(audio, keys, new FakeMedia { Current = Song });
+        var shown = Record(controller);
+
+        audio.Change(new AudioSnapshot(Speakers with { Muted = true }, Mic), EndpointFlow.Output, AudioChangeKind.VolumeOrMute);
+
+        Assert.Equal(Song, Assert.Single(shown).Media);
+    }
+
+    private static readonly MediaState Song = new("Spotify.exe", "Song", "Artist", true, null);
 
     private static List<OsdState> Record(OsdController controller)
     {
@@ -131,11 +191,28 @@ public class OsdControllerTests
         }
     }
 
+    private sealed class FakeMedia : IMediaService
+    {
+        public MediaState? Current { get; set; }
+
+        public event EventHandler<MediaState?>? Changed;
+
+        public void Change(MediaState? next)
+        {
+            Current = next;
+            Changed?.Invoke(this, next);
+        }
+
+        public void Dispose()
+        {
+        }
+    }
+
     private sealed class FakeKeys : IKeySource
     {
-        public event EventHandler<VolumeKeyEventArgs>? KeyPressed;
+        public event EventHandler<MediaKeyEventArgs>? KeyPressed;
 
-        public void Press(VolumeKey key) => KeyPressed?.Invoke(this, new VolumeKeyEventArgs(key));
+        public void Press(MediaKey key) => KeyPressed?.Invoke(this, new MediaKeyEventArgs(key));
 
         public void Dispose()
         {

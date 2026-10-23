@@ -53,22 +53,21 @@ this file and know what to build next. History of *why* lives in [DECISIONS.md](
   (2026-10-22)
 - [x] Settings window (tray left-click / menu) + `settings.json`: position, hide-after, mic row; live
   preview (D-010) (2026-10-22)
-- [ ] Media session info in OSD; media keys pop it
+- [x] Media session info in OSD (GSMTC: cover, title, artist, play state; "Media" toggle); media keys
+  pop it, session changes refresh it (D-011) (2026-10-22)
 - [ ] OSD show/hide animation
 - [ ] Autostart, publish to a local folder, daily-driver test
 
-**Next step:** media session info in the OSD — `MediaService` over GSMTC
-(`GlobalSystemMediaTransportControlsSessionManager`, CsWinRT, D-001): title, artist, thumbnail,
-playback state of the current session, a media row in `OsdWindow`, a "Media" toggle in settings
-(`AppSettings.ShowMedia` — no version bump: a missing property gets its default). Media keys
-(play/pause/next/previous; keyboard VKs + Consumer Control usages in `RawInputKeySource`) pop the OSD:
-the user decided this, record it as a decision superseding D-007.
-
-**Then:** OSD show/hide animation, its own PR. Constraints: the first frame must not be later than
+**Next step:** OSD show/hide animation, its own PR. Constraints: the first frame must not be later than
 today (a key press shows at once); a held key re-shows the visible OSD without restarting the
-animation; honour Windows "Animation effects" off (`SPI_GETCLIENTAREAANIMATION`). Composition
-animations on `Root` don't move the DWM frame/shadow/acrylic; the window is already layered, so a
-`SetLayeredWindowAttributes` alpha fade is the first thing to try (D-008).
+animation; a media `Refresh` (resize while visible) must not replay it either; honour Windows
+"Animation effects" off (`SPI_GETCLIENTAREAANIMATION`). Composition animations on `Root` don't move
+the DWM frame/shadow/acrylic; the window is already layered, so a `SetLayeredWindowAttributes` alpha
+fade is the first thing to try (D-008).
+
+**Then:** autostart (HKCU Run → launcher, D-003), publish to a local folder, daily-driver test.
 
 When convenient: OSD + settings window in light theme, OSD on a second monitor, tray icon on a light
-taskbar and after an explorer restart, an app/window icon (the exe and settings window have none yet).
+taskbar and after an explorer restart, an app/window icon (the exe and settings window have none yet),
+media keys from a physical Consumer Control device (only the keyboard path is verified), media info
+with Spotify/Media Player (only Chromium verified).

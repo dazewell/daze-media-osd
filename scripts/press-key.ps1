@@ -1,5 +1,6 @@
 # Dev helper: presses keys through SendInput so the app (raw input) and Windows see them.
-# Virtual-key codes: 173 = Mute, 174 = Volume Down, 175 = Volume Up. Example: pwsh scripts/press-key.ps1 175,174
+# Virtual-key codes: 173 = Mute, 174 = Volume Down, 175 = Volume Up, 176 = Next Track, 177 = Previous Track,
+# 179 = Play/Pause (media keys also reach the current player). Example: pwsh scripts/press-key.ps1 175,174
 param([Parameter(Mandatory)][int[]]$Keys)
 Add-Type @"
 using System; using System.Runtime.InteropServices;

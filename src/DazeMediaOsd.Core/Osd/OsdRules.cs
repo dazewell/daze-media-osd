@@ -1,8 +1,10 @@
 using DazeMediaOsd.Core.Audio;
+using DazeMediaOsd.Core.Input;
+using DazeMediaOsd.Core.Media;
 
 namespace DazeMediaOsd.Core.Osd;
 
-/// <summary>Which audio changes pop the OSD.</summary>
+/// <summary>Which audio changes and keys pop the OSD (D-007, D-011).</summary>
 public static class OsdRules
 {
     public static OsdReason? ReasonToShow(AudioChangedEventArgs change)
@@ -22,4 +24,15 @@ public static class OsdRules
             _ => null,
         };
     }
+
+    /// <summary>
+    /// Volume keys always show (at 0 %/100 % no volume change follows). Media keys show only while a
+    /// session exists: with nothing playing there's nothing to show, like the native flyout (D-011).
+    /// </summary>
+    public static OsdReason? ReasonToShow(MediaKey key, MediaState? media) => key switch
+    {
+        MediaKey.VolumeUp or MediaKey.VolumeDown or MediaKey.Mute => OsdReason.VolumeKey,
+        MediaKey.PlayPause or MediaKey.NextTrack or MediaKey.PreviousTrack when media is not null => OsdReason.MediaKey,
+        _ => null,
+    };
 }

@@ -50,7 +50,13 @@ Read it (and `settings.json`) from PowerShell: the agent's Bash tool may run san
 of `%LOCALAPPDATA%` — it showed a log 25 minutes old while the real one was current (2026-10-22).
 
 Driving it without touching hardware:
-- `pwsh scripts/press-key.ps1 175,174` — Volume Up then Down (173 = Mute); raw input sees these.
+- `pwsh scripts/press-key.ps1 175,174` — Volume Up then Down (173 = Mute; 179 Play/Pause, 176 Next,
+  177 Previous); raw input sees these. Called from another script, use `& scripts/press-key.ps1 175,174`:
+  `pwsh -File … 175,174` passes "175,174" as one string.
+- Real media playback without touching the user's media: serve a page that plays a quiet `<audio>` and
+  sets `navigator.mediaSession.metadata` (title, artist, canvas artwork) and next/previous handlers from
+  the scratchpad (`python -I -m http.server 8765 --bind 127.0.0.1`), open it in the browser pane, click
+  Play. It becomes a GSMTC session (log `media: …`); media keys drive it. Close the tab afterwards.
 - `pwsh scripts/audio-device.ps1` lists render endpoints; `-SetDefault "<id>"` switches the default
   output. Switch back to the original afterwards — it's the user's machine.
 - `dotnet run --project spikes/FlyoutProbe -- watch` presses Mute twice (net zero) and logs the native
@@ -71,8 +77,12 @@ can't verify visually, say so explicitly instead of claiming it works.
   right-click there for the menu (Settings, separator, Exit): Down Down Enter picks Exit. A clean stop
   for testing: tray → Exit. Left-click opens the settings window (also `WinUIDesktopWin32WindowClass`,
   title `Daze Media OSD`).
-- Settings live in `%LOCALAPPDATA%\DazeMediaOsd\settings.json`; delete it after a test that changed
-  settings — it's the user's machine. Every change shows a preview OSD (log `show SettingsPreview`).
+- Settings live in `%LOCALAPPDATA%\DazeMediaOsd\settings.json` and hold the user's real settings: copy
+  it before a test that changes settings and restore it byte-for-byte afterwards (compare
+  `Get-FileHash`), with the app stopped. Never delete it. Every change shows a preview OSD (log
+  `show SettingsPreview`). UI Automation drives the window: post `WM_APP+1` with lParam
+  `0x400 | (1 << 16)` (NIN_SELECT, icon 1) to the `DazeMediaOsd.Tray` window to open it (title
+  `Daze Media OSD`); toggles are found by their `AutomationProperties.Name` (e.g. "Show media").
 - Also check: foreground window unchanged by a show (`GetForegroundWindow`), and `WindowFromPoint`
   over the OSD returns the window below (click-through).
 

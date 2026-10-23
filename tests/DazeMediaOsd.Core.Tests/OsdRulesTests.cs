@@ -1,4 +1,6 @@
 using DazeMediaOsd.Core.Audio;
+using DazeMediaOsd.Core.Input;
+using DazeMediaOsd.Core.Media;
 using DazeMediaOsd.Core.Osd;
 
 namespace DazeMediaOsd.Core.Tests;
@@ -48,4 +50,21 @@ public class OsdRulesTests
     [Fact]
     public void RenameDoesNotShow() =>
         Assert.Null(Reason(Before with { Output = Speakers with { Name = "Desk speakers" } }, EndpointFlow.Output, AudioChangeKind.DeviceRenamed));
+
+    [Theory]
+    [InlineData(MediaKey.VolumeUp)]
+    [InlineData(MediaKey.VolumeDown)]
+    [InlineData(MediaKey.Mute)]
+    public void VolumeKeysShowWithoutMedia(MediaKey key) =>
+        Assert.Equal(OsdReason.VolumeKey, OsdRules.ReasonToShow(key, null));
+
+    [Theory]
+    [InlineData(MediaKey.PlayPause)]
+    [InlineData(MediaKey.NextTrack)]
+    [InlineData(MediaKey.PreviousTrack)]
+    public void MediaKeysShowOnlyWithASession(MediaKey key)
+    {
+        Assert.Equal(OsdReason.MediaKey, OsdRules.ReasonToShow(key, new MediaState("app", "Song", "", false, null)));
+        Assert.Null(OsdRules.ReasonToShow(key, null));
+    }
 }

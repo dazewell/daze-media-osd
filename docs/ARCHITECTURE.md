@@ -35,15 +35,15 @@ src/DazeMediaOsd.Core/           no UI; Win32/COM via CsWin32 (NativeMethods.txt
                                  Launcher), NativeFlyout/ (FlyoutHost, FlyoutSuppressor), Audio/
                                  (CoreAudioService), Input/ (RawInputKeySource), Osd/ (OsdState, OsdRules,
                                  OsdController, OsdPlacement), Windowing/ (OverlayWindow styles), Tray/
-                                 (TrayIcon), Settings/ (AppSettings, SettingsStore), Diagnostics/Log.
-                                 Later: media.
+                                 (TrayIcon), Settings/ (AppSettings, SettingsStore), Media/
+                                 (GsmtcMediaService, CsWinRT), Diagnostics/Log.
 src/DazeMediaOsd.App/            WinUI 3 exe `DazeMediaOsd.exe`: Program.Main → launcher or `--app` mode;
                                  App wires services; OsdWindow (+ AlwaysActiveAcrylicBackdrop);
                                  SettingsWindow + ViewModels/SettingsViewModel; Assets/ tray-dark/light.ico
                                  (from scripts/make-icon.ps1)
-tests/DazeMediaOsd.Core.Tests/   xUnit v3; logic only, fakes for IAudioService / IKeySource
+tests/DazeMediaOsd.Core.Tests/   xUnit v3; logic only, fakes for IAudioService / IKeySource / IMediaService
 scripts/                         run.ps1 (stop + build + start), stop.ps1 (safe stop), press-key.ps1
-                                 (SendInput volume keys), audio-device.ps1 (list / set default output,
+                                 (SendInput volume/media keys), audio-device.ps1 (list / set default output,
                                  dev only)
 spikes/FlyoutProbe/              console probe for the native flyout — re-run after Windows updates.
                                  Own Directory.*.props opt out of the repo-wide ones.
@@ -57,13 +57,13 @@ unit-tested with fakes. App never P/Invokes directly; window styling goes throug
 | Component | Responsibility | Key APIs |
 |---|---|---|
 | `CoreAudioService` (`IAudioService`) | Default render + capture endpoint (role eConsole): name, volume, mute; raise on change, rename, default switch | `IMMDeviceEnumerator`, `IMMNotificationClient`, `IAudioEndpointVolume` + `IAudioEndpointVolumeCallback`, `PKEY_Device_FriendlyName` |
-| `OsdController` + `OsdRules` | Audio changes + keys → `ShowRequested(OsdState)`; the rules decide what pops the OSD (D-007) | — (pure, unit-tested) |
+| `OsdController` + `OsdRules` | Audio changes + keys → `ShowRequested(OsdState)`; media session changes → `RefreshRequested` (re-render a visible OSD, never pop); the rules decide what pops the OSD (D-011) | — (pure, unit-tested) |
 | `NativeFlyout` | Minimize the native flyout host while the app runs, re-minimize a re-created host, restore on exit | `SetWinEventHook` (out-of-context, `EVENT_OBJECT_CREATE`) on explorer.exe, `ShowWindowAsync` |
-| `RawInputKeySource` (`IKeySource`) | Trigger: volume/mute key downs, incl. at 0 %/100 % where the volume doesn't change. Keyboard VKs + Consumer Control HID reports (`ConsumerKeyTracker`: usages 0xE9/0xEA/0xE2, raise on newly held) | Message-only window, `RegisterRawInputDevices` (0x01/0x06 and 0x0C/0x01) + `RIDEV_INPUTSINK` (passive, no input latency), `HidP_GetUsagesEx` |
+| `RawInputKeySource` (`IKeySource`) | Trigger: volume/mute and play-pause/next/previous key downs (`MediaKey`), incl. at 0 %/100 % where the volume doesn't change. Keyboard VKs + Consumer Control HID reports (`ConsumerKeyTracker`: usages 0xE9/0xEA/0xE2, 0xCD/0xB0/0xB1 → PlayPause, 0xB5/0xB6; raise on newly held) | Message-only window, `RegisterRawInputDevices` (0x01/0x06 and 0x0C/0x01) + `RIDEV_INPUTSINK` (passive, no input latency), `HidP_GetUsagesEx` |
 | `Launcher` | Start `--app`, wait on its handle, restore the native flyout when it exits (D-006) | `Process`, `WaitForSingleObject` |
-| `MediaService` | Current media session: title, artist, thumbnail, playback state, controls | `GlobalSystemMediaTransportControlsSessionManager` |
-| `SettingsStore` + `AppSettings` | `%LOCALAPPDATA%\DazeMediaOsd\settings.json` (`version` 1): position, hide-after seconds (1–10), mic row on/off. Saves on every change (temp file + move); missing → defaults, unparsable → defaults + copy to `settings.invalid.json`; out-of-range values clamped (`Normalize`). A failed save keeps the change for the session and sets `SaveError`; the settings window shows it in an InfoBar | `System.Text.Json` source-gen (AOT-safe), enums as names (`"TopRight"`) |
-| `OsdWindow` + `OverlayWindow` | Render `OsdState` (output name/level/mute, mic name/level/mute), auto-hide after the configured time, at the configured position in the primary work area (`OsdPlacement`, 24 DIP margin) (D-008) | WinUI 3 `Window`, `OverlappedPresenter.SetBorderAndTitleBar(true,false)`, `DesktopAcrylicController`, `SetWindowPos(SWP_NOACTIVATE)` |
+| `GsmtcMediaService` (`IMediaService`) | Current session → `MediaState` (app id, title, artist, playing, thumbnail bytes) or null when none / no title. Starts in the background; a GSMTC failure only logs (media is optional). Every event marks dirty; one refresh loop re-reads; a failed read keeps the last state and retries (5 × 200 ms) | `GlobalSystemMediaTransportControlsSessionManager` (CsWinRT via the TFM), `TryGetMediaPropertiesAsync`, `GetPlaybackInfo`, thumbnail via `DataReader` (≤ 4 MB) |
+| `SettingsStore` + `AppSettings` | `%LOCALAPPDATA%\DazeMediaOsd\settings.json` (`version` 1): position, hide-after seconds (1–10), mic row on/off, media row on/off (`showMedia`, added without a version bump: missing → constructor default, X-003). Saves on every change (temp file + move); missing → defaults, unparsable → defaults + copy to `settings.invalid.json`; out-of-range values clamped (`Normalize`). A failed save keeps the change for the session and sets `SaveError`; the settings window shows it in an InfoBar | `System.Text.Json` source-gen (AOT-safe), enums as names (`"TopRight"`) |
+| `OsdWindow` + `OverlayWindow` | Render `OsdState` (media cover/title/artist/play state, output name/level/mute, mic name/level/mute), auto-hide after the configured time, at the configured position in the primary work area (`OsdPlacement`, 24 DIP margin) (D-008) | WinUI 3 `Window`, `OverlappedPresenter.SetBorderAndTitleBar(true,false)`, `DesktopAcrylicController`, `SetWindowPos(SWP_NOACTIVATE)` |
 | `SettingsWindow` | Fluent settings UI, created on open, destroyed on close; one at a time (D-010) | WinUI 3 `NavigationView` + `TitleBar`, Mica, CommunityToolkit.Mvvm partial `[ObservableProperty]` |
 | `TrayIcon` | Notification-area icon + menu: Settings (default, bold), Exit (D-009) | `Shell_NotifyIcon` v4, `TrackPopupMenuEx`, uxtheme #135/#136 for the dark menu, `TaskbarCreated` |
 
@@ -98,8 +98,10 @@ unit-tested with fakes. App never P/Invokes directly; window styling goes throug
 - `RawInputKeySource` runs its own thread + message-only window; `KeyPressed` is raised there.
 - `TrayIcon` runs its own thread + hidden **top-level** window (a message-only window misses the
   `TaskbarCreated` and `WM_SETTINGCHANGE` broadcasts); `ExitRequested` is raised there.
-- `OsdController.ShowRequested` therefore arrives on either thread: App marshals with
-  `DispatcherQueue.TryEnqueue`. So do the tray's `SettingsRequested` / `ExitRequested`.
+- GSMTC events and `GsmtcMediaService.Changed` arrive on thread-pool (MTA) threads; reads happen in
+  its single refresh loop.
+- `OsdController.ShowRequested` / `RefreshRequested` therefore arrive on any of those threads: App
+  marshals with `DispatcherQueue.TryEnqueue`. So do the tray's `SettingsRequested` / `ExitRequested`.
 - `SettingsStore.Update` is only called from the settings window (UI thread), so `Changed` arrives
   there: App applies it to `OsdWindow` and shows a `SettingsPreview` OSD so the change is visible.
 - WinEvent hooks need a thread with a message loop: `FlyoutSuppressor` is created on the UI thread.
@@ -112,8 +114,8 @@ unit-tested with fakes. App never P/Invokes directly; window styling goes throug
 
 - One volume key press: raw input key-down first, then ~5 ms later **two** endpoint volume
   notifications with slightly different floats → `OsdRules` compares the displayed percent.
-- `SendInput` volume keys reach raw input (hDevice 0) and Windows alike → `scripts/press-key.ps1`
-  exercises the keyboard path. It can't produce Consumer Control HID reports: that path is only
+- `SendInput` volume and media keys reach raw input (hDevice 0) and Windows alike (a media key also
+  reaches the player) → `scripts/press-key.ps1` exercises the keyboard path. It can't produce Consumer Control HID reports: that path is only
   verified with a physical media key/knob (log line `consumer-control key …`). The dev machine has 9
   consumer-control collections. A press seen on both paths raises twice; `OsdController` drops an
   identical request within 100 ms.
@@ -124,8 +126,21 @@ unit-tested with fakes. App never P/Invokes directly; window styling goes throug
 - Raw input registration is per process and per device class. WinUI doesn't register keyboard raw
   input: with the settings window focused, typing in its NumberBox works and volume keys still reach
   `RawInputKeySource` (2026-10-22). Re-check if anything else registers 0x01/0x06 in this process.
-- Log: `%LOCALAPPDATA%\DazeMediaOsd\logs\app.log`, both processes (pid per line). Until OsdWindow
-  exists every would-be show is a `show <reason>: out=… in=…` line.
+- Log: `%LOCALAPPDATA%\DazeMediaOsd\logs\app.log`, both processes (pid per line). Every show is a
+  `show <reason>: out=… in=… media=…` line; every media state change a `media: …` line.
+
+## Media sessions (verified on build 26300, 2026-10-22; D-011)
+
+- A Chromium page using `navigator.mediaSession` (title, artist, artwork) is a GSMTC session under
+  its host app's AUMID — the desktop app's browser pane (`Claude_…!Claude`) works, so a local test page
+  with a quiet `<audio>` gives real playback with metadata and cover without touching user media.
+- A media key's raw input arrives before the player reacts; the session change follows ~20–50 ms
+  later (Chromium) and refreshes the visible OSD.
+- `TryGetMediaPropertiesAsync` intermittently throws `RPC_E_WRONG_THREAD` (0x8001010E) on the second
+  read of a burst (every play/pause/next with Chromium), with no event after it; a retry 200 ms later
+  succeeds. Hence retry, never "no session" on a failed read.
+- Artwork arrives as encoded PNG/JPEG bytes; the window decodes them with `BitmapImage.SetSourceAsync`
+  only when the array instance changes (the service reuses it for identical bytes).
 
 ## OSD window (verified on build 26300, 2026-10-22; D-008)
 
@@ -135,14 +150,18 @@ unit-tested with fakes. App never P/Invokes directly; window styling goes throug
   the acrylic backdrop and XAML still draw on the layered window; `WindowFromPoint` over it returns the
   window below (click-through); foreground window unchanged by a show.
 - Frame: border without title bar gives DWM rounded corners + 1 px outline + shadow for free.
-- Size: `Root` sets the **client** size × `GetDpiForWindow`/96: 340 × 100 DIP, 60 without mic, taller
+- Size: `Root` sets the **client** size × `GetDpiForWindow`/96: 340 × 100 DIP, 60 without mic, +52 with
+  the media row (40-DIP cover + spacing; shown while a session exists and Media is on), taller
   when Windows text size is above 100 %. The border frame is added on top (`OverlayWindow.FrameSize`,
   24 × 12 px at 175 %); sizing the window rect to `Root` clipped its right/bottom edge.
 - Layout: 4-px grid, padding 16, rows min 28 high with shared min columns 20 / * / 44 so names, bar and
   values align; text honours the Windows text-size setting (rows/columns grow, never clip). Level bar
   is our own track + fill (X-002), set without animation; nothing drawn at 0 %.
 - `--app` with the window: ~176 MB working set / 86 MB private (launcher 36 / 9 MB); after opening the
-  settings window once ~239 / 122 MB. Watch against D-001.
+  settings window once ~239 / 122 MB; with GSMTC + a session + settings opened once ~221 / 115 MB
+  (2026-10-22). Watch against D-001.
+- `Refresh` (media change) re-renders and re-places only while visible and never restarts the hide
+  timer; the media row sits on top, cover in place of the icon column, play-state glyph in the value column.
 - Not verified yet: light theme, multi-monitor/DPI change, show latency.
 
 ## Tray icon (verified on build 26300, 2026-10-22; D-009)

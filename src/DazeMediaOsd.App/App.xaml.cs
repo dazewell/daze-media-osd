@@ -4,6 +4,7 @@ using DazeMediaOsd.Core.Audio;
 using DazeMediaOsd.Core.Diagnostics;
 using DazeMediaOsd.Core.Input;
 using DazeMediaOsd.Core.Lifecycle;
+using DazeMediaOsd.Core.Media;
 using DazeMediaOsd.Core.NativeFlyout;
 using DazeMediaOsd.Core.Osd;
 using DazeMediaOsd.Core.Settings;
@@ -21,6 +22,7 @@ public sealed partial class App : Application, IDisposable
     private Process? _launcher;
     private CoreAudioService? _audio;
     private RawInputKeySource? _keys;
+    private GsmtcMediaService? _media;
     private OsdController? _osd;
     private OsdWindow? _window;
     private TrayIcon? _tray;
@@ -62,14 +64,17 @@ public sealed partial class App : Application, IDisposable
             Exit();
             return;
         }
-        _osd = new OsdController(_audio, _keys);
+        // Media info is optional: the service starts in the background and only logs if GSMTC fails.
+        _media = new GsmtcMediaService();
+        _osd = new OsdController(_audio, _keys, _media);
         _osd.ShowRequested += (_, state) => ui.TryEnqueue(() => Show(state));
+        _osd.RefreshRequested += (_, state) => ui.TryEnqueue(() => _window.Refresh(state));
         // Raised on the UI thread (the settings window edits it). Show the result right away.
         _settings.Changed += (_, settings) =>
         {
             Log.Info($"settings changed: {settings}");
             _window.Apply(settings);
-            Show(OsdState.From(_audio.Current, OsdReason.SettingsPreview));
+            Show(_osd.Snapshot(OsdReason.SettingsPreview));
         };
 
         // Watch the launcher before choosing a mode: minimizing is only safe while a live launcher will
@@ -113,6 +118,9 @@ public sealed partial class App : Application, IDisposable
 
     private void Show(OsdState state)
     {
+        // With the media row off a media key has nothing to show (D-011).
+        if (state.Reason == OsdReason.MediaKey && _settings?.Current.ShowMedia == false)
+            return;
         Log.Info($"show {state.Describe()}");
         _window?.Show(state);
     }
@@ -124,6 +132,7 @@ public sealed partial class App : Application, IDisposable
         _tray?.Dispose();
         _osd?.Dispose();
         _keys?.Dispose();
+        _media?.Dispose();
         _audio?.Dispose();
         _suppressor?.Dispose();
         _suppressor = null;

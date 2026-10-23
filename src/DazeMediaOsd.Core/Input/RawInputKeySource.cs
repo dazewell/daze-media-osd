@@ -10,10 +10,10 @@ using Windows.Win32.UI.WindowsAndMessaging;
 namespace DazeMediaOsd.Core.Input;
 
 /// <summary>
-/// Sees volume key presses passively through raw input (RIDEV_INPUTSINK): unlike a low-level hook it
+/// Sees volume and media key presses passively through raw input (RIDEV_INPUTSINK): unlike a low-level hook it
 /// adds no latency to anyone's input and can't block it. Needed because a key at 0 %/100 % changes no
-/// volume, so the audio callbacks alone would miss it (D-006). Runs its own message-only window on a
-/// dedicated thread. Listens to two collections: keyboards (VK_VOLUME_*) and Consumer Control HID
+/// volume, so the audio callbacks alone would miss it (D-006); media keys change no volume at all (D-011). Runs its own message-only window on a
+/// dedicated thread. Listens to two collections: keyboards (VK_VOLUME_*, VK_MEDIA_*) and Consumer Control HID
 /// devices (media keys/knobs that may not be translated into keyboard input). A press seen on both
 /// paths raises twice; showing the OSD is idempotent, so that is harmless.
 /// </summary>
@@ -59,7 +59,7 @@ public sealed class RawInputKeySource : IKeySource
             throw failure;
     }
 
-    public event EventHandler<VolumeKeyEventArgs>? KeyPressed;
+    public event EventHandler<MediaKeyEventArgs>? KeyPressed;
 
     private unsafe void CreateWindow()
     {
@@ -102,7 +102,7 @@ public sealed class RawInputKeySource : IKeySource
         switch (message)
         {
             case PInvoke.WM_INPUT:
-                foreach (var key in ReadVolumeKeys(lParam))
+                foreach (var key in ReadKeys(lParam))
                     Raise(key);
                 break; // WM_INPUT must still reach DefWindowProc so the system can clean up
             case PInvoke.WM_CLOSE:
@@ -115,7 +115,7 @@ public sealed class RawInputKeySource : IKeySource
         return PInvoke.DefWindowProc(hwnd, message, wParam, lParam);
     }
 
-    private unsafe List<VolumeKey> ReadVolumeKeys(LPARAM lParam)
+    private unsafe List<MediaKey> ReadKeys(LPARAM lParam)
     {
         var handle = (HRAWINPUT)(nint)lParam.Value;
         var headerSize = (uint)sizeof(RAWINPUTHEADER);
@@ -139,27 +139,30 @@ public sealed class RawInputKeySource : IKeySource
         }
     }
 
-    private static VolumeKey? KeyboardKey(RAWKEYBOARD keyboard)
+    private static MediaKey? KeyboardKey(RAWKEYBOARD keyboard)
     {
         if ((keyboard.Flags & PInvoke.RI_KEY_BREAK) != 0)
             return null;
         return (VIRTUAL_KEY)keyboard.VKey switch
         {
-            VIRTUAL_KEY.VK_VOLUME_UP => VolumeKey.Up,
-            VIRTUAL_KEY.VK_VOLUME_DOWN => VolumeKey.Down,
-            VIRTUAL_KEY.VK_VOLUME_MUTE => VolumeKey.Mute,
+            VIRTUAL_KEY.VK_VOLUME_UP => MediaKey.VolumeUp,
+            VIRTUAL_KEY.VK_VOLUME_DOWN => MediaKey.VolumeDown,
+            VIRTUAL_KEY.VK_VOLUME_MUTE => MediaKey.Mute,
+            VIRTUAL_KEY.VK_MEDIA_PLAY_PAUSE => MediaKey.PlayPause,
+            VIRTUAL_KEY.VK_MEDIA_NEXT_TRACK => MediaKey.NextTrack,
+            VIRTUAL_KEY.VK_MEDIA_PREV_TRACK => MediaKey.PreviousTrack,
             _ => null,
         };
     }
 
-    private unsafe List<VolumeKey> ConsumerKeys(RAWINPUT* input)
+    private unsafe List<MediaKey> ConsumerKeys(RAWINPUT* input)
     {
         var device = (nint)input->header.hDevice.Value;
         if (PreparsedData(device) is not { } preparsed)
             return [];
         var hid = &input->data.hid;
         var reports = (byte*)&hid->bRawData;
-        var keys = new List<VolumeKey>();
+        var keys = new List<MediaKey>();
         fixed (byte* preparsedPtr = preparsed)
         {
             var ppd = new PHIDP_PREPARSED_DATA((nint)preparsedPtr);
@@ -204,15 +207,15 @@ public sealed class RawInputKeySource : IKeySource
         return _preparsedData[device] = data;
     }
 
-    private void Raise(VolumeKey key)
+    private void Raise(MediaKey key)
     {
         try
         {
-            KeyPressed?.Invoke(this, new VolumeKeyEventArgs(key));
+            KeyPressed?.Invoke(this, new MediaKeyEventArgs(key));
         }
         catch (Exception e) when (e is not OutOfMemoryException)
         {
-            Log.Error($"Volume key handler ({key})", e);
+            Log.Error($"Key handler ({key})", e);
         }
     }
 
