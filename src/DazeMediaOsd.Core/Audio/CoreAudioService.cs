@@ -22,8 +22,9 @@ public sealed class CoreAudioService : IAudioService
     private readonly NotificationClient _notifications;
     private readonly Endpoint _output = new(EndpointFlow.Output);
     private readonly Endpoint _input = new(EndpointFlow.Input);
-    // Active endpoints of either flow, kept to tell a real connect/disconnect from a repeated state.
-    private readonly Dictionary<string, EndpointFlow> _active = [];
+    // Active endpoints of either flow, kept to tell a real connect/disconnect from a repeated state, and to
+    // name one whose device is already gone (or refuses reads) when it disconnects.
+    private readonly Dictionary<string, ActiveEndpoint> _active = [];
     private IMMDeviceEnumerator? _enumerator;
     private volatile AudioSnapshot _current = AudioSnapshot.Empty;
 
@@ -79,7 +80,7 @@ public sealed class CoreAudioService : IAudioService
                 devices.Item(i, out var device);
                 try
                 {
-                    _active[DeviceId(device)] = Flow(device);
+                    _active[DeviceId(device)] = Describe(device);
                 }
                 finally
                 {
@@ -202,9 +203,9 @@ public sealed class CoreAudioService : IAudioService
         (endpoint.Volume, endpoint.Callback, endpoint.Id) = (null, null, null);
     }
 
-    private void Raise(AudioSnapshot previous, EndpointFlow flow, AudioChangeKind kind)
+    private void Raise(AudioSnapshot previous, EndpointFlow flow, AudioChangeKind kind, DeviceEvent? device = null)
     {
-        var args = new AudioChangedEventArgs(previous, _current, flow, kind);
+        var args = new AudioChangedEventArgs(previous, _current, flow, kind, device);
         try
         {
             Changed?.Invoke(this, args);
@@ -267,25 +268,31 @@ public sealed class CoreAudioService : IAudioService
         var device = DeviceById(id);
         try
         {
-            var wasActive = _active.TryGetValue(id, out var flow);
+            var wasActive = _active.TryGetValue(id, out var known);
             var isActive = false;
             if (device is not null)
             {
                 device.GetState(out var state);
                 isActive = state == DEVICE_STATE.DEVICE_STATE_ACTIVE;
-                if (isActive)
-                    flow = Flow(device);
             }
             if (isActive == wasActive)
                 return;
-            // Before touching the set: a failed name read must not swallow the transition.
-            var name = device is null ? "?" : TryFriendlyName(device);
+            // Before touching the set: a failed property read must not swallow the transition. A removed
+            // device can't be read at all: what we knew while it was active names it.
+            var (flow, name, bluetooth) = isActive ? Describe(device!) : known!;
+            if (!isActive && device is not null)
+            {
+                var current = TryProperty(device, PInvoke.PKEY_Device_FriendlyName);
+                name = current.Length == 0 ? name : current;
+                bluetooth = bluetooth || IsBluetooth(device);
+            }
             if (isActive)
-                _active[id] = flow;
+                _active[id] = new ActiveEndpoint(flow, name, bluetooth);
             else
                 _active.Remove(id);
-            Log.Info($"audio device {(isActive ? "connected" : "disconnected")}: {flow} \"{name}\"");
-            Raise(_current, flow, isActive ? AudioChangeKind.DeviceConnected : AudioChangeKind.DeviceDisconnected);
+            Log.Info($"audio device {(isActive ? "connected" : "disconnected")}: {flow} \"{name}\"{(bluetooth ? " bluetooth" : "")}");
+            Raise(_current, flow, isActive ? AudioChangeKind.DeviceConnected : AudioChangeKind.DeviceDisconnected,
+                new DeviceEvent(name, flow, isActive, bluetooth));
         }
         finally
         {
@@ -294,15 +301,46 @@ public sealed class CoreAudioService : IAudioService
         }
     }
 
-    private static string TryFriendlyName(IMMDevice device)
+    private static ActiveEndpoint Describe(IMMDevice device) =>
+        new(Flow(device), TryProperty(device, PInvoke.PKEY_Device_FriendlyName), IsBluetooth(device));
+
+    private sealed record ActiveEndpoint(EndpointFlow Flow, string Name, bool Bluetooth);
+
+    // Undocumented endpoint keys holding the underlying device's instance id: native Bluetooth endpoints
+    // have "{1}.BTHENUM\…" in pid 2; endpoints offloaded to the audio DSP (Intel Smart Sound) have the audio
+    // adapter there and "{1}.BTHENUM\…" in pid 39, while their EnumeratorName says INTELAUDIO (26300).
+    private static readonly Guid EndpointDeviceKeys = new("b3f8fa53-0004-438e-9003-51a46e139bfc");
+
+    /// <summary>For the glyph only: a miss shows the speaker/mic glyph instead.</summary>
+    private static bool IsBluetooth(IMMDevice device)
+    {
+        ReadOnlySpan<PROPERTYKEY> keys =
+        [
+            PInvoke.PKEY_Device_EnumeratorName,
+            new() { fmtid = EndpointDeviceKeys, pid = 2 },
+            new() { fmtid = EndpointDeviceKeys, pid = 39 },
+        ];
+        foreach (var key in keys)
+        {
+            var value = TryProperty(device, key);
+            // BTHENUM (A2DP, offloaded hands-free), BTHHFENUM (hands-free), BTHLEDEVICE / BTHLE (LE Audio).
+            if (value.Contains("BTHENUM", StringComparison.OrdinalIgnoreCase)
+                || value.Contains("BTHHFENUM", StringComparison.OrdinalIgnoreCase)
+                || value.Contains("BTHLE", StringComparison.OrdinalIgnoreCase))
+                return true;
+        }
+        return false;
+    }
+
+    private static string TryProperty(IMMDevice device, PROPERTYKEY key)
     {
         try
         {
-            return FriendlyName(device);
+            return StringProperty(device, key);
         }
         catch (COMException)
         {
-            return "?"; // only for the log; a disconnecting device may already refuse
+            return ""; // a disconnecting device may already refuse; the OSD falls back to a generic label
         }
     }
 
@@ -327,12 +365,13 @@ public sealed class CoreAudioService : IAudioService
         }
     }
 
-    private static unsafe string FriendlyName(IMMDevice device)
+    private static string FriendlyName(IMMDevice device) => StringProperty(device, PInvoke.PKEY_Device_FriendlyName);
+
+    private static unsafe string StringProperty(IMMDevice device, PROPERTYKEY key)
     {
         device.OpenPropertyStore(STGM.STGM_READ, out var store);
         try
         {
-            var key = PInvoke.PKEY_Device_FriendlyName;
             store.GetValue(&key, out var value);
             try
             {

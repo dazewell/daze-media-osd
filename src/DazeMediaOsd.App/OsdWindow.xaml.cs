@@ -13,6 +13,7 @@ using Microsoft.UI.Dispatching;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Media;
+using Microsoft.UI.Xaml.Media.Animation;
 using Microsoft.UI.Xaml.Media.Imaging;
 using Windows.Foundation;
 
@@ -34,6 +35,7 @@ public sealed partial class OsdWindow : Window
     private AppSettings _settings = AppSettings.Default;
     private int _outputPercent;
     private byte[]? _thumbnail;
+    private Storyboard? _eventEntrance;
     private readonly OsdAnimation _animation = new(ShowDuration, HideDuration);
     private readonly Stopwatch _clock = Stopwatch.StartNew();
     private bool _ticking;
@@ -84,13 +86,17 @@ public sealed partial class OsdWindow : Window
         var now = _clock.Elapsed;
         _animation.Show(_animation.IsHidden ? now - FirstFrameLead : now, OverlayWindow.AnimationsEnabled());
         _animation.Tick(now);
+        RenderDevice(state.Device);
         Render(state);
         Animate();
         _hideTimer.Stop();
         _hideTimer.Start();
     }
 
-    /// <summary>Re-renders while visible, leaving the hide countdown alone; ignored while hidden. UI thread only.</summary>
+    /// <summary>
+    /// Re-renders while visible, leaving the hide countdown alone; ignored while hidden. UI thread only.
+    /// Keeps the device event line: it belongs to the show, and a disconnect often pauses the player.
+    /// </summary>
     public void Refresh(OsdState state)
     {
         ArgumentNullException.ThrowIfNull(state);
@@ -104,6 +110,65 @@ public sealed partial class OsdWindow : Window
         RenderOutput(state.Output);
         RenderInput(state.Input);
         Place();
+    }
+
+    // Only the show that announces a device has one; every other show clears the line (D-014).
+    private void RenderDevice(DeviceNotice? device)
+    {
+        // Explicitly fully visible: with "Animation effects" now off, no entrance runs to set it.
+        _eventEntrance?.Stop();
+        EventRow.Opacity = 1;
+        EventIconScale.ScaleX = EventIconScale.ScaleY = 1;
+        if (device is null)
+        {
+            EventRow.Visibility = Visibility.Collapsed;
+            return;
+        }
+        EventRow.Visibility = Visibility.Visible;
+        var name = device.Name.Length == 0 ? "Audio device" : device.Name;
+        EventName.Text = device.Others == 0
+            ? name
+            : string.Create(CultureInfo.CurrentCulture, $"{name} +{device.Others}");
+        EventIcon.Glyph = device switch
+        {
+            { Bluetooth: true } => "",             // Bluetooth
+            { Flow: EndpointFlow.Input } => "",    // Microphone
+            _ => "",                               // Speakers
+        };
+        EventIcon.Style = (Style)Root.Resources[device.Connected ? "OsdEventIcon" : "OsdEventIconGone"];
+        EventStatus.Style = (Style)Root.Resources[device.Connected ? "OsdEventStatus" : "OsdEventStatusGone"];
+        EventStatus.Text = device.Connected ? "Connected" : "Disconnected";
+        if (OverlayWindow.AnimationsEnabled())
+            AnimateEventEntrance();
+    }
+
+    // The line fades in and its glyph settles from a smaller scale; independent animations, so they run on
+    // the composition thread. Off with Windows "Animation effects" (D-012).
+    private void AnimateEventEntrance()
+    {
+        if (_eventEntrance is null)
+        {
+            var ease = new CubicEase { EasingMode = EasingMode.EaseOut };
+            _eventEntrance = new Storyboard();
+            Add(EventRow, "Opacity", 0, 1, 250);
+            Add(EventIconScale, "ScaleX", 0.6, 1, 350);
+            Add(EventIconScale, "ScaleY", 0.6, 1, 350);
+
+            void Add(DependencyObject target, string property, double from, double to, int ms)
+            {
+                var animation = new DoubleAnimation
+                {
+                    From = from,
+                    To = to,
+                    Duration = TimeSpan.FromMilliseconds(ms),
+                    EasingFunction = ease,
+                };
+                Storyboard.SetTarget(animation, target);
+                Storyboard.SetTargetProperty(animation, property);
+                _eventEntrance.Children.Add(animation);
+            }
+        }
+        _eventEntrance.Begin();
     }
 
     private void RenderMedia(MediaState? media)

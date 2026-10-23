@@ -24,8 +24,12 @@ public enum OsdReason
     SettingsPreview,
 }
 
-/// <summary>Everything the OSD window renders. Immutable: a new instance per show, the window just rebinds.</summary>
-public sealed record OsdState(EndpointState? Output, EndpointState? Input, MediaState? Media, OsdReason Reason)
+/// <summary>
+/// Everything the OSD window renders. Immutable: a new instance per show, the window just rebinds.
+/// <paramref name="Device"/> is the device that came or went, only on the show that announces it (D-014).
+/// </summary>
+public sealed record OsdState(
+    EndpointState? Output, EndpointState? Input, MediaState? Media, OsdReason Reason, DeviceNotice? Device = null)
 {
     public static OsdState From(AudioSnapshot audio, MediaState? media, OsdReason reason)
     {
@@ -35,7 +39,9 @@ public sealed record OsdState(EndpointState? Output, EndpointState? Input, Media
 
     /// <summary>One line for the log.</summary>
     public string Describe() =>
-        $"{Reason}: {Describe(new AudioSnapshot(Output, Input))}{(Media is null ? "" : $" media=\"{Media.Title}\"{(Media.IsPlaying ? " playing" : "")}")}";
+        $"{Reason}: {Describe(new AudioSnapshot(Output, Input))}{(Media is null ? "" : $" media=\"{Media.Title}\"{(Media.IsPlaying ? " playing" : "")}")}"
+        + (Device is null ? "" : $" device=\"{Device.Name}\" {(Device.Connected ? "connected" : "disconnected")}"
+            + $"{(Device.Bluetooth ? " bt" : "")}{(Device.Others > 0 ? " +" + Device.Others.ToString(CultureInfo.InvariantCulture) : "")}");
 
     public static string Describe(AudioSnapshot audio)
     {

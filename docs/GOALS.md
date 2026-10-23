@@ -22,7 +22,8 @@ this file and know what to build next. History of *why* lives in [DECISIONS.md](
   (play/pause/next/previous) (user, 2026-10-22).
 - OSD animates in and out like the native flyout (user, 2026-10-22).
 - OSD pops up when any audio device (Bluetooth, USB, …) connects or disconnects; on by default, off in
-  settings. It still shows the current default output/input as always (user, 2026-10-22).
+  settings. It still shows the current default output/input as always (user, 2026-10-22), and also
+  which device came or went, in a compact, modern way that doesn't clutter the OSD (user, 2026-10-22).
 - Settings window: enable/disable sections, position, timeout, theme follows system, start with Windows.
 - Only our OSD is ever visible — the native flyout must not flash (user, 2026-10-22; D-006).
 - Fail-open: if the app is closed or crashes, the native OSD keeps working.
@@ -61,15 +62,17 @@ this file and know what to build next. History of *why* lives in [DECISIONS.md](
   (2026-10-22)
 - [x] OSD on audio device connect/disconnect (any device, once per burst after 500 ms, "When a device
   connects" toggle, on by default) (D-013) (2026-10-22)
+- [x] Device event line in the OSD: which device connected/disconnected, one item per product,
+  Bluetooth glyph, repeat bursts dropped (D-014) (2026-10-22)
 - [ ] Autostart, publish to a local folder, daily-driver test
 
 **Next step:** autostart — HKCU `Run` value pointing at the launcher exe (D-003), toggle "Start with
 Windows" in settings (reflect the registry, don't store a copy in `settings.json`). Then publish to a
 local folder (`build` skill → publish) and point autostart there, and start the daily-driver test.
 
-**Daily-driver checks** for D-013: connect/disconnect a real Bluetooth headset and a USB device —
-one OSD each, showing the new default if it switched (log: `audio device connected …` then
-`show DeviceConnected` / `show OutputDeviceChanged`). Only an endpoint enable/disable is verified.
+**Daily-driver checks** for D-013/D-014: one Bluetooth headset is verified (user, 2026-10-22: one
+named show per connect/disconnect). Still to see: a BT connect that switches the default (one show
+with the line and the new default, log `show OutputDeviceChanged … device=…`), and a USB device.
 
 When convenient: OSD + settings window in light theme, OSD on a second monitor, tray icon on a light
 taskbar and after an explorer restart, an app/window icon (the exe and settings window have none yet),
