@@ -70,17 +70,14 @@ this file and know what to build next. History of *why* lives in [DECISIONS.md](
 - [x] Daily-driver day 1 from the log (2026-10-23): 9 h up, no crash; BT connect/disconnect with a
   default switch carries the device line; a late hands-free endpoint popped a second show → fixed
   (D-016). Media retries (0x8001010E) recover with Telegram too
-- [ ] Daily-driver test: autostart at sign-in, native flyout flashes, the user's impressions
+- [x] Daily-driver test: no native flyout flashes (user, 2026-10-23). Autostart at sign-in and a USB
+  device deferred by the user (2026-10-23) — see "When convenient"
 
 **Next step:** after this PR merges, re-run `scripts/install.ps1` so the installed copy has D-016. Then
-ask the user how daily use feels: native flyout flashes, annoyances. Autostart at sign-in is unverified
-(no sign-in in the log since the Run value was set; look for `launcher: started app` right after one). Fix what
-comes up; then pick the next feature with the user (open PR #8 has a survey of similar apps; "Later").
+pick the next feature with the user: open PR #8 has a survey of similar apps; also "Later" above.
 
-**Daily-driver checks** for D-013/D-014/D-016: Technics EAH-AZ80 verified both ways, with and without a
-default switch. Still to see: a USB device, and one show per disconnect with D-016 installed.
-
-When convenient: OSD + settings window in light theme, OSD on a second monitor, tray icon on a light
-taskbar and after an explorer restart, an app/window icon (the exe and settings window have none yet),
+When convenient: autostart at sign-in (log `launcher: started app` right after one), a USB audio
+device (one show per connect/disconnect, D-013/D-014/D-016), OSD + settings window in light theme,
+OSD on a second monitor, tray icon on a light taskbar and after an explorer restart, an app/window icon (the exe and settings window have none yet),
 media keys from a physical Consumer Control device (only the keyboard path is verified), media info
-with Spotify/Media Player (only Chromium verified).
+with Spotify/Media Player (Chromium and Telegram verified).
