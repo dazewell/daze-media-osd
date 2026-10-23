@@ -26,6 +26,7 @@ this file and know what to build next. History of *why* lives in [DECISIONS.md](
   settings. It still shows the current default output/input as always (user, 2026-10-22), and also
   which device came or went, in a compact, modern way that doesn't clutter the OSD (user, 2026-10-22).
 - Settings window: enable/disable sections, position, timeout, theme follows system, start with Windows.
+- Logs keep at most the last 7 days, older ones are deleted automatically (user, 2026-10-23).
 - Only our OSD is ever visible — the native flyout must not flash (user, 2026-10-22; D-006).
 - Fail-open: if the app is closed or crashes, the native OSD keeps working.
 - Next features, picked from the PR #8 survey (user, 2026-10-23): **device-type icons** on the output
@@ -105,7 +106,12 @@ this file and know what to build next. History of *why* lives in [DECISIONS.md](
 - [x] Settings wording rewritten by a UX-writer pass (D-026): "pop-up" for the OSD, "What to show",
   positions in screen order, plain notes. Seen: all three pages (2026-10-23)
 
-**Next step:** the user tries Plan C and Bluetooth connect (D-023) on the daily driver (real device
+**Next step:** log rotation (user, 2026-10-23): `app.log` grows forever today (one file, both
+processes append, `Core.Diagnostics.Log`). Keep at most the last 7 days and delete older logs
+automatically; both processes share the file, so only one of them may rotate. Record the choice
+(per-day files vs. trimming one file) as a decision.
+
+Then the user tries Plan C and Bluetooth connect (D-023) on the daily driver (real device
 shortcuts, presses while the headphones are off or disconnected, live with them a day). Then pick the next feature from the PR #8 survey with the user. When convenient: the headset glyph
 (Technics hands-free as default mic) and the monitor glyph (Dell over DisplayPort).
 
