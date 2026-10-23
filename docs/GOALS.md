@@ -28,7 +28,8 @@ this file and know what to build next. History of *why* lives in [DECISIONS.md](
 - Only our OSD is ever visible — the native flyout must not flash (user, 2026-10-22; D-006).
 - Fail-open: if the app is closed or crashes, the native OSD keeps working.
 - Next features, picked from the PR #8 survey (user, 2026-10-23): **device-type icons** on the output
-  and input rows, and **quick switching** of the default output/input device.
+  and input rows, and **quick switching** of the default output/input device. Then **a hotkey per
+  device**: one press makes that device the default (user, 2026-10-23).
 
 ## Later (not v1)
 
@@ -41,6 +42,8 @@ this file and know what to build next. History of *why* lives in [DECISIONS.md](
 - Injecting code into `explorer.exe` / modifying the native flyout itself (D-002).
 - Drawing over exclusive-fullscreen games.
 - Windows 10 support.
+- Switching devices by clicking the OSD (user dropped it before the spike, 2026-10-23): D-008
+  click-through and the never-activate rule stand; the tray menu and hotkeys cover switching.
 
 ## Status
 
@@ -79,37 +82,35 @@ this file and know what to build next. History of *why* lives in [DECISIONS.md](
   device deferred by the user (2026-10-23) — see "When convenient"
 - [x] Plan B core + tray: `Endpoints`/`SetDefault` via `IPolicyConfig` (D-019), tray Output / Input
   submenus, hands-free outputs hidden (`DeviceChoices`); seen: input switched to Stereo Mix and back from
-  the menu, OSD showed it (2026-10-23). Not seen yet: an output switch (only the speakers were active)
+  the menu, OSD showed it; with the Technics on, the Output menu listed Headphones + Speakers, no
+  hands-free (2026-10-23)
+- [x] Plan B hotkey: Win+Alt+A cycles the default output (D-020); Settings records the chord pressed, with
+  reset / turn-off in the box (D-021). Seen by the user: cycles Speakers ↔ Technics Headphones, never the
+  hands-free output (2026-10-23)
 
-**Next step:** Plan B surface 2 (hotkey). First agree the default chord with the user. Then surface 3
-(spike). When convenient: switch outputs from the tray with the Technics connected (the hands-free
-"Headset (… Hands-Free)" output must not be listed), the headset glyph (Technics hands-free as default
-mic) and the monitor glyph (Dell over DisplayPort).
+**Next step:** Plan C below. When convenient: the headset glyph (Technics hands-free as default mic) and
+the monitor glyph (Dell over DisplayPort).
 
-**Plan B — quick device switching** (M, 1–2 days; tray + hotkey + OSD-click spike: user, 2026-10-23)
-- Core: `IAudioService.Endpoints(flow)` (active only: id, name, kind) and `SetDefault(id, flow)`. Setting
-  the default needs the undocumented `IPolicyConfig` COM interface (no documented API: `MediaDevice`
-  only reads, `AudioRoutingManager` is phone-only). No admin, no injection; EarTrumpet and SoundSwitch
-  ship it. Set roles eConsole + eMultimedia, as Settings does; leave eCommunications. A failure only
-  logs. `scripts/audio-device.ps1 -SetDefault` already calls it (`870AF99C-…` client) and works on
-  26300; record the decision when it moves into the app.
-- Surface 1: tray menu gets "Output" and "Input" submenus with a check on the
-  current default (native menu, D-009; the tray may take focus). The OSD shows the switch through the
-  existing `OutputDeviceChanged` path.
-- Surface 2: a global hotkey cycles the default output (`RegisterHotKey`, no hook, no
-  admin); the OSD shows the new default. Configurable in Settings, default to agree with the user (avoid
-  Win+Ctrl+V: Windows 11's own output picker). A failed registration shows in Settings. Pure
-  `DeviceCycle.Next(endpoints, currentId)` (sorted by name), unit-tested. Same plumbing later gives
-  the survey's "show OSD on demand" hotkey for free.
-- Surface 3, spike first (user asked, 2026-10-23): click a device row in the OSD to pick another
-  device. Conflicts with D-008 (click-through) and must keep the hard rule (never take focus or
-  activation). Questions: can a `WS_EX_NOACTIVATE` window without `WS_EX_TRANSPARENT` take XAML clicks
-  without activating (foreground window unchanged)? Hover keeps the OSD open, leave hides it; only the
-  rows are hit-testable, the rest stays click-through (`WM_NCHITTEST` → `HTTRANSPARENT`?). How does
-  the list open — a non-activating popup inside the OSD, not a `Flyout` that grabs focus. Result goes
-  in DECISIONS (superseding D-008) or DEADENDS; drop the surface if it can't keep the rule.
-- Hands-free outputs ("Headset (Technics EAH-AZ80 Hands-Free)", form factor 5): `DeviceChoices.For`
-  already hides them for the menu; the cycle must use it too.
+Plan B (quick switching) is done: tray menu (D-019), cycle-output hotkey (D-020, D-021). Its third
+surface, clicking a device row in the OSD, was dropped (Non-goals).
+
+**Plan C — a hotkey per device** (M; user, 2026-10-23)
+- Want: a shortcut bound to one output or input device; pressing it makes that device the default
+  (eConsole + eMultimedia, D-019) and the OSD shows the switch as usual.
+- Settings: a new "Shortcuts" page in the `NavigationView` (beside OSD and About). The cycle-output
+  card moves there. Below it, one row per device shortcut: a device picker (active outputs and inputs
+  from `Endpoints`, through `DeviceChoices` so hands-free outputs aren't offered), the recorder box
+  (extract D-021's box into a reusable control), a remove button; "Add shortcut" at the end.
+- Model: `deviceHotkeys: [{ id, flow, name, hotkey }]`; `name` is the last-known friendly name, so a
+  row still reads right while its device is unplugged. A chord does one thing: refuse one already used
+  by another row or by the cycle shortcut, with a note in Settings.
+- `GlobalHotkey` takes many ids (D-020's revisit-if): an error per chord, `Pressed` says which.
+  Every recorder box pauses all registrations while it records.
+- A press for the device that is already default shows the OSD. A press for a device that isn't active
+  doesn't switch: ask the user what the OSD should say then (e.g. "Technics not connected" on the
+  event line).
+- Verify with Speakers ↔ Technics and Microphone Array ↔ Stereo Mix (disable Stereo Mix again after);
+  copy and restore `settings.json` around the test.
 
 When convenient: autostart at sign-in (log `launcher: started app` right after one), a USB audio
 device (one show per connect/disconnect, D-013/D-014/D-016), OSD + settings window in light theme,

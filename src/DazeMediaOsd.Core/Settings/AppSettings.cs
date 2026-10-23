@@ -18,6 +18,7 @@ public enum OsdPosition
 /// <param name="ShowInput">The microphone row.</param>
 /// <param name="ShowMedia">The media row (while a session is active); off also stops media keys popping the OSD.</param>
 /// <param name="ShowOnDeviceConnect">Pop the OSD when any audio device connects or disconnects (D-013).</param>
+/// <param name="CycleOutputHotkey">Global shortcut that switches to the next output (<see cref="Input.Hotkey"/> text); "" is off.</param>
 // Defaults on the constructor, not property initializers: System.Text.Json source-gen sets every init-only
 // property, so a property missing from the file would come back as default(T) instead of our default (X-003).
 // That also makes a new property backward compatible without a version bump.
@@ -27,11 +28,14 @@ public sealed record AppSettings(
     double HideAfterSeconds = 2.5,
     bool ShowInput = true,
     bool ShowMedia = true,
-    bool ShowOnDeviceConnect = true)
+    bool ShowOnDeviceConnect = true,
+    string CycleOutputHotkey = AppSettings.DefaultCycleOutputHotkey)
 {
     public const int CurrentVersion = 1;
     public const double MinHideAfterSeconds = 1;
     public const double MaxHideAfterSeconds = 10;
+    /// <summary>Agreed with the user (2026-10-23); Win+Ctrl+V is Windows' own output picker.</summary>
+    public const string DefaultCycleOutputHotkey = "Win+Alt+A";
 
     public static AppSettings Default { get; } = new();
 
@@ -43,7 +47,15 @@ public sealed record AppSettings(
         HideAfterSeconds = double.IsFinite(HideAfterSeconds)
             ? Math.Clamp(HideAfterSeconds, MinHideAfterSeconds, MaxHideAfterSeconds)
             : Default.HideAfterSeconds,
+        CycleOutputHotkey = NormalizeHotkey(CycleOutputHotkey),
     };
+
+    // "" (off) stays off; a hand-edited typo falls back to the default rather than silently turning it off.
+    private static string NormalizeHotkey(string? text) =>
+        text is null ? DefaultCycleOutputHotkey
+        : text.Length == 0 ? ""
+        : Input.Hotkey.TryParse(text, out var hotkey) ? hotkey.ToString()
+        : DefaultCycleOutputHotkey;
 }
 
 // Source-generated (no reflection): stays trim/AOT-safe (D-003).

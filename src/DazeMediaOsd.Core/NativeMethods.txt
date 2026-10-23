@@ -81,3 +81,7 @@ SetMenuDefaultItem
 SystemParametersInfo
 PKEY_Device_EnumeratorName
 PKEY_AudioEndpoint_FormFactor
+RegisterHotKey
+UnregisterHotKey
+WM_HOTKEY
+SendMessage

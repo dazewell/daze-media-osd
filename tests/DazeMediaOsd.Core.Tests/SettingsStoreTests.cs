@@ -88,6 +88,28 @@ public sealed class SettingsStoreTests : IDisposable
         Assert.True(new SettingsStore(_directory).Current.ShowOnDeviceConnect);
     }
 
+    [Theory]
+    [InlineData("""{ "version": 1 }""", "Win+Alt+A")]                          // file from before the hotkey
+    [InlineData("""{ "cycleOutputHotkey": "" }""", "")]                       // off
+    [InlineData("""{ "cycleOutputHotkey": "alt+ctrl+f11" }""", "Ctrl+Alt+F11")] // canonical form
+    [InlineData("""{ "cycleOutputHotkey": "Alt+Banana" }""", "Win+Alt+A")]      // typo: default, not off
+    [InlineData("""{ "cycleOutputHotkey": null }""", "Win+Alt+A")]
+    public void CycleOutputHotkeyIsNormalized(string json, string expected)
+    {
+        Directory.CreateDirectory(_directory);
+        File.WriteAllText(SettingsFile, json);
+
+        Assert.Equal(expected, new SettingsStore(_directory).Current.CycleOutputHotkey);
+    }
+
+    [Fact]
+    public void HotkeyIsWrittenReadably()
+    {
+        new SettingsStore(_directory).Update(s => s with { CycleOutputHotkey = "Ctrl+Alt+F11" });
+
+        Assert.Contains("\"Ctrl+Alt+F11\"", File.ReadAllText(SettingsFile), StringComparison.Ordinal);
+    }
+
     [Fact]
     public void FailedSaveKeepsTheChangeAndReportsIt()
     {

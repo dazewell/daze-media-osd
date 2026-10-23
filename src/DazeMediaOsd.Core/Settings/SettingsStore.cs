@@ -1,3 +1,4 @@
+using System.Text.Encodings.Web;
 using System.Text.Json;
 using DazeMediaOsd.Core.Diagnostics;
 
@@ -11,6 +12,12 @@ namespace DazeMediaOsd.Core.Settings;
 /// </summary>
 public sealed class SettingsStore
 {
+    // Relaxed escaping keeps the file hand-editable: "Win+Alt+A" rather than the default encoder's escaped "+" (U+002B as a JSON escape). Only we and the user read it.
+    private static readonly SettingsJsonContext Json = new(new JsonSerializerOptions(SettingsJsonContext.Default.Options)
+    {
+        Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+    });
+
     private readonly Lock _gate = new();
     private readonly string _path;
 
@@ -92,7 +99,7 @@ public sealed class SettingsStore
         try
         {
             Directory.CreateDirectory(Path.GetDirectoryName(_path)!);
-            File.WriteAllText(temp, JsonSerializer.Serialize(settings, SettingsJsonContext.Default.AppSettings));
+            File.WriteAllText(temp, JsonSerializer.Serialize(settings, Json.AppSettings));
             File.Move(temp, _path, overwrite: true);
             SaveError = null;
         }

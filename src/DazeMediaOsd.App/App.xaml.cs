@@ -28,6 +28,8 @@ public sealed partial class App : Application, IDisposable
     private TrayIcon? _tray;
     private SettingsStore? _settings;
     private SettingsWindow? _settingsWindow;
+    private GlobalHotkey? _hotkey;
+    private string? _hotkeyText;
 
     public App(LaunchArgs args)
     {
@@ -69,10 +71,22 @@ public sealed partial class App : Application, IDisposable
         _osd = new OsdController(_audio, _keys, _media);
         _osd.ShowRequested += (_, state) => ui.TryEnqueue(() => Show(state));
         _osd.RefreshRequested += (_, state) => ui.TryEnqueue(() => _window.Refresh(state));
+        // Optional like the tray: without it only the hotkey is missing.
+        try
+        {
+            _hotkey = new GlobalHotkey();
+            _hotkey.Pressed += (_, _) => CycleOutput(ui);
+            ApplyHotkey(_settings.Current);
+        }
+        catch (InvalidOperationException e)
+        {
+            Log.Error("hotkey window failed to start; running without the hotkey", e);
+        }
         // Raised on the UI thread (the settings window edits it). Show the result right away.
         _settings.Changed += (_, settings) =>
         {
             Log.Info($"settings changed: {settings}");
+            ApplyHotkey(settings);
             _window.Apply(settings);
             Show(_osd.Snapshot(OsdReason.SettingsPreview));
         };
@@ -105,11 +119,34 @@ public sealed partial class App : Application, IDisposable
         }
     }
 
+    // Only on a real change: re-registering the same chord would log for every unrelated setting.
+    private void ApplyHotkey(AppSettings settings)
+    {
+        if (_hotkey is null || settings.CycleOutputHotkey == _hotkeyText)
+            return;
+        _hotkeyText = settings.CycleOutputHotkey;
+        _hotkey.Set(Hotkey.TryParse(_hotkeyText, out var hotkey) ? hotkey : null);
+    }
+
+    // Raised on the hotkey thread. Endpoints waits on the audio worker, so stay off the UI thread.
+    private void CycleOutput(DispatcherQueue ui)
+    {
+        var current = _audio!.Current.Output?.Id;
+        if (DeviceCycle.Next(_audio.Endpoints(EndpointFlow.Output), current) is { } next)
+        {
+            Log.Info($"hotkey: default Output -> \"{next.Name}\"");
+            _audio.SetDefault(next.Id, EndpointFlow.Output); // the OSD shows it as OutputDeviceChanged
+            return;
+        }
+        Log.Info("hotkey: no other output to switch to");
+        ui.TryEnqueue(() => Show(_osd!.Snapshot(OsdReason.Hotkey)));
+    }
+
     private void OpenSettings()
     {
         if (_settingsWindow is null)
         {
-            _settingsWindow = new SettingsWindow(new SettingsViewModel(_settings!, new Autostart(), Environment.ProcessPath!));
+            _settingsWindow = new SettingsWindow(new SettingsViewModel(_settings!, new Autostart(), Environment.ProcessPath!, _hotkey));
             _settingsWindow.Closed += (_, _) => _settingsWindow = null;
             _settingsWindow.Activate();
         }
@@ -136,6 +173,7 @@ public sealed partial class App : Application, IDisposable
     {
         _settingsWindow?.Close();
         _tray?.Dispose();
+        _hotkey?.Dispose();
         _osd?.Dispose();
         _keys?.Dispose();
         _media?.Dispose();
