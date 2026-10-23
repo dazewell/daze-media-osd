@@ -53,5 +53,5 @@ public sealed record OsdState(
         endpoint is null
             ? "none"
             : string.Create(CultureInfo.InvariantCulture,
-                $"\"{endpoint.Name}\" {endpoint.Percent}{(endpoint.Muted ? " muted" : "")}");
+                $"\"{endpoint.Name}\" {endpoint.Percent}{(endpoint.Muted ? " muted" : "")}{(endpoint.Kind == DeviceKind.Other ? "" : " " + endpoint.Kind)}");
 }

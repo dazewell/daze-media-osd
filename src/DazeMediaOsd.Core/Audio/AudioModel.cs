@@ -6,8 +6,36 @@ public enum EndpointFlow
     Input,
 }
 
+/// <summary>What kind of device an endpoint is, for its glyph (D-017). Other: unknown, or nothing more specific.</summary>
+public enum DeviceKind
+{
+    Other,
+    Speakers,
+    Headphones,
+    Headset,
+    Display,
+    Microphone,
+}
+
+public static class DeviceKinds
+{
+    /// <summary>
+    /// <c>PKEY_AudioEndpoint_FormFactor</c> (an <c>EndpointFormFactor</c>) → kind. Line level, S/PDIF and
+    /// passthrough are Other: they say how the device is wired, not what it is.
+    /// </summary>
+    public static DeviceKind FromFormFactor(uint formFactor) => formFactor switch
+    {
+        1 => DeviceKind.Speakers,
+        3 => DeviceKind.Headphones,
+        4 => DeviceKind.Microphone,
+        5 or 6 => DeviceKind.Headset, // Headset, Handset
+        9 => DeviceKind.Display,      // DigitalAudioDisplayDevice: HDMI / DisplayPort monitor or TV
+        _ => DeviceKind.Other,
+    };
+}
+
 /// <summary>A default audio endpoint. <paramref name="Volume"/> is the 0–1 scalar Windows shows as 0–100.</summary>
-public sealed record EndpointState(string Id, string Name, float Volume, bool Muted)
+public sealed record EndpointState(string Id, string Name, float Volume, bool Muted, DeviceKind Kind = DeviceKind.Other)
 {
     /// <summary>The 0–100 value the OSD displays.</summary>
     public int Percent => (int)MathF.Round(Volume * 100);
@@ -39,7 +67,7 @@ public enum AudioChangeKind
 /// One endpoint that connected or disconnected. <paramref name="Name"/> is its friendly name ("" when it
 /// could no longer be read); <paramref name="Bluetooth"/> when a Bluetooth enumerator created it.
 /// </summary>
-public sealed record DeviceEvent(string Name, EndpointFlow Flow, bool Connected, bool Bluetooth);
+public sealed record DeviceEvent(string Name, EndpointFlow Flow, bool Connected, bool Bluetooth, DeviceKind Kind = DeviceKind.Other);
 
 public sealed class AudioChangedEventArgs(
     AudioSnapshot previous, AudioSnapshot current, EndpointFlow flow, AudioChangeKind kind, DeviceEvent? device = null)

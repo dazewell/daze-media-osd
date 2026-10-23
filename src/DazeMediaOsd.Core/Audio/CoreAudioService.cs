@@ -176,7 +176,7 @@ public sealed class CoreAudioService : IAudioService
                 var callback = new VolumeCallback(this, endpoint.Flow, id);
                 volume.RegisterControlChangeNotify(callback);
                 (endpoint.Volume, endpoint.Callback, endpoint.Id) = (volume, callback, id);
-                state = new EndpointState(id, FriendlyName(device), level, muted);
+                state = new EndpointState(id, FriendlyName(device), level, muted, Kind(device));
             }
             finally
             {
@@ -279,7 +279,7 @@ public sealed class CoreAudioService : IAudioService
                 return;
             // Before touching the set: a failed property read must not swallow the transition. A removed
             // device can't be read at all: what we knew while it was active names it.
-            var (flow, name, bluetooth) = isActive ? Describe(device!) : known!;
+            var (flow, name, bluetooth, kind) = isActive ? Describe(device!) : known!;
             if (!isActive && device is not null)
             {
                 var current = TryProperty(device, PInvoke.PKEY_Device_FriendlyName);
@@ -287,12 +287,12 @@ public sealed class CoreAudioService : IAudioService
                 bluetooth = bluetooth || IsBluetooth(device);
             }
             if (isActive)
-                _active[id] = new ActiveEndpoint(flow, name, bluetooth);
+                _active[id] = new ActiveEndpoint(flow, name, bluetooth, kind);
             else
                 _active.Remove(id);
             Log.Info($"audio device {(isActive ? "connected" : "disconnected")}: {flow} \"{name}\"{(bluetooth ? " bluetooth" : "")}");
             Raise(_current, flow, isActive ? AudioChangeKind.DeviceConnected : AudioChangeKind.DeviceDisconnected,
-                new DeviceEvent(name, flow, isActive, bluetooth));
+                new DeviceEvent(name, flow, isActive, bluetooth, kind));
         }
         finally
         {
@@ -302,9 +302,41 @@ public sealed class CoreAudioService : IAudioService
     }
 
     private static ActiveEndpoint Describe(IMMDevice device) =>
-        new(Flow(device), TryProperty(device, PInvoke.PKEY_Device_FriendlyName), IsBluetooth(device));
+        new(Flow(device), TryProperty(device, PInvoke.PKEY_Device_FriendlyName), IsBluetooth(device), Kind(device));
 
-    private sealed record ActiveEndpoint(EndpointFlow Flow, string Name, bool Bluetooth);
+    private sealed record ActiveEndpoint(EndpointFlow Flow, string Name, bool Bluetooth, DeviceKind Kind);
+
+    /// <summary>For the glyph only: a missing or unreadable form factor is Other.</summary>
+    private static unsafe DeviceKind Kind(IMMDevice device)
+    {
+        try
+        {
+            device.OpenPropertyStore(STGM.STGM_READ, out var store);
+            try
+            {
+                var key = PInvoke.PKEY_AudioEndpoint_FormFactor;
+                store.GetValue(&key, out var value);
+                try
+                {
+                    return value.vt == Windows.Win32.System.Variant.VARENUM.VT_UI4
+                        ? DeviceKinds.FromFormFactor(value.Anonymous.Anonymous.Anonymous.ulVal)
+                        : DeviceKind.Other;
+                }
+                finally
+                {
+                    PInvoke.PropVariantClear(ref value);
+                }
+            }
+            finally
+            {
+                Marshal.ReleaseComObject(store);
+            }
+        }
+        catch (COMException)
+        {
+            return DeviceKind.Other;
+        }
+    }
 
     // Undocumented endpoint keys holding the underlying device's instance id: native Bluetooth endpoints
     // have "{1}.BTHENUM\…" in pid 2; endpoints offloaded to the audio DSP (Intel Smart Sound) have the audio
