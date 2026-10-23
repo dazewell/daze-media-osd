@@ -98,6 +98,10 @@ this file and know what to build next. History of *why* lives in [DECISIONS.md](
   Technics after a probe disconnect (2.9 s) and after a Windows "Disconnect" (9 s), made default
   (2026-10-23). Not seen: the OSD lines on screen (log only), a non-Intel-offload Bluetooth adapter
 
+- [x] App identity: own mark for exe, settings window, title bar and tray (D-025); version 0.1.0 + commit in
+  About and the launcher log (D-024); About page with Copy details, folders, log, GitHub. Seen: About,
+  title bar and taskbar icons, copied details (2026-10-23)
+
 **Next step:** the user tries Plan C and Bluetooth connect (D-023) on the daily driver (real device
 shortcuts, presses while the headphones are off or disconnected, live with them a day). Then pick the next feature from the PR #8 survey with the user. When convenient: the headset glyph
 (Technics hands-free as default mic) and the monitor glyph (Dell over DisplayPort).
@@ -112,6 +116,7 @@ connect (only shortcuts do); the user left that for now (2026-10-23).
 
 When convenient: autostart at sign-in (log `launcher: started app` right after one), a USB audio
 device (one show per connect/disconnect, D-013/D-014/D-016), OSD + settings window in light theme,
-OSD on a second monitor, tray icon on a light taskbar and after an explorer restart, an app/window icon (the exe and settings window have none yet),
+OSD on a second monitor, tray icon on a light taskbar and after an explorer restart (the new mark: also
+how its 16/20 px frames read at 100 %/125 %),
 media keys from a physical Consumer Control device (only the keyboard path is verified), media info
 with Spotify/Media Player (Chromium and Telegram verified).

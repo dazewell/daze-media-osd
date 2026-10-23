@@ -39,3 +39,11 @@ here (an option rejected on paper belongs in the "Why not" of a decision). Forma
   15 s. The same requests on the "Headset" (hands-free, `intcbttopocapture_…`) endpoint work for the whole device.
 - Evidence: build 26300, `spikes/BtProbe`, app log 15:46 (timed out) vs 15:51 (connected), D-023.
 - Retry only if: never as the only target; D-023 sends to every endpoint of the container.
+
+## X-006 · 2026-10-23 · `TitleBar.IconSource` with an `ms-appx:///` image in XAML
+- Tried: `<TitleBar.IconSource><ImageIconSource ImageSource="ms-appx:///Assets/app.png"/>` in the settings
+  window (unpackaged).
+- Failed because: the whole window renders blank white (tree built, UIA sees it; no exception logged).
+  `ms-appx:///Assets/app.png` in an `Image` on a page renders fine.
+- Evidence: build 26300, WinAppSDK 2.5.1.
+- Retry only if: never in XAML; the window sets `AppTitleBar.IconSource` from code with a file path.

@@ -9,5 +9,10 @@
     <LangVersion>latest</LangVersion>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <AnalysisLevel>latest-recommended</AnalysisLevel>
+    <!-- The one version source (D-024): feat PR → minor, fix PR → patch. The SDK appends +<commit sha>. -->
+    <Version>0.1.0</Version>
+    <Product>Daze Media OSD</Product>
+    <Company>dazewell</Company>
+    <Copyright>© 2026 dazewell</Copyright>
   </PropertyGroup>
 </Project>

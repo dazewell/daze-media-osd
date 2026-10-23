@@ -289,20 +289,105 @@
 
                     <StackPanel x:Name="AboutPage" Grid.Row="1" Spacing="4" Visibility="Collapsed">
                         <TextBlock Text="About" Style="{StaticResource TitleTextBlockStyle}" Margin="0,0,0,20" />
+
+                        <!-- The app's identity, like the top of Windows Settings > System > About. -->
+                        <Grid Style="{StaticResource SettingsCard}" Padding="20" ColumnSpacing="20">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <Image Source="ms-appx:///Assets/app.png" Width="64" Height="64" VerticalAlignment="Center"
+                                   AutomationProperties.AccessibilityView="Raw" />
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
+                                <TextBlock Text="Daze Media OSD" Style="{StaticResource SubtitleTextBlockStyle}" />
+                                <TextBlock x:Name="VersionText" IsTextSelectionEnabled="True" />
+                                <TextBlock Text="The volume and media flyout, with your output and input device on it"
+                                           Style="{StaticResource SettingsCardDescription}" />
+                            </StackPanel>
+                            <Button Grid.Column="2" VerticalAlignment="Center" Click="OnCopyDetails"
+                                    AutomationProperties.Name="Copy version and system details"
+                                    ToolTipService.ToolTip="Version, Windows build and app folder, for a bug report">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <FontIcon x:Name="CopyDetailsIcon" Glyph="&#xE8C8;" FontSize="14" />
+                                    <TextBlock x:Name="CopyDetailsText" Text="Copy details" />
+                                </StackPanel>
+                            </Button>
+                        </Grid>
+
+                        <TextBlock Text="Files" Style="{StaticResource SettingsSection}" />
                         <Grid Style="{StaticResource SettingsCard}">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
-                            <FontIcon Glyph="&#xE767;" Style="{StaticResource SettingsCardIcon}" />
+                            <FontIcon Glyph="&#xE7B8;" Style="{StaticResource SettingsCardIcon}" />
                             <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                <TextBlock Text="Daze Media OSD" />
-                                <TextBlock x:Name="VersionText" Style="{StaticResource SettingsCardDescription}" />
+                                <TextBlock Text="Runs from" />
+                                <TextBlock x:Name="AppFolderText" Style="{StaticResource SettingsCardDescription}" IsTextSelectionEnabled="True" />
                             </StackPanel>
-                            <HyperlinkButton Grid.Column="2" VerticalAlignment="Center" Content="Open data folder"
-                                             ToolTipService.ToolTip="Settings and logs"
-                                             Click="OnOpenDataFolder" />
+                            <HyperlinkButton Grid.Column="2" VerticalAlignment="Center" Content="Open folder"
+                                             AutomationProperties.Name="Open the app folder" Click="OnOpenAppFolder" />
+                        </Grid>
+                        <Grid Style="{StaticResource SettingsCard}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <FontIcon Glyph="&#xE8B7;" Style="{StaticResource SettingsCardIcon}" />
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock Text="Settings and logs" />
+                                <TextBlock x:Name="DataFolderText" Style="{StaticResource SettingsCardDescription}" IsTextSelectionEnabled="True" />
+                            </StackPanel>
+                            <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                                <HyperlinkButton Content="Open log" Click="OnOpenLog" />
+                                <HyperlinkButton Content="Open folder" AutomationProperties.Name="Open the settings and logs folder"
+                                                 Click="OnOpenDataFolder" />
+                            </StackPanel>
+                        </Grid>
+
+                        <TextBlock Text="Project" Style="{StaticResource SettingsSection}" />
+                        <Grid Style="{StaticResource SettingsCard}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <FontIcon Glyph="&#xE943;" Style="{StaticResource SettingsCardIcon}" />
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock Text="Source code" />
+                                <TextBlock Text="github.com/dazewell/daze-media-osd · written by AI agents" Style="{StaticResource SettingsCardDescription}" />
+                            </StackPanel>
+                            <HyperlinkButton Grid.Column="2" VerticalAlignment="Center" Content="Open on GitHub"
+                                             NavigateUri="https://github.com/dazewell/daze-media-osd" />
+                        </Grid>
+                        <Grid Style="{StaticResource SettingsCard}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <FontIcon Glyph="&#xEBE8;" Style="{StaticResource SettingsCardIcon}" />
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock Text="Report a problem" />
+                                <TextBlock Text="Paste the copied details and attach the log" Style="{StaticResource SettingsCardDescription}" />
+                            </StackPanel>
+                            <HyperlinkButton Grid.Column="2" VerticalAlignment="Center" Content="New issue"
+                                             AutomationProperties.Name="Report a problem on GitHub"
+                                             NavigateUri="https://github.com/dazewell/daze-media-osd/issues/new" />
+                        </Grid>
+                        <Grid Style="{StaticResource SettingsCard}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <FontIcon Glyph="&#xE74C;" Style="{StaticResource SettingsCardIcon}" />
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock Text="Built with" />
+                                <TextBlock x:Name="BuiltWithText" Style="{StaticResource SettingsCardDescription}" />
+                            </StackPanel>
                         </Grid>
                     </StackPanel>
                 </Grid>
