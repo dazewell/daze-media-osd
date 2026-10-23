@@ -67,3 +67,9 @@ Never commit `bin/`, `obj/`, publish output, local settings, or anything with se
       `main` directly only if the user says so.
 
 PR description: what changed, why (link D-xxx), how it was verified, what's left.
+
+Stacked PRs: the user squash-merges, so once a base PR lands, the next branch conflicts with `main`
+even though nothing new is in it. If `git diff <base PR's last head> origin/main` is empty and the
+branch contains that head, merge `origin/main` and resolve every conflict to the branch's side
+(`git checkout --ours`). Then check that `git write-tree` matches the pre-merge tree. Never rebase or
+force-push.
