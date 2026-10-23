@@ -153,6 +153,115 @@ public class OsdControllerTests
         Assert.Equal(Song, Assert.Single(shown).Media);
     }
 
+    [Fact]
+    public void DeviceBurstShowsOnceAfterSettlingWithCurrentDefaults()
+    {
+        var headset = new EndpointState("out-2", "Headset", 0.4f, false);
+        using var audio = new FakeAudio { Current = new AudioSnapshot(Speakers, Mic) };
+        using var keys = new FakeKeys();
+        var time = new ManualTime();
+        using var controller = new OsdController(audio, keys, new FakeMedia(), time);
+        var shown = Record(controller);
+
+        // A Bluetooth headset: two endpoints come up.
+        audio.Change(audio.Current, EndpointFlow.Output, AudioChangeKind.DeviceConnected);
+        time.Advance(TimeSpan.FromMilliseconds(300));
+        audio.Change(audio.Current, EndpointFlow.Input, AudioChangeKind.DeviceConnected);
+        time.Advance(TimeSpan.FromMilliseconds(300));
+        Assert.Empty(shown); // still settling: the second one restarted the wait
+        audio.Current = new AudioSnapshot(headset, Mic); // the show reads the state when it fires
+        time.Advance(OsdController.DeviceSettle);
+
+        Assert.Equal([new OsdState(headset, Mic, null, OsdReason.DeviceConnected)], shown);
+    }
+
+    [Fact]
+    public void DefaultSwitchDuringSettleShowsOnlyOnce()
+    {
+        var headset = new EndpointState("out-2", "Headset", 0.4f, false);
+        using var audio = new FakeAudio { Current = new AudioSnapshot(Speakers, Mic) };
+        using var keys = new FakeKeys();
+        var time = new ManualTime();
+        using var controller = new OsdController(audio, keys, new FakeMedia(), time);
+        var shown = Record(controller);
+
+        audio.Change(audio.Current, EndpointFlow.Output, AudioChangeKind.DeviceConnected);
+        audio.Change(new AudioSnapshot(headset, Mic), EndpointFlow.Output, AudioChangeKind.DefaultDevice);
+        time.Advance(OsdController.DeviceSettle * 2);
+
+        Assert.Equal([new OsdState(headset, Mic, null, OsdReason.OutputDeviceChanged)], shown);
+    }
+
+    [Fact]
+    public void CallbackQueuedBeforeADefaultSwitchShowsNothing()
+    {
+        var headset = new EndpointState("out-2", "Headset", 0.4f, false);
+        using var audio = new FakeAudio { Current = new AudioSnapshot(Speakers, Mic) };
+        using var keys = new FakeKeys();
+        var time = new ManualTime();
+        using var controller = new OsdController(audio, keys, new FakeMedia(), time);
+        var shown = Record(controller);
+
+        audio.Change(audio.Current, EndpointFlow.Output, AudioChangeKind.DeviceConnected);
+        audio.Change(new AudioSnapshot(headset, Mic), EndpointFlow.Output, AudioChangeKind.DefaultDevice);
+        time.Advance(OsdController.DeviceSettle);
+        time.RunAllCallbacks(); // the pool ran the settled callback late, after the cancel
+
+        Assert.Equal([OsdReason.OutputDeviceChanged], shown.Select(s => s.Reason));
+    }
+
+    [Fact]
+    public void StaleCallbackAfterReArmWaitsForTheBurst()
+    {
+        using var audio = new FakeAudio { Current = new AudioSnapshot(Speakers, Mic) };
+        using var keys = new FakeKeys();
+        var time = new ManualTime();
+        using var controller = new OsdController(audio, keys, new FakeMedia(), time);
+        var shown = Record(controller);
+
+        audio.Change(audio.Current, EndpointFlow.Output, AudioChangeKind.DeviceConnected);
+        time.Advance(TimeSpan.FromMilliseconds(400));
+        audio.Change(audio.Current, EndpointFlow.Input, AudioChangeKind.DeviceConnected);
+        time.Advance(TimeSpan.FromMilliseconds(100));
+        time.RunAllCallbacks(); // the first arming's callback, queued just before the re-arm
+        Assert.Empty(shown);
+        time.Advance(TimeSpan.FromMilliseconds(400));
+
+        Assert.Single(shown);
+    }
+
+    [Fact]
+    public void DisconnectShowsDisconnected()
+    {
+        using var audio = new FakeAudio { Current = new AudioSnapshot(Speakers, Mic) };
+        using var keys = new FakeKeys();
+        var time = new ManualTime();
+        using var controller = new OsdController(audio, keys, new FakeMedia(), time);
+        var shown = Record(controller);
+
+        audio.Change(audio.Current, EndpointFlow.Input, AudioChangeKind.DeviceDisconnected);
+        time.Advance(OsdController.DeviceSettle);
+
+        Assert.Equal([new OsdState(Speakers, Mic, null, OsdReason.DeviceDisconnected)], shown);
+    }
+
+    [Fact]
+    public void DisposeCancelsPendingDeviceShow()
+    {
+        using var audio = new FakeAudio { Current = new AudioSnapshot(Speakers, Mic) };
+        using var keys = new FakeKeys();
+        var time = new ManualTime();
+        var controller = new OsdController(audio, keys, new FakeMedia(), time);
+        var shown = Record(controller);
+
+        audio.Change(audio.Current, EndpointFlow.Output, AudioChangeKind.DeviceConnected);
+        controller.Dispose();
+        time.Advance(OsdController.DeviceSettle);
+        time.RunAllCallbacks(); // one already queued when Dispose ran
+
+        Assert.Empty(shown);
+    }
+
     private static readonly MediaState Song = new("Spotify.exe", "Song", "Artist", true, null);
 
     private static List<OsdState> Record(OsdController controller)
@@ -162,15 +271,66 @@ public class OsdControllerTests
         return shown;
     }
 
+    /// <summary>Timestamps and one-shot timers that only move on <see cref="Advance"/>.</summary>
     private sealed class ManualTime : TimeProvider
     {
+        private readonly List<ManualTimer> _timers = [];
         private long _ticks;
 
         public override long TimestampFrequency => TimeSpan.TicksPerSecond;
 
         public override long GetTimestamp() => _ticks;
 
-        public void Advance(TimeSpan by) => _ticks += by.Ticks;
+        public override ITimer CreateTimer(TimerCallback callback, object? state, TimeSpan dueTime, TimeSpan period)
+        {
+            var timer = new ManualTimer(this, callback, state);
+            timer.Change(dueTime, period);
+            _timers.Add(timer);
+            return timer;
+        }
+
+        public void Advance(TimeSpan by)
+        {
+            _ticks += by.Ticks;
+            foreach (var timer in _timers.ToList())
+                timer.FireIfDue(_ticks);
+        }
+
+        /// <summary>Runs every timer's callback, due or not: one the pool queued before a Change/Dispose.</summary>
+        public void RunAllCallbacks()
+        {
+            foreach (var timer in _timers.ToList())
+                timer.Run();
+        }
+
+        private sealed class ManualTimer(ManualTime time, TimerCallback callback, object? state) : ITimer
+        {
+            public void Run() => callback(state);
+
+            private long? _dueAt;
+
+            public bool Change(TimeSpan dueTime, TimeSpan period)
+            {
+                _dueAt = dueTime == Timeout.InfiniteTimeSpan ? null : time._ticks + dueTime.Ticks;
+                return true;
+            }
+
+            public void FireIfDue(long now)
+            {
+                if (_dueAt is not { } due || due > now)
+                    return;
+                _dueAt = null; // one-shot is all the controller uses
+                callback(state);
+            }
+
+            public void Dispose() => _dueAt = null;
+
+            public ValueTask DisposeAsync()
+            {
+                Dispose();
+                return ValueTask.CompletedTask;
+            }
+        }
     }
 
     private sealed class FakeAudio : IAudioService

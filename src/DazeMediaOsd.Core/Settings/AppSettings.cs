@@ -17,6 +17,7 @@ public enum OsdPosition
 /// <param name="HideAfterSeconds">After the last show; the native flyout uses ~2.5 s (ARCHITECTURE → Native flyout).</param>
 /// <param name="ShowInput">The microphone row.</param>
 /// <param name="ShowMedia">The media row (while a session is active); off also stops media keys popping the OSD.</param>
+/// <param name="ShowOnDeviceConnect">Pop the OSD when any audio device connects or disconnects (D-013).</param>
 // Defaults on the constructor, not property initializers: System.Text.Json source-gen sets every init-only
 // property, so a property missing from the file would come back as default(T) instead of our default (X-003).
 // That also makes a new property backward compatible without a version bump.
@@ -25,7 +26,8 @@ public sealed record AppSettings(
     OsdPosition Position = OsdPosition.BottomCenter,
     double HideAfterSeconds = 2.5,
     bool ShowInput = true,
-    bool ShowMedia = true)
+    bool ShowMedia = true,
+    bool ShowOnDeviceConnect = true)
 {
     public const int CurrentVersion = 1;
     public const double MinHideAfterSeconds = 1;

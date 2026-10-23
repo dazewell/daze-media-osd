@@ -22,6 +22,8 @@ public sealed class CoreAudioService : IAudioService
     private readonly NotificationClient _notifications;
     private readonly Endpoint _output = new(EndpointFlow.Output);
     private readonly Endpoint _input = new(EndpointFlow.Input);
+    // Active endpoints of either flow, kept to tell a real connect/disconnect from a repeated state.
+    private readonly Dictionary<string, EndpointFlow> _active = [];
     private IMMDeviceEnumerator? _enumerator;
     private volatile AudioSnapshot _current = AudioSnapshot.Empty;
 
@@ -68,6 +70,27 @@ public sealed class CoreAudioService : IAudioService
     {
         _enumerator = (IMMDeviceEnumerator)new MMDeviceEnumerator();
         _enumerator.RegisterEndpointNotificationCallback(_notifications);
+        _enumerator.EnumAudioEndpoints(EDataFlow.eAll, DEVICE_STATE.DEVICE_STATE_ACTIVE, out var devices);
+        try
+        {
+            devices.GetCount(out var count);
+            for (uint i = 0; i < count; i++)
+            {
+                devices.Item(i, out var device);
+                try
+                {
+                    _active[DeviceId(device)] = Flow(device);
+                }
+                finally
+                {
+                    Marshal.ReleaseComObject(device);
+                }
+            }
+        }
+        finally
+        {
+            Marshal.ReleaseComObject(devices);
+        }
         Attach(_output, DefaultDevice(EndpointFlow.Output));
         Attach(_input, DefaultDevice(EndpointFlow.Input));
     }
@@ -237,6 +260,59 @@ public sealed class CoreAudioService : IAudioService
         }
     }
 
+    // Added, removed and state-change notifications all end here: whatever they claim, the device's state
+    // now decides. A Bluetooth headset is several endpoints, and Windows repeats states.
+    private void OnDeviceState(string id)
+    {
+        var device = DeviceById(id);
+        try
+        {
+            var wasActive = _active.TryGetValue(id, out var flow);
+            var isActive = false;
+            if (device is not null)
+            {
+                device.GetState(out var state);
+                isActive = state == DEVICE_STATE.DEVICE_STATE_ACTIVE;
+                if (isActive)
+                    flow = Flow(device);
+            }
+            if (isActive == wasActive)
+                return;
+            // Before touching the set: a failed name read must not swallow the transition.
+            var name = device is null ? "?" : TryFriendlyName(device);
+            if (isActive)
+                _active[id] = flow;
+            else
+                _active.Remove(id);
+            Log.Info($"audio device {(isActive ? "connected" : "disconnected")}: {flow} \"{name}\"");
+            Raise(_current, flow, isActive ? AudioChangeKind.DeviceConnected : AudioChangeKind.DeviceDisconnected);
+        }
+        finally
+        {
+            if (device is not null)
+                Marshal.ReleaseComObject(device);
+        }
+    }
+
+    private static string TryFriendlyName(IMMDevice device)
+    {
+        try
+        {
+            return FriendlyName(device);
+        }
+        catch (COMException)
+        {
+            return "?"; // only for the log; a disconnecting device may already refuse
+        }
+    }
+
+    private static EndpointFlow Flow(IMMDevice device)
+    {
+        var endpoint = (IMMEndpoint)device; // QueryInterface; the RCW is shared with device
+        endpoint.GetDataFlow(out var flow);
+        return flow == EDataFlow.eRender ? EndpointFlow.Output : EndpointFlow.Input;
+    }
+
     private static unsafe string DeviceId(IMMDevice device)
     {
         PWSTR id;
@@ -332,16 +408,16 @@ public sealed class CoreAudioService : IAudioService
             owner.Post(() => owner.OnRenamed(id));
         }
 
-        public void OnDeviceStateChanged(PCWSTR deviceId, DEVICE_STATE newState)
-        {
-        }
+        public void OnDeviceStateChanged(PCWSTR deviceId, DEVICE_STATE newState) => Post(deviceId);
 
-        public void OnDeviceAdded(PCWSTR deviceId)
-        {
-        }
+        public void OnDeviceAdded(PCWSTR deviceId) => Post(deviceId);
 
-        public void OnDeviceRemoved(PCWSTR deviceId)
+        public void OnDeviceRemoved(PCWSTR deviceId) => Post(deviceId);
+
+        private void Post(PCWSTR deviceId)
         {
+            var id = deviceId.ToString(); // copy: the pointer dies with this call
+            owner.Post(() => owner.OnDeviceState(id));
         }
     }
 }

@@ -59,20 +59,17 @@ this file and know what to build next. History of *why* lives in [DECISIONS.md](
   pop it, session changes refresh it (D-011) (2026-10-22)
 - [x] OSD show/hide animation: fade + slide, reversible, off with Windows "Animation effects" (D-012)
   (2026-10-22)
-- [ ] OSD on audio device connect/disconnect (any device, on by default, toggle in settings)
+- [x] OSD on audio device connect/disconnect (any device, once per burst after 500 ms, "When a device
+  connects" toggle, on by default) (D-013) (2026-10-22)
 - [ ] Autostart, publish to a local folder, daily-driver test
 
-**Next step:** pop the OSD when any audio device connects or disconnects — render and capture,
-Bluetooth, USB or other (user, 2026-10-22). Settings toggle, **on by default** (`AppSettings`, no
-version bump, X-003). The OSD shows what it always shows: the current default output/input (after the
-change), not only the device that came or went. Today only a *default* device switch pops it (D-011),
-so a device connecting as non-default, or a non-default one disconnecting, shows nothing. Start from
-`IMMNotificationClient.OnDeviceStateChanged` (ACTIVE ↔ UNPLUGGED/NOTPRESENT/DISABLED) in
-`CoreAudioService`. One Bluetooth headset is several endpoints (A2DP + hands-free) and a connect often
-also switches the default → expect a burst; show once (`OsdController` already drops identical
-requests within 100 ms — likely needs a wider window here). Record as a decision superseding D-011.
+**Next step:** autostart — HKCU `Run` value pointing at the launcher exe (D-003), toggle "Start with
+Windows" in settings (reflect the registry, don't store a copy in `settings.json`). Then publish to a
+local folder (`build` skill → publish) and point autostart there, and start the daily-driver test.
 
-**Then:** autostart (HKCU Run → launcher, D-003), publish to a local folder, daily-driver test.
+**Daily-driver checks** for D-013: connect/disconnect a real Bluetooth headset and a USB device —
+one OSD each, showing the new default if it switched (log: `audio device connected …` then
+`show DeviceConnected` / `show OutputDeviceChanged`). Only an endpoint enable/disable is verified.
 
 When convenient: OSD + settings window in light theme, OSD on a second monitor, tray icon on a light
 taskbar and after an explorer restart, an app/window icon (the exe and settings window have none yet),

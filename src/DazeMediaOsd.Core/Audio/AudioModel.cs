@@ -29,6 +29,10 @@ public enum AudioChangeKind
     VolumeOrMute,
     DefaultDevice,
     DeviceRenamed,
+    /// <summary>An endpoint of this flow became active (plugged in, paired, enabled); not necessarily the default.</summary>
+    DeviceConnected,
+    /// <summary>An endpoint of this flow stopped being active (unplugged, disconnected, disabled, removed).</summary>
+    DeviceDisconnected,
 }
 
 public sealed class AudioChangedEventArgs(AudioSnapshot previous, AudioSnapshot current, EndpointFlow flow, AudioChangeKind kind)

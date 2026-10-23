@@ -13,6 +13,12 @@ public sealed class OsdController : IDisposable
     /// </summary>
     internal static readonly TimeSpan CoalesceWindow = TimeSpan.FromMilliseconds(100);
 
+    /// <summary>
+    /// A device connect/disconnect shows once this long after the last one (D-013): one Bluetooth headset is
+    /// several endpoints, and the default switch that often follows must land first so the OSD shows it.
+    /// </summary>
+    internal static readonly TimeSpan DeviceSettle = TimeSpan.FromMilliseconds(500);
+
     private readonly IAudioService _audio;
     private readonly IKeySource _keys;
     private readonly IMediaService _media;
@@ -20,6 +26,14 @@ public sealed class OsdController : IDisposable
     private readonly Lock _gate = new();
     private OsdState? _lastRequested;
     private long _lastRequestedAt;
+    // Held across the decide-and-request of a device or default-device show, so a pending device show is
+    // either requested before a default switch or not at all. Always taken before _gate.
+    private readonly Lock _deviceGate = new();
+    private ITimer? _deviceTimer;
+    private OsdReason _deviceReason;
+    private bool _devicePending;
+    private long _deviceArmedAt;
+    private bool _disposed;
 
     public OsdController(IAudioService audio, IKeySource keys, IMediaService media, TimeProvider? time = null)
     {
@@ -47,8 +61,57 @@ public sealed class OsdController : IDisposable
 
     private void OnAudioChanged(object? sender, AudioChangedEventArgs e)
     {
-        if (OsdRules.ReasonToShow(e) is { } reason)
-            Request(OsdState.From(e.Current, _media.Current, reason));
+        switch (OsdRules.ReasonToShow(e))
+        {
+            case (OsdReason.DeviceConnected or OsdReason.DeviceDisconnected) and var reason:
+                DeferDeviceShow(reason);
+                break;
+            case (OsdReason.OutputDeviceChanged or OsdReason.InputDeviceChanged) and var reason:
+                // It shows the new default right away; a pending device show would only repeat it.
+                lock (_deviceGate)
+                {
+                    _devicePending = false;
+                    Request(OsdState.From(e.Current, _media.Current, reason));
+                }
+                break;
+            case { } reason:
+                Request(OsdState.From(e.Current, _media.Current, reason));
+                break;
+        }
+    }
+
+    private void DeferDeviceShow(OsdReason reason)
+    {
+        lock (_deviceGate)
+        {
+            if (_disposed)
+                return;
+            _deviceReason = reason; // the last one of a burst names it
+            _devicePending = true;
+            _deviceArmedAt = _time.GetTimestamp();
+            _deviceTimer ??= _time.CreateTimer(_ => OnDeviceSettled(), null, Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
+            _deviceTimer.Change(DeviceSettle, Timeout.InfiniteTimeSpan);
+        }
+    }
+
+    // Reads the state now, after the burst: the current defaults, not the device that came or went.
+    // The flags, not the timer, decide: a callback already queued when the show was cancelled, re-armed
+    // or disposed still runs.
+    private void OnDeviceSettled()
+    {
+        lock (_deviceGate)
+        {
+            if (!_devicePending || _disposed)
+                return;
+            var left = DeviceSettle - _time.GetElapsedTime(_deviceArmedAt);
+            if (left > TimeSpan.Zero)
+            {
+                _deviceTimer!.Change(left, Timeout.InfiniteTimeSpan); // stale callback from before a re-arm
+                return;
+            }
+            _devicePending = false;
+            Request(Snapshot(_deviceReason));
+        }
     }
 
     // The key arrives before Windows applies it, so this state may still show the old level; the
@@ -81,5 +144,11 @@ public sealed class OsdController : IDisposable
         _audio.Changed -= OnAudioChanged;
         _keys.KeyPressed -= OnKeyPressed;
         _media.Changed -= OnMediaChanged;
+        lock (_deviceGate)
+        {
+            _disposed = true;
+            _deviceTimer?.Dispose();
+            _deviceTimer = null;
+        }
     }
 }

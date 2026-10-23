@@ -4,7 +4,7 @@ using DazeMediaOsd.Core.Media;
 
 namespace DazeMediaOsd.Core.Osd;
 
-/// <summary>Which audio changes and keys pop the OSD (D-007, D-011).</summary>
+/// <summary>Which audio changes and keys pop the OSD (D-007, D-011, D-013).</summary>
 public static class OsdRules
 {
     public static OsdReason? ReasonToShow(AudioChangedEventArgs change)
@@ -16,6 +16,8 @@ public static class OsdRules
         {
             (AudioChangeKind.DefaultDevice, EndpointFlow.Output) => OsdReason.OutputDeviceChanged,
             (AudioChangeKind.DefaultDevice, EndpointFlow.Input) => OsdReason.InputDeviceChanged,
+            (AudioChangeKind.DeviceConnected, _) => OsdReason.DeviceConnected,
+            (AudioChangeKind.DeviceDisconnected, _) => OsdReason.DeviceDisconnected,
             (AudioChangeKind.VolumeOrMute, EndpointFlow.Output) when before?.Muted != after?.Muted => OsdReason.MuteChanged,
             // One key press raises ~2 notifications with slightly different floats: compare what is displayed.
             (AudioChangeKind.VolumeOrMute, EndpointFlow.Output) when before?.Percent != after?.Percent => OsdReason.VolumeChanged,
