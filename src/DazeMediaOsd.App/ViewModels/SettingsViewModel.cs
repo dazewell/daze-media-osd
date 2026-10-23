@@ -17,6 +17,8 @@ public sealed partial class SettingsViewModel : ObservableObject
         PositionIndex = (int)current.Position;
         HideAfterSeconds = current.HideAfterSeconds;
         ShowInput = current.ShowInput;
+        // A failure from an earlier, closed window still applies until a save succeeds.
+        SaveError = store.SaveError;
     }
 
     /// <summary>Index into the position ComboBox, whose items follow <see cref="OsdPosition"/>'s order.</summary>
