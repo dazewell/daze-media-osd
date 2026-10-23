@@ -70,4 +70,13 @@ public class DeviceNoticeTests
             new("Headphones (WH-1000XM5)", EndpointFlow.Output, true, true),
             new("Headphones (WH-1000XM5)", EndpointFlow.Output, false, true),
         ])!.Connected);
+
+    // A Bluetooth headset: the headphones endpoint is the headline's flow, so its kind wins.
+    [Fact]
+    public void KindIsThatOfTheShownFlow() =>
+        Assert.Equal(DeviceKind.Headphones, DeviceNotice.Summarize(
+        [
+            new("Headphones (Technics EAH-AZ80)", EndpointFlow.Output, true, true, DeviceKind.Headphones),
+            new("Headset (Technics EAH-AZ80)", EndpointFlow.Input, true, true, DeviceKind.Headset),
+        ])!.Kind);
 }

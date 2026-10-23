@@ -72,31 +72,22 @@ this file and know what to build next. History of *why* lives in [DECISIONS.md](
 - [x] Daily-driver day 1 from the log (2026-10-23): 9 h up, no crash; BT connect/disconnect with a
   default switch carries the device line; a late hands-free endpoint popped a second show → fixed
   (D-016). Media retries (0x8001010E) recover with Telegram too
+- [x] Device-type icons: form factor → headphones / headset / monitor glyph, speakers keep the level
+  glyph (D-017); seen in the OSD: speakers, mic, Technics EAH-AZ80 headphones (row glyph + event
+  line `connected bt Headphones`, one show) (2026-10-23)
 - [x] Daily-driver test: no native flyout flashes (user, 2026-10-23). Autostart at sign-in and a USB
   device deferred by the user (2026-10-23) — see "When convenient"
 
-**Next step:** after #14 merges, re-run `scripts/install.ps1` so the installed copy has D-016. Then
-build the two features below, in this order, one PR each.
-
-**Plan A — device-type icons** (S, ~½ day)
-- Core: read `PKEY_AudioEndpoint_FormFactor` with the name; add `Kind` (Speakers, Headphones, Headset,
-  Display = DigitalAudioDisplayDevice/HDMI/DP, Microphone, Other) to `EndpointState` and `DeviceEvent`,
-  and to `DeviceNotice` (the event line's model). Cache it with the name in the active-endpoint set:
-  a disconnecting endpoint may no longer be readable. Pure form factor → kind mapping, unit-tested.
-  Log the kind in the `show` line.
-- OSD: the row icon becomes the device type (Segoe Fluent: speakers E7F5, headphone E7F6, headset E95B,
-  monitor E7F4, mic E720; check each in a screenshot). It replaces today's volume-level glyph — the
-  value and bar already show the level. Muted keeps Mute E74F / MicOff EC54 (the state matters more
-  than the type). Same glyph table for the device event line (D-014) instead of speaker/mic.
-- Record a decision (glyph replaces level glyph; why not a second glyph: row width). Verify with the
-  Technics headset, the laptop speakers and the Dell monitor (HDMI/DP).
+**Next step:** Plan B below. When convenient: the headset glyph (Technics hands-free as default mic)
+and the monitor glyph (Dell over DisplayPort).
 
 **Plan B — quick device switching** (M, 1–2 days; tray + hotkey + OSD-click spike: user, 2026-10-23)
 - Core: `IAudioService.Endpoints(flow)` (active only: id, name, kind) and `SetDefault(id, flow)`. Setting
   the default needs the undocumented `IPolicyConfig` COM interface (no documented API: `MediaDevice`
   only reads, `AudioRoutingManager` is phone-only). No admin, no injection; EarTrumpet and SoundSwitch
   ship it. Set roles eConsole + eMultimedia, as Settings does; leave eCommunications. A failure only
-  logs. Short spike first: confirm the interface and IID on 26300, record the result as D-xxx/X-xxx.
+  logs. `scripts/audio-device.ps1 -SetDefault` already calls it (`870AF99C-…` client) and works on
+  26300; record the decision when it moves into the app.
 - Surface 1: tray menu gets "Output" and "Input" submenus with a check on the
   current default (native menu, D-009; the tray may take focus). The OSD shows the switch through the
   existing `OutputDeviceChanged` path.
@@ -112,8 +103,9 @@ build the two features below, in this order, one PR each.
   rows are hit-testable, the rest stays click-through (`WM_NCHITTEST` → `HTTRANSPARENT`?). How does
   the list open — a non-activating popup inside the OSD, not a `Flyout` that grabs focus. Result goes
   in DECISIONS (superseding D-008) or DEADENDS; drop the surface if it can't keep the rule.
-- Risks: Bluetooth hands-free outputs ("Headset (…)") may show up as a separate output on some
-  machines; consider hiding them from the cycle.
+- Risks: Bluetooth hands-free outputs exist here too: "Headset" render endpoints, form factor 5,
+  next to "Headphones" (registry, 2026-10-23). Likely hide Kind Headset outputs of a Bluetooth product
+  that also has a Headphones output from the cycle and the menu.
 
 When convenient: autostart at sign-in (log `launcher: started app` right after one), a USB audio
 device (one show per connect/disconnect, D-013/D-014/D-016), OSD + settings window in light theme,

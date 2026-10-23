@@ -134,9 +134,10 @@ public sealed partial class OsdWindow : Window
             : string.Create(CultureInfo.CurrentCulture, $"{name} +{device.Others}");
         EventIcon.Glyph = device switch
         {
-            { Bluetooth: true } => "",             // Bluetooth
-            { Flow: EndpointFlow.Input } => "",    // Microphone
-            _ => "",                               // Speakers
+            { Bluetooth: true } => "", // Bluetooth
+            _ when KindGlyph(device.Kind) is { } glyph => glyph,
+            { Flow: EndpointFlow.Input } => "", // Microphone
+            _ => "", // Speakers
         };
         EventIcon.Style = (Style)Root.Resources[device.Connected ? "OsdEventIcon" : "OsdEventIconGone"];
         EventStatus.Style = (Style)Root.Resources[device.Connected ? "OsdEventStatus" : "OsdEventStatusGone"];
@@ -229,9 +230,12 @@ public sealed partial class OsdWindow : Window
         OutputFill.Style = (Style)Root.Resources[muted ? "OsdFillMuted" : "OsdFill"];
         OutputPercent.Style = (Style)Root.Resources[muted ? "OsdValueMuted" : "OsdValue"];
         OutputPercent.Text = output is null ? "" : _outputPercent.ToString(CultureInfo.CurrentCulture);
+        // The device type where it says more than "speaker"; a speaker shows its level, as the native flyout
+        // does. Mute wins over both: the state matters more than the type (D-017).
         OutputIcon.Glyph = output switch
         {
             null or { Muted: true } => "\uE74F", // Mute
+            { Kind: DeviceKind.Headphones or DeviceKind.Headset or DeviceKind.Display } => KindGlyph(output.Kind)!,
             { Percent: 0 } => "\uE992",           // Volume0
             { Percent: < 34 } => "\uE993",        // Volume1
             { Percent: < 67 } => "\uE994",        // Volume2
@@ -249,6 +253,16 @@ public sealed partial class OsdWindow : Window
         OutputFill.Width = Math.Max(OutputTrack.Height, width);
     }
 
+    private static string? KindGlyph(DeviceKind kind) => kind switch
+    {
+        DeviceKind.Speakers => "",   // Speakers
+        DeviceKind.Headphones => "", // Headphone
+        DeviceKind.Headset => "",    // Headset
+        DeviceKind.Display => "",    // TVMonitor
+        DeviceKind.Microphone => "", // Microphone
+        _ => null,
+    };
+
     private void RenderInput(EndpointState? input)
     {
         if (input is null || !_settings.ShowInput)
@@ -258,7 +272,7 @@ public sealed partial class OsdWindow : Window
         }
         InputRow.Visibility = Visibility.Visible;
         InputName.Text = input.Name;
-        InputIcon.Glyph = input.Muted ? "\uEC54" : "\uE720"; // MicOff / Microphone
+        InputIcon.Glyph = input.Muted ? "\uEC54" : input.Kind == DeviceKind.Headset ? "\uE95B" : "\uE720"; // MicOff / Headset / Microphone
         InputStatus.Style = (Style)Root.Resources[input.Muted ? "OsdValueMuted" : "OsdValue"];
         InputStatus.Text = input.Muted ? "Muted" : input.Percent.ToString(CultureInfo.CurrentCulture);
     }

@@ -80,3 +80,4 @@ TRACK_POPUP_MENU_FLAGS
 SetMenuDefaultItem
 SystemParametersInfo
 PKEY_Device_EnumeratorName
+PKEY_AudioEndpoint_FormFactor

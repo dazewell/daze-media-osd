@@ -6,8 +6,10 @@ namespace DazeMediaOsd.Core.Osd;
 /// What one device connect/disconnect burst shows in the OSD's event line (D-014): the device, as one item
 /// even when it is several endpoints, and whether it came or went. <paramref name="Others"/> counts further
 /// devices in the same burst. <paramref name="Name"/> is "" when Windows no longer gave one.
+/// <paramref name="Kind"/> is that of the endpoint whose flow the notice shows.
 /// </summary>
-public sealed record DeviceNotice(string Name, EndpointFlow Flow, bool Connected, bool Bluetooth, int Others = 0)
+public sealed record DeviceNotice(
+    string Name, EndpointFlow Flow, bool Connected, bool Bluetooth, int Others = 0, DeviceKind Kind = DeviceKind.Other)
 {
     /// <summary>
     /// One notice for a burst, null for none. Endpoints of one product ("Headphones (WH-1000XM5)" +
@@ -32,7 +34,8 @@ public sealed record DeviceNotice(string Name, EndpointFlow Flow, bool Connected
         var name = bluetooth || distinct > 1 ? groups[^1].Key : StripIndex(last.Name);
         // Headphone rather than mic when the device has both.
         var flow = headline.Any(e => e.Flow == EndpointFlow.Output) ? EndpointFlow.Output : EndpointFlow.Input;
-        return new DeviceNotice(name, flow, last.Connected, bluetooth, groups.Count - 1);
+        var kind = headline.Last(e => e.Flow == flow).Kind;
+        return new DeviceNotice(name, flow, last.Connected, bluetooth, groups.Count - 1, kind);
     }
 
     /// <summary>"Headphones (WH-1000XM5)" → "WH-1000XM5"; the whole name when it has no trailing "(…)".</summary>

@@ -254,6 +254,22 @@ Supersedes: D-014 (only the repeat window; the event line and burst rules stand)
   that went and came back (a flap merged into one burst) always shows (PR #14 review).
 - Revisit if: a real second device with the same "(…)" product within 2 s is hidden.
 
+## D-017 · 2026-10-23 · Device-type glyph from the endpoint form factor; speakers keep the level glyph
+Status: accepted
+- Decision: `CoreAudioService` reads `PKEY_AudioEndpoint_FormFactor` into `EndpointState.Kind` /
+  `DeviceEvent.Kind` (`DeviceKinds.FromFormFactor`: 1 Speakers, 3 Headphones, 4 Microphone, 5–6 Headset,
+  9 Display, else Other). Output row: Mute wins; Headphones E7F6 / Headset E95B / Display E7F4 replace
+  the volume-level glyph; Speakers and Other keep Volume0–3. Input row: MicOff wins, Headset E95B, else
+  Microphone. Event line (D-014): Bluetooth still wins, then the kind's glyph, then speaker/mic.
+- Why: the user wants to know which device is active at a glance (GOALS, picked from the PR #8 survey,
+  2026-10-23); "Speakers" and a monitor looked the same. The level glyph is itself a speaker, so for
+  speakers it is the type glyph with more information; the number and bar already carry the level.
+- Why not a second glyph next to the name: one more column in a 4-px grid for the same fact. Why not
+  `PKEY_Device_IconPath`: driver-chosen .dll icons, not Fluent glyphs, and they don't theme.
+- Read on 26300: laptop speakers 1, jack/Bluetooth headphones 3, mic array 4, Bluetooth hands-free 5
+  (both flows), Dell monitor 9, Stereo Mix 10. A failed read is Other (generic glyph).
+- Revisit if: a device reports a misleading form factor (e.g. USB headset as Speakers) often enough.
+
 ## D-018 · 2026-10-23 · OSD topmost through `OverlappedPresenter.IsAlwaysOnTop`, plus SetWindowPos
 Status: accepted
 Supersedes: D-008 (only "why not `IsAlwaysOnTop`"; the window design stands)
