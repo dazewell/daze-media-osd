@@ -20,6 +20,15 @@ Installing software changes the user's machine — ask before running it.
 
 ## Commands (from repo root, PowerShell)
 
+Everyday loop — stop, build, start in the background, show the app's start line (non-zero exit if any
+step fails):
+
+```powershell
+pwsh scripts/run.ps1                 # -Test runs the tests too; -NoBuild just restarts; -Configuration Release
+```
+
+The individual steps:
+
 ```powershell
 # The tray app keeps running after you test it and locks its own exe → stop it before every build.
 # Never Stop-Process both DazeMediaOsd.exe processes (launcher + `--app`, D-006): the native flyout

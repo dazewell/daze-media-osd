@@ -42,8 +42,9 @@ src/DazeMediaOsd.App/            WinUI 3 exe `DazeMediaOsd.exe`: Program.Main â†
                                  SettingsWindow + ViewModels/SettingsViewModel; Assets/ tray-dark/light.ico
                                  (from scripts/make-icon.ps1)
 tests/DazeMediaOsd.Core.Tests/   xUnit v3; logic only, fakes for IAudioService / IKeySource
-scripts/                         stop.ps1 (safe stop), press-key.ps1 (SendInput volume keys),
-                                 audio-device.ps1 (list / set default output, dev only)
+scripts/                         run.ps1 (stop + build + start), stop.ps1 (safe stop), press-key.ps1
+                                 (SendInput volume keys), audio-device.ps1 (list / set default output,
+                                 dev only)
 spikes/FlyoutProbe/              console probe for the native flyout â€” re-run after Windows updates.
                                  Own Directory.*.props opt out of the repo-wide ones.
 ```
