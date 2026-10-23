@@ -154,3 +154,18 @@ Supersedes: D-007
   Why not wait for the session change before showing: adds latency (20–50 ms seen with Chromium,
   player-dependent) and shows nothing if the player ignores the key.
 - Revisit if: the user wants track changes announced, or refresh flicker shows in daily use.
+
+## D-012 · 2026-10-22 · OSD animation: layered-window alpha + window slide, per frame
+Status: accepted
+- Decision: `OsdWindow` fades via `SetLayeredWindowAttributes` alpha and slides 16 DIP from the nearest
+  screen edge via `SetWindowPos`, stepped on `CompositionTarget.Rendering` while running. Progress is
+  `Core.Osd.OsdAnimation` (200 ms ease-out in, 150 ms ease-in out; reverses from the current value;
+  show while shown = no-op). Shows start one frame in. Windows "Animation effects" off
+  (`SPI_GETCLIENTAREAANIMATION`, read per show/hide) → instant, as before.
+- Why: alpha and position apply to the whole window — DWM frame, shadow and acrylic included — and the
+  window is already layered (D-008). Verified on 26300 by screen capture: brightness ramps, the frame
+  moves, a re-press while visible changes nothing.
+- Why not XAML/Composition animations on `Root`: they leave the frame, shadow and acrylic static (not
+  tried). Why not `DispatcherQueueTimer`: ~15 ms granularity, not frame-synced.
+- Revisit if: the per-frame `SetWindowPos` stutters under load, or a WinAppSDK update stops honouring
+  layered alpha (then: fade content only, or drop the animation).

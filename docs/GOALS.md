@@ -21,6 +21,8 @@ this file and know what to build next. History of *why* lives in [DECISIONS.md](
 - OSD also appears when the default output/input device changes, and on media keys
   (play/pause/next/previous) (user, 2026-10-22).
 - OSD animates in and out like the native flyout (user, 2026-10-22).
+- OSD pops up when a Bluetooth audio/media device connects or disconnects; on/off in settings
+  (user, 2026-10-22).
 - Settings window: enable/disable sections, position, timeout, theme follows system, start with Windows.
 - Only our OSD is ever visible — the native flyout must not flash (user, 2026-10-22; D-006).
 - Fail-open: if the app is closed or crashes, the native OSD keeps working.
@@ -55,15 +57,20 @@ this file and know what to build next. History of *why* lives in [DECISIONS.md](
   preview (D-010) (2026-10-22)
 - [x] Media session info in OSD (GSMTC: cover, title, artist, play state; "Media" toggle); media keys
   pop it, session changes refresh it (D-011) (2026-10-22)
-- [ ] OSD show/hide animation
+- [x] OSD show/hide animation: fade + slide, reversible, off with Windows "Animation effects" (D-012)
+  (2026-10-22)
+- [ ] OSD on Bluetooth audio device connect/disconnect (configurable)
 - [ ] Autostart, publish to a local folder, daily-driver test
 
-**Next step:** OSD show/hide animation, its own PR. Constraints: the first frame must not be later than
-today (a key press shows at once); a held key re-shows the visible OSD without restarting the
-animation; a media `Refresh` (resize while visible) must not replay it either; honour Windows
-"Animation effects" off (`SPI_GETCLIENTAREAANIMATION`). Composition animations on `Root` don't move
-the DWM frame/shadow/acrylic; the window is already layered, so a `SetLayeredWindowAttributes` alpha
-fade is the first thing to try (D-008).
+**Next step:** pop the OSD when a Bluetooth audio device connects or disconnects, with a settings
+toggle (`AppSettings`, no version bump, X-003). Today only a *default* device switch pops it (D-011),
+so a headset connecting as non-default, or disconnecting, shows nothing. Start from
+`IMMNotificationClient.OnDeviceStateChanged` (ACTIVE ↔ UNPLUGGED/NOTPRESENT) in `CoreAudioService`,
+render and capture alike; tell Bluetooth from other endpoints by the device's enumerator
+(`BTHENUM` / `BTHLEENUM`, e.g. `PKEY_Device_EnumeratorName`) — verify on this machine first. One BT
+headset is several endpoints (A2DP + hands-free) → expect a burst; show once, naming the device and
+"connected"/"disconnected". Ask the user the default (on/off) and whether wired USB counts. Record as a
+decision superseding D-011.
 
 **Then:** autostart (HKCU Run → launcher, D-003), publish to a local folder, daily-driver test.
 
