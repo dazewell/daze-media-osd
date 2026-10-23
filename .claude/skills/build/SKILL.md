@@ -41,6 +41,13 @@ dotnet run --project src/DazeMediaOsd.App -c Debug             # starts the laun
 dotnet publish src/DazeMediaOsd.App -c Release -r win-x64 -o artifacts/publish   # self-contained, ~230 MB
 ```
 
+Daily-driver install: `pwsh scripts/install.ps1` stops any running copy, publishes to
+`%LOCALAPPDATA%\Programs\DazeMediaOsd` and starts it there. The user's autostart (D-015) points at that
+exe: after testing a Debug build, reinstall or start the installed copy again
+(`& "$env:LOCALAPPDATA\Programs\DazeMediaOsd\DazeMediaOsd.exe"`) so the user isn't left without the app.
+Toggling "Start with Windows" from a Debug build re-points the user's Run value at the Debug exe: put it
+back from the installed copy afterwards.
+
 `dotnet run` blocks until the launcher exits — start it in the background (or a terminal tab) when you
 need to keep working, and stop it with `scripts/stop.ps1`. The Debug exe is
 `src/DazeMediaOsd.App/bin/Debug/net10.0-windows10.0.26100.0/win-x64/DazeMediaOsd.exe`.
@@ -104,4 +111,5 @@ Grow this table when you hit something non-obvious (and record a dead end if a f
 | `NETSDK1045` / SDK 10 not supported | Only an older SDK installed; install .NET 10 SDK. `global.json` pins it. |
 | No volume OSD at all (neither ours nor native) | Host left minimized after both processes were killed: run `DazeMediaOsd.exe --restore` (or `dotnet run --project spikes/FlyoutProbe -- restore`), or restart explorer. |
 | Native flyout shows again / ours doesn't appear after a Windows update | Host class or band changed: `dotnet run --project spikes/FlyoutProbe -- watch`, compare with ARCHITECTURE → Native flyout and D-006. |
+| Published app crashes at start, 0xC000027B in `Microsoft.UI.Xaml.dll` | Publish folder lacks `DazeMediaOsd.pri`: keep `EnableMsixTooling=true` in the App csproj (X-004). |
 | App starts then exits silently (unpackaged) | Windows App SDK runtime not found: ensure `WindowsAppSDKSelfContained=true` and `WindowsPackageType=None`. |

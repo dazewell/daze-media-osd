@@ -223,3 +223,20 @@ Supersedes: D-013 (adds what the show says and drops repeated bursts; when it po
   here, one more property read, and the parse is unit-testable.
 - Revisit if: a device with an unhelpful "(…)" merges with another, the drop hides a real second
   device, or a Bluetooth endpoint shows the speaker glyph (log line lacks `bluetooth`).
+
+## D-015 · 2026-10-22 · Autostart: the Run value is the only state; the copy that turns it on registers itself
+Status: accepted
+- Decision: "Start with Windows" writes `HKCU\…\CurrentVersion\Run\DazeMediaOsd` = `"<this exe>"` (no
+  args → launcher, D-006) and deletes our `Explorer\StartupApproved\Run` value; off deletes both. The
+  toggle reads the registry each time the settings window opens: on only if the Run value exists and
+  Task Manager hasn't disabled it (odd first byte in StartupApproved). Notes under the toggle say when
+  Task Manager turned it off, or when the Run value starts another copy (Debug vs installed).
+  `scripts/install.ps1` publishes to `%LOCALAPPDATA%\Programs\DazeMediaOsd` (outside any checkout).
+- Why: a copy in `settings.json` drifts as soon as the user uses Task Manager or Settings → Startup
+  apps (user, GOALS). Registering the running exe needs no install-path knowledge in the app; a fixed
+  install folder keeps the entry valid across worktrees and rebuilds.
+- Why not a Startup-folder shortcut / scheduled task: shortcut needs COM `IShellLink` for the same
+  result; a task can't be disabled from Startup apps as plainly and may need elevation for some options.
+  Why not leave StartupApproved alone on "on": the Run value would stay disabled and the toggle would
+  snap back off.
+- Revisit if: packaging moves to MSIX (then `StartupTask` in the manifest).

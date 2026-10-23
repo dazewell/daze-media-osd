@@ -64,11 +64,15 @@ this file and know what to build next. History of *why* lives in [DECISIONS.md](
   connects" toggle, on by default) (D-013) (2026-10-22)
 - [x] Device event line in the OSD: which device connected/disconnected, one item per product,
   Bluetooth glyph, repeat bursts dropped (D-014) (2026-10-22)
-- [ ] Autostart, publish to a local folder, daily-driver test
+- [x] Autostart toggle (HKCU Run, registry is the only state) + `scripts/install.ps1` publish to
+  `%LOCALAPPDATA%\Programs\DazeMediaOsd`; installed and set to start with Windows on the dev machine
+  (D-015, X-004) (2026-10-22)
+- [ ] Daily-driver test
 
-**Next step:** autostart — HKCU `Run` value pointing at the launcher exe (D-003), toggle "Start with
-Windows" in settings (reflect the registry, don't store a copy in `settings.json`). Then publish to a
-local folder (`build` skill → publish) and point autostart there, and start the daily-driver test.
+**Next step:** daily-driver test of the installed copy. Ask the user how it went after a sign-in: did it
+start (log `launcher: started app` right after sign-in), any native flyout flashes, crashes
+(`launcher: app exited with` non-zero), annoyances. Fix what comes up; then pick the next feature with
+the user (open PR #8 has a survey of similar apps; "Later" below).
 
 **Daily-driver checks** for D-013/D-014: one Bluetooth headset is verified (user, 2026-10-22: one
 named show per connect/disconnect). Still to see: a BT connect that switches the default (one show

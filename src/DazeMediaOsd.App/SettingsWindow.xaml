@@ -158,6 +158,27 @@
                                           AutomationProperties.Name="Show when a device connects or disconnects"
                                           IsOn="{x:Bind ViewModel.ShowOnDeviceConnect, Mode=TwoWay}" />
                         </Grid>
+
+                        <TextBlock Text="Startup" Style="{StaticResource SettingsSection}" />
+                        <Grid Style="{StaticResource SettingsCard}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <FontIcon Glyph="&#xE7E8;" Style="{StaticResource SettingsCardIcon}" />
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock Text="Start with Windows" />
+                                <TextBlock Text="Run in the tray when you sign in" Style="{StaticResource SettingsCardDescription}" />
+                                <TextBlock Text="{x:Bind ViewModel.AutostartNote, Mode=OneWay}"
+                                           Visibility="{x:Bind ViewModel.HasAutostartNote, Mode=OneWay}"
+                                           Foreground="{ThemeResource SystemFillColorCautionBrush}"
+                                           Style="{StaticResource CaptionTextBlockStyle}" TextWrapping="Wrap" />
+                            </StackPanel>
+                            <ToggleSwitch Grid.Column="2" VerticalAlignment="Center" MinWidth="0"
+                                          AutomationProperties.Name="Start with Windows"
+                                          IsOn="{x:Bind ViewModel.StartWithWindows, Mode=TwoWay}" />
+                        </Grid>
                     </StackPanel>
 
                     <StackPanel x:Name="AboutPage" Spacing="4" Visibility="Collapsed">

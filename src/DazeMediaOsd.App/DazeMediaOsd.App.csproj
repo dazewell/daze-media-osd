@@ -11,6 +11,8 @@
     <WindowsPackageType>None</WindowsPackageType>
     <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
     <SelfContained Condition="'$(_IsPublishing)' == 'true'">true</SelfContained>
+    <!-- Without it publish drops DazeMediaOsd.pri and the .xbf files: the app dies loading XAML (X-004). -->
+    <EnableMsixTooling>true</EnableMsixTooling>
     <!-- Program.Main picks launcher or app mode before any XAML type is touched (D-006). -->
     <DefineConstants>$(DefineConstants);DISABLE_XAML_GENERATED_MAIN</DefineConstants>
   </PropertyGroup>

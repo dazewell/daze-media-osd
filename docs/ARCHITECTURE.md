@@ -226,6 +226,11 @@ unit-tested with fakes. App never P/Invokes directly; window styling goes throug
   restores → `--app` exits 0 → launcher restores again (harmless) and exits.
 - Verified 2026-10-22 on 26300: running → no native flyout; kill `--app` → launcher restores, exits;
   kill launcher → app restores, hides per show; tray Exit → both exit, native flyout stock again.
+- Autostart (D-015): `Autostart` reads/writes `HKCU\…\Run\DazeMediaOsd` + its `StartupApproved\Run`
+  flag (Explorer writes 12 bytes, first byte 02/06 on, 03/07 off; no value = on). Installed copy:
+  `%LOCALAPPDATA%\Programs\DazeMediaOsd` via `scripts/install.ps1`. Verified 2026-10-22: toggle on/off
+  writes/removes the value, a Task Manager "disabled" shows off + note and "on" clears it. Not verified
+  yet: an actual sign-in start.
 
 ## Invariants
 

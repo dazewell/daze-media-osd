@@ -23,3 +23,11 @@ here (an option rejected on paper belongs in the "Why not" of a decision). Forma
   missing from the JSON comes back as `default(T)` (`HideAfterSeconds` 0), not the initializer value.
 - Evidence: `SettingsStoreTests.MissingPropertiesKeepDefaults`, .NET 10.0.402.
 - Retry only if: never; put defaults on the primary constructor's parameters (STJ honours those).
+
+## X-004 · 2026-10-22 · `dotnet publish` of the unpackaged app without `EnableMsixTooling`
+- Tried: `dotnet publish -c Release -r win-x64` with `WindowsPackageType=None`, self-contained (D-003).
+- Failed because: publish output lacks `DazeMediaOsd.pri` and the `.xbf` files (bin/ has them), so the
+  app crashes at the first XAML load: 0xC000027B in `Microsoft.UI.Xaml.dll`; the launcher restored.
+- Evidence: build 26300, WinAppSDK in `Directory.Packages.props`, .NET 10.0.402.
+- Retry only if: never; keep `EnableMsixTooling=true` in the App csproj (publish then emits the .pri
+  with the XAML in it). After a WinAppSDK upgrade, check the publish folder has `DazeMediaOsd.pri`.
