@@ -139,9 +139,16 @@ public sealed partial class OsdWindow : Window
             { Flow: EndpointFlow.Input } => "", // Microphone
             _ => "", // Speakers
         };
-        EventIcon.Style = (Style)Root.Resources[device.Connected ? "OsdEventIcon" : "OsdEventIconGone"];
-        EventStatus.Style = (Style)Root.Resources[device.Connected ? "OsdEventStatus" : "OsdEventStatusGone"];
-        EventStatus.Text = device.Absent ? "Not connected" : device.Connected ? "Connected" : "Disconnected";
+        var accent = device.Connected || device.Answer == PressAnswer.Connecting;
+        EventIcon.Style = (Style)Root.Resources[accent ? "OsdEventIcon" : "OsdEventIconGone"];
+        EventStatus.Style = (Style)Root.Resources[accent ? "OsdEventStatus" : "OsdEventStatusGone"];
+        EventStatus.Text = device.Answer switch
+        {
+            PressAnswer.NotConnected => "Not connected",
+            PressAnswer.Connecting => "Connecting…",
+            PressAnswer.ConnectFailed => "Couldn't connect",
+            _ => device.Connected ? "Connected" : "Disconnected",
+        };
         if (OverlayWindow.AnimationsEnabled())
             AnimateEventEntrance();
     }

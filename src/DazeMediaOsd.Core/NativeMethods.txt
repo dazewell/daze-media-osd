@@ -85,3 +85,11 @@ RegisterHotKey
 UnregisterHotKey
 WM_HOTKEY
 SendMessage
+IDeviceTopology
+IConnector
+IKsControl
+KSPROPSETID_BtAudio
+KSPROPERTY_BTAUDIO
+KSPROPERTY_TYPE_GET
+KSPROPERTY_TYPE_BASICSUPPORT
+PKEY_Device_ContainerId

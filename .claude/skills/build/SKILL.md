@@ -68,6 +68,10 @@ Driving it without touching hardware:
   output. Switch back to the original afterwards — it's the user's machine. `-All` lists every endpoint
   with its state (1 active, 2 disabled); `-Enable "<id>"` / `-Disable "<id>"` is a real device
   connect/disconnect — use a disabled, non-default one (e.g. Stereo Mix) and disable it again after.
+- Bluetooth connect (D-023): `dotnet run --project spikes/BtProbe -- list` is read-only. `disconnect "<id>"`
+  on the device's **Headset** (hands-free) endpoint drops the whole device (the A2DP one ignores it, X-005);
+  ask the user first, audio falls back to the speakers. Press its shortcut within ~15 s: earbuds may
+  reconnect on their own ~20 s later. A Windows "Disconnect" (Bluetooth settings) doesn't auto-reconnect.
 - `dotnet run --project spikes/FlyoutProbe -- watch` presses Mute twice (net zero) and logs the native
   flyout host. Minimized = tiny rect, no SHOW/HIDE ~2.5 s apart.
 

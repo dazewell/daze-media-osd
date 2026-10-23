@@ -34,7 +34,7 @@ Directory.Build.props            shared props: TFM net10.0-windows10.0.26100.0, 
 Directory.Packages.props         central package versions
 src/DazeMediaOsd.Core/           no UI; Win32/COM via CsWin32 (NativeMethods.txt). Lifecycle/ (LaunchArgs,
                                  Launcher), NativeFlyout/ (FlyoutHost, FlyoutSuppressor), Audio/
-                                 (CoreAudioService, DeviceChoices, DeviceCycle), Input/ (RawInputKeySource, GlobalHotkey, Hotkey, Shortcuts), Osd/ (OsdState, OsdRules,
+                                 (CoreAudioService, DeviceChoices, DeviceCycle, DeviceConnector), Input/ (RawInputKeySource, GlobalHotkey, Hotkey, Shortcuts), Osd/ (OsdState, OsdRules,
                                  OsdController, DeviceNotice, OsdPlacement, OsdAnimation), Windowing/ (OverlayWindow styles), Tray/
                                  (TrayIcon), Settings/ (AppSettings, DeviceHotkey, SettingsStore), Media/
                                  (GsmtcMediaService, CsWinRT), Diagnostics/Log.
@@ -48,7 +48,9 @@ scripts/                         run.ps1 (stop + build + start), stop.ps1 (safe 
                                  (SendInput volume/media keys), audio-device.ps1 (list / set default output,
                                  dev only)
 spikes/FlyoutProbe/              console probe for the native flyout — re-run after Windows updates.
-                                 Own Directory.*.props opt out of the repo-wide ones.
+spikes/BtProbe/                  every endpoint's state, container, KS filter and BtAudio support; connect /
+                                 disconnect one (D-023). Re-run after Windows or audio driver updates.
+                                 spikes/Directory.*.props opt out of the repo-wide ones.
 ```
 
 Rule: Win32/COM/WinRT calls live in Core behind small interfaces so view models and state logic can be
@@ -58,13 +60,14 @@ unit-tested with fakes. App never P/Invokes directly; window styling goes throug
 
 | Component | Responsibility | Key APIs |
 |---|---|---|
-| `CoreAudioService` (`IAudioService`) | Default render + capture endpoint (role eConsole): name, volume, mute; raise on change, rename, default switch; set of active endpoints (any flow) → raise on connect/disconnect with a `DeviceEvent` (name, flow, Bluetooth, kind); `Endpoints(flow)` lists active ones, `SetDefault` switches (D-019) | `IMMDeviceEnumerator`, `IMMNotificationClient`, `IAudioEndpointVolume` + `IAudioEndpointVolumeCallback`, `PKEY_Device_FriendlyName`, `PKEY_Device_EnumeratorName`, `PKEY_AudioEndpoint_FormFactor` (→ `DeviceKind`, D-017), `EnumAudioEndpoints`, `IMMDevice.GetState`, `IMMEndpoint`, undocumented `IPolicyConfig` (Interop/PolicyConfig.cs) |
+| `CoreAudioService` (`IAudioService`) | Default render + capture endpoint (role eConsole): name, volume, mute; raise on change, rename, default switch; set of active endpoints (any flow) → raise on connect/disconnect with a `DeviceEvent` (name, flow, Bluetooth, kind); `Endpoints(flow)` lists active ones, `SetDefault` switches (D-019), `Connect(id)` asks a paired Bluetooth device to connect (D-023) | `IMMDeviceEnumerator`, `IMMNotificationClient`, `IAudioEndpointVolume` + `IAudioEndpointVolumeCallback`, `PKEY_Device_FriendlyName`, `PKEY_Device_EnumeratorName`, `PKEY_AudioEndpoint_FormFactor` (→ `DeviceKind`, D-017), `EnumAudioEndpoints`, `IMMDevice.GetState`, `IMMEndpoint`, undocumented `IPolicyConfig` (Interop/PolicyConfig.cs), `IDeviceTopology` → `IConnector.GetDeviceIdConnectedTo` → `IKsControl` (`KSPROPSETID_BtAudio`), `PKEY_Device_ContainerId` |
+| `DeviceConnector` | One pending press for an inactive device (D-023): `Connect` → `IAudioService.Connect`; when that endpoint's `DeviceConnected` arrives within 15 s → `SetDefault`; else `TimedOut` (deadline rechecked under the lock: a stale callback re-arms). A later press replaces it; App calls `Cancel` on every shortcut press first, and shows "Connecting…" only while `IsWaitingFor` that press | `TimeProvider` timer (pure, unit-tested) |
 | `OsdController` + `OsdRules` | Audio changes + keys → `ShowRequested(OsdState)`; media session changes → `RefreshRequested` (re-render a visible OSD, never pop); the rules decide what pops the OSD (D-011); device connect/disconnect shows once, 500 ms after a burst (D-013), carrying the burst as one `DeviceNotice` (also on a default switch that cancels it); a burst repeating the device announced < 2 s ago is dropped (D-016) | — (pure, unit-tested) |
 | `NativeFlyout` | Minimize the native flyout host while the app runs, re-minimize a re-created host, restore on exit | `SetWinEventHook` (out-of-context, `EVENT_OBJECT_CREATE`) on explorer.exe, `ShowWindowAsync` |
 | `RawInputKeySource` (`IKeySource`) | Trigger: volume/mute and play-pause/next/previous key downs (`MediaKey`), incl. at 0 %/100 % where the volume doesn't change. Keyboard VKs + Consumer Control HID reports (`ConsumerKeyTracker`: usages 0xE9/0xEA/0xE2, 0xCD/0xB0/0xB1 → PlayPause, 0xB5/0xB6; raise on newly held) | Message-only window, `RegisterRawInputDevices` (0x01/0x06 and 0x0C/0x01) + `RIDEV_INPUTSINK` (passive, no input latency), `HidP_GetUsagesEx` |
 | `Launcher` | Start `--app`, wait on its handle, restore the native flyout when it exits (D-006) | `Process`, `WaitForSingleObject` |
 | `GsmtcMediaService` (`IMediaService`) | Current session → `MediaState` (app id, title, artist, playing, thumbnail bytes) or null when none / no title. Starts in the background; a GSMTC failure only logs (media is optional). Every event marks dirty; one refresh loop re-reads; a failed read keeps the last state and retries (5 × 200 ms) | `GlobalSystemMediaTransportControlsSessionManager` (CsWinRT via the TFM), `TryGetMediaPropertiesAsync`, `GetPlaybackInfo`, thumbnail via `DataReader` (≤ 4 MB) |
-| `GlobalHotkey` + `Hotkey` + `Shortcuts` | Every global shortcut (D-022): `Shortcuts.From(settings)` gives id 1 = cycle output (default Win+Alt+A, D-020), 2 + row = device row; `Set(id → chord)` re-registers all and returns `Errors` by id; `Pause` while any Settings recorder has focus (D-021); `Pressed(id)` → App: cycle picks `DeviceCycle.Next`, a device row `Shortcuts.Press` → `SetDefault`, or the OSD (`OsdReason.Hotkey`) when already default / nothing to cycle to, plus a "Not connected" event line (`DeviceNotice.Absent`) when the device isn't active | Message-only window, `RegisterHotKey` + `MOD_NOREPEAT`, `SendMessage` to hand over a new chord |
+| `GlobalHotkey` + `Hotkey` + `Shortcuts` | Every global shortcut (D-022): `Shortcuts.From(settings)` gives id 1 = cycle output (default Win+Alt+A, D-020), 2 + row = device row; `Set(id → chord)` re-registers all and returns `Errors` by id; `Pause` while any Settings recorder has focus (D-021); `Pressed(id)` → App: cycle picks `DeviceCycle.Next`, a device row `Shortcuts.Press` → `SetDefault`, or the OSD (`OsdReason.Hotkey`) when already default / nothing to cycle to. An inactive device goes to `DeviceConnector`; the event line answers with `DeviceNotice.Answer` (`PressAnswer`): "Connecting…", "Couldn't connect" (timeout) or "Not connected" (nothing took the request) | Message-only window, `RegisterHotKey` + `MOD_NOREPEAT`, `SendMessage` to hand over a new chord |
 | `SettingsStore` + `AppSettings` | `%LOCALAPPDATA%\DazeMediaOsd\settings.json` (`version` 1): position, hide-after seconds (1–10), mic row on/off, media row on/off (`showMedia`), pop on device connect (`showOnDeviceConnect`, D-013), cycle-output shortcut (`cycleOutputHotkey`, canonical "Win+Alt+A", "" = off, a typo → default; D-020), device shortcuts (`deviceHotkeys`: id, flow, last-known name, chord; bad or already-used chord → "", D-022); all four added without a version bump: missing → constructor default, X-003. Saves on every change (temp file + move); missing → defaults, unparsable → defaults + copy to `settings.invalid.json`; out-of-range values clamped (`Normalize`). A failed save keeps the change for the session and sets `SaveError`; the settings window shows it in an InfoBar | `System.Text.Json` source-gen (AOT-safe), enums as names (`"TopRight"`), relaxed escaping so `+` stays readable |
 | `OsdWindow` + `OverlayWindow` | Render `OsdState` (device event line, media cover/title/artist/play state, output name/level/mute, mic name/level/mute; row glyph by device kind, D-017), fade/slide in and out (`OsdAnimation`, D-012), auto-hide after the configured time, at the configured position in the primary work area (`OsdPlacement`, 24 DIP margin) (D-008) | WinUI 3 `Window`, `OverlappedPresenter.SetBorderAndTitleBar(true,false)`, `DesktopAcrylicController`, `SetWindowPos(SWP_NOACTIVATE)` |
 | `SettingsWindow` | Fluent settings UI, created on open, destroyed on close; one at a time (D-010). Pages OSD, Shortcuts (cycle card, device rows: picker from `Endpoints` through `DeviceChoices` plus the row's own device as "Not connected", `HotkeyRecorder`, remove; a chord in use is refused with a note, D-022), About. `AppSettings` compares `deviceHotkeys` by value (custom `Equals`) | WinUI 3 `NavigationView` + `TitleBar`, Mica, CommunityToolkit.Mvvm partial `[ObservableProperty]` |
@@ -99,8 +102,9 @@ unit-tested with fakes. App never P/Invokes directly; window styling goes throug
   arguments (pointers die with the call) and post to it — Register/Unregister must never run inside a
   Core Audio callback. `Changed` is raised on that worker.
 - `RawInputKeySource` runs its own thread + message-only window; `KeyPressed` is raised there. So does
-  `GlobalHotkey` (`Pressed`); App cycles / switches right there, off the UI thread, since `Endpoints` waits on the
-  audio worker. The settings window reads `Endpoints` on the UI thread, only on open and on "Add shortcut".
+  `GlobalHotkey` (`Pressed`); App cycles / switches / connects right there, off the UI thread, since `Endpoints`
+  and `Connect` wait (≤ 2 s) on the audio worker. `DeviceConnector` switches from the worker (`Changed`) and
+  raises `TimedOut` on a timer thread. The settings window reads `Endpoints` on the UI thread, only on open and on "Add shortcut".
 - `TrayIcon` runs its own thread + hidden **top-level** window (a message-only window misses the
   `TaskbarCreated` and `WM_SETTINGCHANGE` broadcasts); `ExitRequested` is raised there. Building the menu
   calls `IAudioService.Endpoints`, which waits (≤ 2 s) on the Core Audio worker — run inline when called from it.
@@ -141,6 +145,14 @@ unit-tested with fakes. App never P/Invokes directly; window styling goes throug
   Smart Sound machine offloaded BT endpoints report enumerator INTELAUDIO; see D-014 for the BT test.
   Without a default switch (23:27): headphones + headset 80 ms apart → one burst, one show. USB bursts
   not observed yet.
+- Bluetooth connect (D-023, 2026-10-23): offloaded endpoints' KS filter is `intcbttoporender_…` /
+  `intcbttopocapture_…` on the INTELAUDIO adapter; the old non-offloaded endpoint of the same device
+  (bthenum filter) lives on as not present. All share the device's `PKEY_Device_ContainerId`; built-in
+  devices share `00000000-0000-0000-ffff-ffffffffffff`. One-shot reconnect/disconnect returns at once; only
+  the hands-free filter acts (X-005). Disconnected endpoints flip between unplugged (4) and not present (8),
+  and stay not present after a Windows "Disconnect". The Technics reconnect on their own ~20 s after a
+  probe disconnect, not after a Windows one. Some old pairings' filters are gone (0x80070002/3, thrown as
+  .NET IO exceptions, not `COMException`).
 - Raw input registration is per process and per device class. WinUI doesn't register keyboard raw
   input: with the settings window focused, typing in its NumberBox works and volume keys still reach
   `RawInputKeySource` (2026-10-22). Re-check if anything else registers 0x01/0x06 in this process.

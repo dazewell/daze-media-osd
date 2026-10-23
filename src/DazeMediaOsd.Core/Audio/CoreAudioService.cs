@@ -6,6 +6,7 @@ using Windows.Win32;
 using Windows.Win32.Foundation;
 using Windows.Win32.Media.Audio;
 using Windows.Win32.Media.Audio.Endpoints;
+using Windows.Win32.Media.KernelStreaming;
 using Windows.Win32.System.Com;
 using Windows.Win32.System.Com.StructuredStorage;
 
@@ -109,6 +110,192 @@ public sealed class CoreAudioService : IAudioService
                 Marshal.ReleaseComObject(policy);
             }
         });
+    }
+
+    public ConnectResult Connect(string id)
+    {
+        ArgumentNullException.ThrowIfNull(id);
+        if (Thread.CurrentThread == _worker)
+            return TryConnect(id);
+        var result = new TaskCompletionSource<ConnectResult>();
+        if (!Post(() => result.SetResult(TryConnect(id))))
+            return ConnectResult.NotSupported; // disposed
+        if (result.Task.Wait(TimeSpan.FromSeconds(2)))
+            return result.Task.Result;
+        // Still queued or still asking: the request may yet go out, so a later connect still switches.
+        Log.Info($"connecting {id} timed out");
+        return ConnectResult.Requested;
+    }
+
+    private ConnectResult TryConnect(string id)
+    {
+        try
+        {
+            return RequestConnect(id);
+        }
+        catch (Exception e) when (e is not OutOfMemoryException)
+        {
+            // The endpoint or a sibling vanished while being read.
+            Log.Info($"connecting {id}: failed ({e.GetType().Name} 0x{e.HResult:X8})");
+            return ConnectResult.NotSupported;
+        }
+    }
+
+    // Asks the endpoint and its inactive siblings (same container: the same headset's other profile). On
+    // Intel Smart Sound the offloaded A2DP endpoint accepts the request and does nothing; the hands-free one
+    // connects the whole device. A disconnected device's endpoints flip between unplugged and not present
+    // (after a Windows "Disconnect" too), and both take the request (D-023). An unpaired device's
+    // endpoints fail it, so not present is tried too.
+    private ConnectResult RequestConnect(string id)
+    {
+        var device = DeviceById(id);
+        if (device is null)
+            return ConnectResult.NotSupported; // never existed here, or unpaired and gone
+        Guid? container;
+        try
+        {
+            device.GetState(out var state);
+            if (state == DEVICE_STATE.DEVICE_STATE_ACTIVE)
+                return ConnectResult.AlreadyConnected;
+            if (state == DEVICE_STATE.DEVICE_STATE_DISABLED)
+            {
+                Log.Info($"connecting {id}: disabled, left alone");
+                return ConnectResult.NotSupported;
+            }
+            container = ContainerId(device);
+        }
+        finally
+        {
+            Marshal.ReleaseComObject(device);
+        }
+
+        var asked = new List<string> { id };
+        if (container is { } shared && shared != LocalMachine)
+        {
+            _enumerator!.EnumAudioEndpoints(
+                EDataFlow.eAll, DEVICE_STATE.DEVICE_STATE_UNPLUGGED | DEVICE_STATE.DEVICE_STATE_NOTPRESENT, out var devices);
+            try
+            {
+                devices.GetCount(out var count);
+                for (uint i = 0; i < count; i++)
+                {
+                    devices.Item(i, out var sibling);
+                    try
+                    {
+                        if (ContainerId(sibling) == shared && DeviceId(sibling) is var siblingId && siblingId != id)
+                            asked.Add(siblingId);
+                    }
+                    finally
+                    {
+                        Marshal.ReleaseComObject(sibling);
+                    }
+                }
+            }
+            finally
+            {
+                Marshal.ReleaseComObject(devices);
+            }
+        }
+
+        var requested = 0;
+        foreach (var endpoint in asked)
+        {
+            try
+            {
+                SendReconnect(endpoint);
+                requested++;
+            }
+            catch (Exception e) when (e is not OutOfMemoryException)
+            {
+                // A driver without KSPROPSETID_BtAudio (wired, USB) answers with an error HRESULT; an old
+                // pairing's offload filter is gone (0x80070002/3, which .NET throws as IO exceptions).
+                Log.Info($"connecting {endpoint}: not supported ({e.GetType().Name} 0x{e.HResult:X8})");
+            }
+        }
+        Log.Info($"connecting {id}: requested on {requested} of {asked.Count} endpoint(s)");
+        return requested > 0 ? ConnectResult.Requested : ConnectResult.NotSupported;
+    }
+
+    // The documented route to a filter's IKsControl: endpoint topology → connector → the adapter's KS filter
+    // as an IMMDevice → Activate. KSPROPERTY_ONESHOT_RECONNECT is what Sound control panel's "Connect" sends;
+    // it only starts the connection and returns at once.
+    private unsafe void SendReconnect(string id)
+    {
+        IMMDevice? device = null;
+        IDeviceTopology? topology = null;
+        IConnector? connector = null;
+        IMMDevice? filter = null;
+        IKsControl? control = null;
+        try
+        {
+            _enumerator!.GetDevice(id, out device);
+            var iid = typeof(IDeviceTopology).GUID;
+            device.Activate(&iid, CLSCTX.CLSCTX_ALL, null, out var activated);
+            topology = (IDeviceTopology)activated;
+            topology.GetConnector(0, out connector);
+            PWSTR filterId;
+            connector.GetDeviceIdConnectedTo(&filterId);
+            try
+            {
+                _enumerator.GetDevice(filterId.ToString(), out filter);
+            }
+            finally
+            {
+                Marshal.FreeCoTaskMem((nint)filterId.Value);
+            }
+            iid = typeof(IKsControl).GUID;
+            filter.Activate(&iid, CLSCTX.CLSCTX_ALL, null, out activated);
+            control = (IKsControl)activated;
+
+            var property = default(KSIDENTIFIER);
+            property.Set = typeof(KSPROPSETID_BtAudio).GUID;
+            property.Id = (uint)KSPROPERTY_BTAUDIO.KSPROPERTY_ONESHOT_RECONNECT;
+            property.Flags = PInvoke.KSPROPERTY_TYPE_GET;
+            control.KsProperty(&property, (uint)sizeof(KSIDENTIFIER), null, 0, out _);
+        }
+        finally
+        {
+            foreach (var com in (ReadOnlySpan<object?>)[control, filter, connector, topology, device])
+            {
+                if (com is not null)
+                    Marshal.ReleaseComObject(com);
+            }
+        }
+    }
+
+    // Built-in devices all share this container; it says nothing about which endpoints belong together.
+    private static readonly Guid LocalMachine = new("00000000-0000-0000-ffff-ffffffffffff");
+
+    /// <summary>PKEY_Device_ContainerId: one per physical device, shared by its endpoints; null if unreadable.</summary>
+    private static unsafe Guid? ContainerId(IMMDevice device)
+    {
+        try
+        {
+            device.OpenPropertyStore(STGM.STGM_READ, out var store);
+            try
+            {
+                var key = PInvoke.PKEY_Device_ContainerId;
+                store.GetValue(&key, out var value);
+                try
+                {
+                    return value.vt == Windows.Win32.System.Variant.VARENUM.VT_CLSID && value.puuid is not null
+                        ? *value.puuid
+                        : null;
+                }
+                finally
+                {
+                    PInvoke.PropVariantClear(ref value);
+                }
+            }
+            finally
+            {
+                Marshal.ReleaseComObject(store);
+            }
+        }
+        catch (COMException)
+        {
+            return null;
+        }
     }
 
     private List<AudioEndpoint> TryReadEndpoints(EndpointFlow flow)
@@ -381,7 +568,7 @@ public sealed class CoreAudioService : IAudioService
                 _active.Remove(id);
             Log.Info($"audio device {(isActive ? "connected" : "disconnected")}: {flow} \"{name}\"{(bluetooth ? " bluetooth" : "")}");
             Raise(_current, flow, isActive ? AudioChangeKind.DeviceConnected : AudioChangeKind.DeviceDisconnected,
-                new DeviceEvent(name, flow, isActive, bluetooth, kind));
+                new DeviceEvent(name, flow, isActive, bluetooth, kind, id));
         }
         finally
         {

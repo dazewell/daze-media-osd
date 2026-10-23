@@ -18,6 +18,17 @@ public class DeviceNoticeTests
     [Fact]
     public void NoEventsNoNotice() => Assert.Null(DeviceNotice.Summarize([]));
 
+    [Theory]
+    [InlineData(PressAnswer.NotConnected, false)]
+    [InlineData(PressAnswer.Connecting, true)]
+    [InlineData(PressAnswer.ConnectFailed, true)]
+    public void PressAnswersKeepTheStoredNameAndShowBluetoothOnlyWhenAsked(PressAnswer answer, bool bluetooth)
+    {
+        var notice = DeviceNotice.ForPress("Headphones (Technics EAH-AZ80)", EndpointFlow.Output, answer);
+
+        Assert.Equal(new DeviceNotice("Headphones (Technics EAH-AZ80)", EndpointFlow.Output, false, bluetooth, Answer: answer), notice);
+    }
+
     [Fact]
     public void BluetoothEndpointsMergeIntoTheProduct()
     {

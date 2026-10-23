@@ -336,7 +336,7 @@ Supersedes: D-020 (only the typed text box and its "why not a key-capture box")
   not saved; Reset restored Win+Alt+A and registered it once focus left.
 
 ## D-022 · 2026-10-23 · A hotkey per device: one `GlobalHotkey` with an id per chord, rows on a Shortcuts page
-Status: accepted
+Status: accepted; "not active → no switch" superseded for paired Bluetooth devices by D-023
 Supersedes: D-020 (only "one chord": `GlobalHotkey` now takes ids, its revisit-if)
 - Decision: `deviceHotkeys: [{ id, flow, name, hotkey }]` in `settings.json`; `name` is the last-known
   friendly name (refreshed when Settings opens), so an unplugged device still reads right. `Normalize`
@@ -359,3 +359,25 @@ Supersedes: D-020 (only "one chord": `GlobalHotkey` now takes ids, its revisit-i
   "Not connected", no switch; Ctrl+Alt+F9 recorded in a second row and in the cycle box refused with
   the note; remove re-registered the rest; closing Settings with a box focused resumed the shortcuts.
 - Revisit if: users want shortcuts for other actions (input cycle, mute mic): add kinds to `Shortcut`.
+
+## D-023 · 2026-10-23 · A device shortcut connects a paired Bluetooth device through `KSPROPERTY_ONESHOT_RECONNECT`
+Status: accepted
+Supersedes: D-022 (only "not active → no switch", for devices that take the request)
+- Decision: a press on an inactive device calls `IAudioService.Connect`: endpoint topology → connector →
+  KS filter as `IMMDevice` → `IKsControl`, `KSPROPSETID_BtAudio` / `KSPROPERTY_ONESHOT_RECONNECT` (GET, no
+  data) sent to the endpoint and every inactive sibling with the same `PKEY_Device_ContainerId` (not the
+  built-in "local machine" container). Only disabled endpoints are refused. `DeviceConnector` then waits
+  ≤ 15 s for that endpoint's `DeviceConnected` and calls `SetDefault`. OSD event line: "Connecting…", then
+  the usual connect show; "Couldn't connect" on timeout; "Not connected" when no endpoint took the request.
+- Why: the user wants the device's shortcut to bring it in (2026-10-23). Documented property (ksmedia.h),
+  what Sound control panel's "Connect" sends; no admin, no injection; returns at once.
+- Why the siblings: on Intel Smart Sound the offloaded A2DP endpoint accepts it and does nothing (X-005);
+  the hands-free one connects the whole device. Why not only unplugged: after a Windows "Disconnect" the
+  endpoints sit in not present, and still take the request.
+- Why not `Windows.Devices.Bluetooth` or `BluetoothSetServiceState`: no "connect profile" API in the first;
+  the second re-installs services and needs admin.
+- Verified on 26300 with Technics EAH-AZ80: after a probe disconnect, Win+Ctrl+Alt+T → connected 2.9 s
+  later, made default; after a Windows "Disconnect" (2+ min, no auto-reconnect) → 9 s. Old pairings
+  (SOUNDPEATS H3, WF-C710N, AZ40M2) have no reachable filter (0x80070002/3) → "Not connected".
+- Revisit if: a driver update stops the hands-free endpoint connecting (`spikes/BtProbe list` / `connect`),
+  or a connect regularly takes > 15 s.

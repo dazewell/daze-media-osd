@@ -29,7 +29,8 @@ this file and know what to build next. History of *why* lives in [DECISIONS.md](
 - Fail-open: if the app is closed or crashes, the native OSD keeps working.
 - Next features, picked from the PR #8 survey (user, 2026-10-23): **device-type icons** on the output
   and input rows, and **quick switching** of the default output/input device. Then **a hotkey per
-  device**: one press makes that device the default (user, 2026-10-23).
+  device**: one press makes that device the default (user, 2026-10-23). A press on a paired Bluetooth
+  device that isn't connected connects it first (user, 2026-10-23).
 
 ## Later (not v1)
 
@@ -92,15 +93,22 @@ this file and know what to build next. History of *why* lives in [DECISIONS.md](
   Mix by chord; already default → OSD; Stereo Mix disabled → "Not connected" line, no switch; duplicate
   chords refused with a note (2026-10-23)
 
-**Next step:** the user tries Plan C on the daily driver (set real device shortcuts, live with them a
-day). Then pick the next feature from the PR #8 survey with the user. When convenient: the headset glyph
+- [x] Bluetooth connect on a device shortcut (D-023): inactive device → `KSPROPERTY_ONESHOT_RECONNECT` to all
+  its endpoints, switch once connected; "Connecting…" / "Couldn't connect" / "Not connected" line. Seen:
+  Technics after a probe disconnect (2.9 s) and after a Windows "Disconnect" (9 s), made default
+  (2026-10-23). Not seen: the OSD lines on screen (log only), a non-Intel-offload Bluetooth adapter
+
+**Next step:** the user tries Plan C and Bluetooth connect (D-023) on the daily driver (real device
+shortcuts, presses while the headphones are off or disconnected, live with them a day). Then pick the next feature from the PR #8 survey with the user. When convenient: the headset glyph
 (Technics hands-free as default mic) and the monitor glyph (Dell over DisplayPort).
 
 Plan B (quick switching) is done: tray menu (D-019), cycle-output hotkey (D-020, D-021). Its third
 surface, clicking a device row in the OSD, was dropped (Non-goals).
 
-Plan C (a hotkey per device) is done (D-022). An unplugged device's press shows "<name> · Not
-connected" on the event line and doesn't switch (user, 2026-10-23).
+Plan C (a hotkey per device) is done (D-022). A paired Bluetooth device that isn't connected gets
+connected, then switched to (D-023); a device that can't be asked (wired, unpaired, old pairing) shows
+"<name> · Not connected" and doesn't switch (user, 2026-10-23). A tray Output/Input pick doesn't cancel a pending
+connect (only shortcuts do); the user left that for now (2026-10-23).
 
 When convenient: autostart at sign-in (log `launcher: started app` right after one), a USB audio
 device (one show per connect/disconnect, D-013/D-014/D-016), OSD + settings window in light theme,
