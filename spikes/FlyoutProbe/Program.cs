@@ -3,8 +3,9 @@
 //
 //   dotnet run --project spikes/FlyoutProbe -- watch      log every top-level window event around a mute-key press
 //   dotnet run --project spikes/FlyoutProbe -- suppress   hide the flyout host each time it is shown
+//   dotnet run --project spikes/FlyoutProbe -- manual     like suppress, but no synthetic keys: press real ones for 30 s
 //
-// Each run presses Mute twice (net zero), takes screenshots into ./probe-out and prints a timeline.
+// watch/suppress press Mute twice per round (net zero), take screenshots into ./probe-out and print a timeline.
 using System.Diagnostics;
 using System.IO;
 using System.Drawing;
@@ -40,7 +41,13 @@ static class Program
             WINEVENT_OUTOFCONTEXT | WINEVENT_SKIPOWNPROCESS);
         Log($"hook={hook}");
 
-        var steps = new (int at, Action act)[]
+        var steps = _mode == "manual"
+            ? new (int at, Action act)[]
+            {
+                (10,    () => Log("=== press real volume keys now; suppressing for 30 s")),
+                (30000, () => { DumpHosts("end"); Application.Exit(); }),
+            }
+            : new (int at, Action act)[]
         {
             (800,  () => PressMute("press#1")),
             (1100, () => PressMute("press#2 (restores mute state)")),
@@ -75,7 +82,7 @@ static class Program
 
         Log($"{EvName(ev),-9} {Describe(hwnd)}");
 
-        if (_mode == "suppress" && ev == EVENT_OBJECT_SHOW && IsVolumeHost(hwnd))
+        if (_mode is "suppress" or "manual" && ev == EVENT_OBJECT_SHOW && IsVolumeHost(hwnd))
         {
             ShowWindowAsync(hwnd, 0 /*SW_HIDE*/);
             Log($"   -> SW_HIDE sent ({Clock.ElapsedMilliseconds - _lastKeyMs} ms after key)");

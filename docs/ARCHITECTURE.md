@@ -89,4 +89,4 @@ unit-tested with fakes. App never P/Invokes directly except window styling.
   ms (fails at 0 %/100 % where no change fires). UIA can't read the island content (X-001). Not tested:
   brightness keys aren't scriptable on the dev machine.
 - **Q5:** SW_HIDE lands 4–14 ms after SHOW — check by eye whether the native flyout's first frame
-  flashes (`FlyoutProbe suppress` + a real key press). If it does, revisit D-005.
+  flashes (`FlyoutProbe manual` + real key presses). If it does, revisit D-005.
