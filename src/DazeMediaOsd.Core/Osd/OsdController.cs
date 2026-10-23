@@ -31,8 +31,12 @@ public sealed class OsdController : IDisposable
     private readonly Lock _deviceGate = new();
     private ITimer? _deviceTimer;
     private OsdReason _deviceReason;
+    private readonly List<DeviceEvent> _deviceEvents = [];
     private bool _devicePending;
     private long _deviceArmedAt;
+    private long _burstStartedAt;
+    private DeviceNotice? _announced;
+    private long _announcedAt;
     private bool _disposed;
 
     public OsdController(IAudioService audio, IKeySource keys, IMediaService media, TimeProvider? time = null)
@@ -64,14 +68,18 @@ public sealed class OsdController : IDisposable
         switch (OsdRules.ReasonToShow(e))
         {
             case (OsdReason.DeviceConnected or OsdReason.DeviceDisconnected) and var reason:
-                DeferDeviceShow(reason);
+                DeferDeviceShow(reason, e.Device);
                 break;
             case (OsdReason.OutputDeviceChanged or OsdReason.InputDeviceChanged) and var reason:
-                // It shows the new default right away; a pending device show would only repeat it.
+                // It shows the new default right away; a pending device show would only repeat it, so this
+                // show announces the device instead (D-014).
                 lock (_deviceGate)
                 {
+                    var device = _devicePending ? TakeDeviceNotice() : null;
                     _devicePending = false;
-                    Request(OsdState.From(e.Current, _media.Current, reason));
+                    if (device is not null)
+                        (_announced, _announcedAt) = (device, _time.GetTimestamp());
+                    Request(OsdState.From(e.Current, _media.Current, reason) with { Device = device });
                 }
                 break;
             case { } reason:
@@ -80,12 +88,19 @@ public sealed class OsdController : IDisposable
         }
     }
 
-    private void DeferDeviceShow(OsdReason reason)
+    private void DeferDeviceShow(OsdReason reason, DeviceEvent? device)
     {
         lock (_deviceGate)
         {
             if (_disposed)
                 return;
+            if (!_devicePending)
+            {
+                _deviceEvents.Clear(); // a new burst
+                _burstStartedAt = _time.GetTimestamp();
+            }
+            if (device is not null)
+                _deviceEvents.Add(device);
             _deviceReason = reason; // the last one of a burst names it
             _devicePending = true;
             _deviceArmedAt = _time.GetTimestamp();
@@ -94,7 +109,7 @@ public sealed class OsdController : IDisposable
         }
     }
 
-    // Reads the state now, after the burst: the current defaults, not the device that came or went.
+    // Reads the state now, after the burst: the current defaults, plus the device(s) that came or went.
     // The flags, not the timer, decide: a callback already queued when the show was cancelled, re-armed
     // or disposed still runs.
     private void OnDeviceSettled()
@@ -110,8 +125,31 @@ public sealed class OsdController : IDisposable
                 return;
             }
             _devicePending = false;
-            Request(Snapshot(_deviceReason));
+            var device = TakeDeviceNotice();
+            if (RepeatsAnnounced(device))
+                return;
+            if (device is not null)
+                (_announced, _announcedAt) = (device, _time.GetTimestamp());
+            Request(Snapshot(_deviceReason) with { Device = device });
         }
+    }
+
+    // A Bluetooth headset's second endpoint often comes 30–900 ms after the first, after that one's show (a
+    // default switch, or a settled burst) already announced the device: a burst that began within
+    // DeviceSettle of announcing the same device doing the same thing only repeats it (D-014).
+    private bool RepeatsAnnounced(DeviceNotice? device) =>
+        device is not null
+        && _announced is { } announced
+        && string.Equals(announced.Name, device.Name, StringComparison.OrdinalIgnoreCase)
+        && announced.Connected == device.Connected
+        && _time.GetElapsedTime(_announcedAt, _burstStartedAt) < DeviceSettle;
+
+    // Caller holds _deviceGate.
+    private DeviceNotice? TakeDeviceNotice()
+    {
+        var notice = DeviceNotice.Summarize(_deviceEvents);
+        _deviceEvents.Clear();
+        return notice;
     }
 
     // The key arrives before Windows applies it, so this state may still show the old level; the

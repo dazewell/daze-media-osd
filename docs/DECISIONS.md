@@ -171,7 +171,7 @@ Status: accepted
   layered alpha (then: fade content only, or drop the animation).
 
 ## D-013 · 2026-10-22 · Any audio device connect/disconnect pops the OSD, once per burst
-Status: accepted
+Status: superseded by D-014 (the OSD now names the device; the burst rule stands)
 Supersedes: D-011 (adds device connect/disconnect; its key and media rules stand)
 - Decision: an endpoint of either flow becoming active or inactive pops the OSD, default or not
   (`AudioChangeKind.DeviceConnected/Disconnected`). `CoreAudioService` keeps the set of active endpoint
@@ -189,3 +189,33 @@ Supersedes: D-011 (adds device connect/disconnect; its key and media rules stand
   ~510 ms after the event. Not verified: a real Bluetooth/USB connect (burst timing).
 - Revisit if: a Bluetooth connect shows twice or noticeably late in daily use (tune `DeviceSettle`), or
   apps that create virtual endpoints on the fly (e.g. voice chat) cause popups.
+
+## D-014 · 2026-10-22 · Device connect/disconnect: one event line at the top of the OSD
+Status: accepted
+Supersedes: D-013 (adds what the show says and drops repeated bursts; when it pops is unchanged)
+- Decision: a device show carries `OsdState.Device` (`DeviceNotice`: name, flow, connected, Bluetooth,
+  others), rendered as one header line above the media/device rows: Fluent glyph (Bluetooth E702, else
+  speaker E7F5 / mic E720), the name, "Connected" in accent or "Disconnected" in secondary text, then a
+  hairline. Only the show that announces it has the line; the next show clears it, a media `Refresh`
+  keeps it (a disconnect often pauses the player). A default switch that cancels the pending show
+  carries the notice. A burst's endpoints merge by product — the trailing "(…)" of the name — and
+  Bluetooth or multi-endpoint products show just that ("WH-1000XM5"); a single wired endpoint keeps its
+  full name ("Stereo Mix (Realtek(R) Audio)", whose "(…)" is the sound card). A burst that starts within
+  `DeviceSettle` of announcing the same device doing the same thing is dropped. Line fades in, glyph
+  scales 0.6→1, off with "Animation effects".
+- Why: the user found the D-013 popup didn't say what happened and asked for the event "in a nice and
+  fancy way without cluttering" (2026-10-22). One line in the existing 4-px grid reuses the row
+  columns, so it reads as part of the OSD. The repeat drop: a real Technics EAH-AZ80 (log, 2026-10-22)
+  popped twice per connect/disconnect — default switch 41 ms after the headphones endpoint, then the
+  hands-free endpoint 33–930 ms later started a new burst.
+- Bluetooth test: on this Intel Smart Sound machine offloaded endpoints (all hands-free, some A2DP) have
+  `PKEY_Device_EnumeratorName` = INTELAUDIO; the BTHENUM instance id is in undocumented
+  `{b3f8fa53-0004-438e-9003-51a46e139bfc}` pid 2 (native) or 39 (offloaded). Checked all three; a miss
+  only costs the glyph.
+- Why not a toast / separate card / per-endpoint rows: toasts go to the notification centre and can
+  take focus; a card or rows double the OSD for one fact. Why not a different window or badge on the
+  device row: the device that came may not be the default, so it has no row. Why not
+  `PKEY_DeviceInterface_FriendlyName` for the product: same result as the "(…)" parse on every endpoint
+  here, one more property read, and the parse is unit-testable.
+- Revisit if: a device with an unhelpful "(…)" merges with another, the drop hides a real second
+  device, or a Bluetooth endpoint shows the speaker glyph (log line lacks `bluetooth`).

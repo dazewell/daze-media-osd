@@ -35,13 +35,22 @@ public enum AudioChangeKind
     DeviceDisconnected,
 }
 
-public sealed class AudioChangedEventArgs(AudioSnapshot previous, AudioSnapshot current, EndpointFlow flow, AudioChangeKind kind)
+/// <summary>
+/// One endpoint that connected or disconnected. <paramref name="Name"/> is its friendly name ("" when it
+/// could no longer be read); <paramref name="Bluetooth"/> when a Bluetooth enumerator created it.
+/// </summary>
+public sealed record DeviceEvent(string Name, EndpointFlow Flow, bool Connected, bool Bluetooth);
+
+public sealed class AudioChangedEventArgs(
+    AudioSnapshot previous, AudioSnapshot current, EndpointFlow flow, AudioChangeKind kind, DeviceEvent? device = null)
     : EventArgs
 {
     public AudioSnapshot Previous { get; } = previous;
     public AudioSnapshot Current { get; } = current;
     public EndpointFlow Flow { get; } = flow;
     public AudioChangeKind Kind { get; } = kind;
+    /// <summary>The endpoint that came or went; set for DeviceConnected/DeviceDisconnected only.</summary>
+    public DeviceEvent? Device { get; } = device;
 }
 
 public interface IAudioService : IDisposable

@@ -262,6 +262,142 @@ public class OsdControllerTests
         Assert.Empty(shown);
     }
 
+    [Fact]
+    public void BluetoothBurstShowsOneNamedDevice()
+    {
+        var headphones = new EndpointState("out-2", "Headphones (WH-1000XM5)", 0.4f, false);
+        using var audio = new FakeAudio { Current = new AudioSnapshot(Speakers, Mic) };
+        using var keys = new FakeKeys();
+        var time = new ManualTime();
+        using var controller = new OsdController(audio, keys, new FakeMedia(), time);
+        var shown = Record(controller);
+
+        audio.Device(new DeviceEvent("Headphones (WH-1000XM5)", EndpointFlow.Output, true, true));
+        audio.Device(new DeviceEvent("Headset (WH-1000XM5)", EndpointFlow.Input, true, true));
+        audio.Current = new AudioSnapshot(headphones, Mic);
+        time.Advance(OsdController.DeviceSettle);
+
+        var notice = new DeviceNotice("WH-1000XM5", EndpointFlow.Output, Connected: true, Bluetooth: true);
+        Assert.Equal([new OsdState(headphones, Mic, null, OsdReason.DeviceConnected, notice)], shown);
+    }
+
+    [Fact]
+    public void DefaultSwitchDuringSettleCarriesTheDevice()
+    {
+        var headphones = new EndpointState("out-2", "Headphones (WH-1000XM5)", 0.4f, false);
+        using var audio = new FakeAudio { Current = new AudioSnapshot(Speakers, Mic) };
+        using var keys = new FakeKeys();
+        var time = new ManualTime();
+        using var controller = new OsdController(audio, keys, new FakeMedia(), time);
+        var shown = Record(controller);
+
+        audio.Device(new DeviceEvent("Headphones (WH-1000XM5)", EndpointFlow.Output, true, true));
+        audio.Change(new AudioSnapshot(headphones, Mic), EndpointFlow.Output, AudioChangeKind.DefaultDevice);
+        time.Advance(OsdController.DeviceSettle * 2);
+
+        var notice = new DeviceNotice("WH-1000XM5", EndpointFlow.Output, Connected: true, Bluetooth: true);
+        Assert.Equal([new OsdState(headphones, Mic, null, OsdReason.OutputDeviceChanged, notice)], shown);
+    }
+
+    [Fact]
+    public void DefaultSwitchWithoutPendingDeviceHasNoNotice()
+    {
+        var headphones = new EndpointState("out-2", "Headphones", 0.4f, false);
+        using var audio = new FakeAudio { Current = new AudioSnapshot(Speakers, Mic) };
+        using var keys = new FakeKeys();
+        var time = new ManualTime();
+        using var controller = new OsdController(audio, keys, new FakeMedia(), time);
+        var shown = Record(controller);
+
+        audio.Device(new DeviceEvent("Stereo Mix (Realtek(R) Audio)", EndpointFlow.Input, true, false));
+        time.Advance(OsdController.DeviceSettle); // shown with the notice; the burst is over
+        audio.Change(new AudioSnapshot(headphones, Mic), EndpointFlow.Output, AudioChangeKind.DefaultDevice);
+        keys.Press(MediaKey.VolumeUp);
+
+        Assert.Equal(["Stereo Mix (Realtek(R) Audio)", null, null], shown.Select(s => s.Device?.Name));
+    }
+
+    [Fact]
+    public void NextBurstStartsEmpty()
+    {
+        using var audio = new FakeAudio { Current = new AudioSnapshot(Speakers, Mic) };
+        using var keys = new FakeKeys();
+        var time = new ManualTime();
+        using var controller = new OsdController(audio, keys, new FakeMedia(), time);
+        var shown = Record(controller);
+
+        audio.Device(new DeviceEvent("Stereo Mix (Realtek(R) Audio)", EndpointFlow.Input, true, false));
+        time.Advance(OsdController.DeviceSettle);
+        audio.Device(new DeviceEvent("Stereo Mix (Realtek(R) Audio)", EndpointFlow.Input, false, false));
+        time.Advance(OsdController.DeviceSettle);
+
+        Assert.Equal(
+            [new DeviceNotice("Stereo Mix (Realtek(R) Audio)", EndpointFlow.Input, true, false),
+             new DeviceNotice("Stereo Mix (Realtek(R) Audio)", EndpointFlow.Input, false, false)],
+            shown.Select(s => s.Device));
+    }
+
+    // Real Technics EAH-AZ80 connect (log, 2026-10-22): headphones, default switch 41 ms later, hands-free
+    // endpoint 33 ms after that. One show, announcing the device with the new default.
+    [Fact]
+    public void SecondEndpointAfterDefaultSwitchDoesNotRepeat()
+    {
+        var headphones = new EndpointState("out-2", "Headphones (Technics EAH-AZ80)", 0.34f, false);
+        using var audio = new FakeAudio { Current = new AudioSnapshot(Speakers, Mic) };
+        using var keys = new FakeKeys();
+        var time = new ManualTime();
+        using var controller = new OsdController(audio, keys, new FakeMedia(), time);
+        var shown = Record(controller);
+
+        audio.Device(new DeviceEvent("Headphones (Technics EAH-AZ80)", EndpointFlow.Output, true, true));
+        time.Advance(TimeSpan.FromMilliseconds(41));
+        audio.Change(new AudioSnapshot(headphones, Mic), EndpointFlow.Output, AudioChangeKind.DefaultDevice);
+        time.Advance(TimeSpan.FromMilliseconds(33));
+        audio.Device(new DeviceEvent("Headset (Technics EAH-AZ80)", EndpointFlow.Input, true, true));
+        time.Advance(OsdController.DeviceSettle * 2);
+
+        var notice = new DeviceNotice("Technics EAH-AZ80", EndpointFlow.Output, true, true);
+        Assert.Equal([new OsdState(headphones, Mic, null, OsdReason.OutputDeviceChanged, notice)], shown);
+    }
+
+    // Real disconnect: hands-free endpoint 930 ms after the headphones, i.e. after their settled show.
+    [Fact]
+    public void LateSecondEndpointOfASettledBurstDoesNotRepeat()
+    {
+        using var audio = new FakeAudio { Current = new AudioSnapshot(Speakers, Mic) };
+        using var keys = new FakeKeys();
+        var time = new ManualTime();
+        using var controller = new OsdController(audio, keys, new FakeMedia(), time);
+        var shown = Record(controller);
+
+        audio.Device(new DeviceEvent("Headphones (Technics EAH-AZ80)", EndpointFlow.Output, false, true));
+        time.Advance(TimeSpan.FromMilliseconds(930));
+        audio.Device(new DeviceEvent("Headset (Technics EAH-AZ80)", EndpointFlow.Input, false, true));
+        time.Advance(OsdController.DeviceSettle * 2);
+
+        Assert.Equal([new DeviceNotice("Technics EAH-AZ80", EndpointFlow.Output, false, true)], shown.Select(s => s.Device));
+    }
+
+    [Fact]
+    public void SameDeviceAgainLaterShowsAgain()
+    {
+        using var audio = new FakeAudio { Current = new AudioSnapshot(Speakers, Mic) };
+        using var keys = new FakeKeys();
+        var time = new ManualTime();
+        using var controller = new OsdController(audio, keys, new FakeMedia(), time);
+        var shown = Record(controller);
+
+        audio.Device(new DeviceEvent("Headphones (Technics EAH-AZ80)", EndpointFlow.Output, true, true));
+        time.Advance(OsdController.DeviceSettle); // announced
+        time.Advance(OsdController.DeviceSettle); // a reconnect after the window is news again
+        audio.Device(new DeviceEvent("Headphones (Technics EAH-AZ80)", EndpointFlow.Output, true, true));
+        time.Advance(OsdController.DeviceSettle);
+        audio.Device(new DeviceEvent("Headphones (Technics EAH-AZ80)", EndpointFlow.Output, false, true));
+        time.Advance(OsdController.DeviceSettle); // the opposite direction never counts as a repeat
+
+        Assert.Equal([true, true, false], shown.Select(s => s.Device!.Connected));
+    }
+
     private static readonly MediaState Song = new("Spotify.exe", "Song", "Artist", true, null);
 
     private static List<OsdState> Record(OsdController controller)
@@ -339,12 +475,15 @@ public class OsdControllerTests
 
         public event EventHandler<AudioChangedEventArgs>? Changed;
 
-        public void Change(AudioSnapshot next, EndpointFlow flow, AudioChangeKind kind)
+        public void Change(AudioSnapshot next, EndpointFlow flow, AudioChangeKind kind, DeviceEvent? device = null)
         {
             var previous = Current;
             Current = next;
-            Changed?.Invoke(this, new AudioChangedEventArgs(previous, next, flow, kind));
+            Changed?.Invoke(this, new AudioChangedEventArgs(previous, next, flow, kind, device));
         }
+
+        public void Device(DeviceEvent device) =>
+            Change(Current, device.Flow, device.Connected ? AudioChangeKind.DeviceConnected : AudioChangeKind.DeviceDisconnected, device);
 
         public void Dispose()
         {

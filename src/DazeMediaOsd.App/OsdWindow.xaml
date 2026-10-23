@@ -50,7 +50,46 @@
                 <Setter Property="TextWrapping" Value="NoWrap" />
                 <Setter Property="MaxLines" Value="1" />
             </Style>
+            <!-- Device event line (D-014): accent for a device that came, secondary for one that went. -->
+            <Style x:Key="OsdEventIcon" TargetType="FontIcon" BasedOn="{StaticResource OsdIcon}">
+                <Setter Property="Foreground" Value="{ThemeResource AccentTextFillColorPrimaryBrush}" />
+            </Style>
+            <Style x:Key="OsdEventIconGone" TargetType="FontIcon" BasedOn="{StaticResource OsdIcon}">
+                <Setter Property="Foreground" Value="{ThemeResource TextFillColorSecondaryBrush}" />
+            </Style>
+            <Style x:Key="OsdEventStatus" TargetType="TextBlock" BasedOn="{StaticResource CaptionTextBlockStyle}">
+                <Setter Property="TextAlignment" Value="Right" />
+                <Setter Property="TextWrapping" Value="NoWrap" />
+                <Setter Property="VerticalAlignment" Value="Center" />
+                <Setter Property="Foreground" Value="{ThemeResource AccentTextFillColorPrimaryBrush}" />
+            </Style>
+            <Style x:Key="OsdEventStatusGone" TargetType="TextBlock" BasedOn="{StaticResource OsdEventStatus}">
+                <Setter Property="Foreground" Value="{ThemeResource TextFillColorSecondaryBrush}" />
+            </Style>
         </StackPanel.Resources>
+
+        <!-- Device event line, only on the show that announces a connect/disconnect (D-014). Same grid as
+             the device rows: glyph in the icon column, status where the values are. -->
+        <Grid x:Name="EventRow" Style="{StaticResource OsdRow}" Visibility="Collapsed" RowSpacing="12">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" MinWidth="20" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" MinWidth="44" />
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" MinHeight="28" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+            <!-- Hairline: the event is a header over the current state, not one more device row. -->
+            <Border Grid.Row="1" Grid.ColumnSpan="3" Height="1" Background="{ThemeResource DividerStrokeColorDefaultBrush}" />
+            <FontIcon x:Name="EventIcon" Style="{StaticResource OsdEventIcon}" RenderTransformOrigin="0.5,0.5">
+                <FontIcon.RenderTransform>
+                    <ScaleTransform x:Name="EventIconScale" />
+                </FontIcon.RenderTransform>
+            </FontIcon>
+            <TextBlock x:Name="EventName" Grid.Column="1" VerticalAlignment="Center" Style="{StaticResource OsdTitle}" />
+            <TextBlock x:Name="EventStatus" Grid.Column="2" Style="{StaticResource OsdEventStatus}" />
+        </Grid>
 
         <!-- Media row on top, like the native flyout. Same value column (44) so the play-state glyph lines
              up with the numbers below; the 40-DIP cover replaces the icon column. -->

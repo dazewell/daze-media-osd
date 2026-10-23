@@ -121,9 +121,12 @@ public sealed partial class App : Application, IDisposable
         // With the media row off a media key has nothing to show (D-011).
         if (state.Reason == OsdReason.MediaKey && _settings?.Current.ShowMedia == false)
             return;
-        if (state.Reason is OsdReason.DeviceConnected or OsdReason.DeviceDisconnected
-            && _settings?.Current.ShowOnDeviceConnect == false)
-            return;
+        if (_settings?.Current.ShowOnDeviceConnect == false)
+        {
+            if (state.Reason is OsdReason.DeviceConnected or OsdReason.DeviceDisconnected)
+                return;
+            state = state with { Device = null }; // a default switch still shows, without the event line
+        }
         Log.Info($"show {state.Describe()}");
         _window?.Show(state);
     }
