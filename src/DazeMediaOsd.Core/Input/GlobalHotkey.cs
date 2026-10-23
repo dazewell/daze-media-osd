@@ -157,8 +157,8 @@ public sealed class GlobalHotkey : IDisposable
             }
             var error = Marshal.GetLastPInvokeError();
             errors[id] = error == ErrorHotkeyAlreadyRegistered
-                ? $"{hotkey} is already used by Windows or another app. Pick another shortcut."
-                : $"Couldn't register {hotkey} (error {error}).";
+                ? $"Windows or another app already uses {hotkey}. Try another one."
+                : $"Couldn't set up {hotkey} (error {error}). Try another one.";
             Log.Info($"hotkey {hotkey} not registered: error {error}");
         }
         Errors = errors;

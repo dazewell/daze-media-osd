@@ -21,7 +21,7 @@
 
     <!-- Records the keys pressed while focused (D-021); reset and turn-off sit inside the box. -->
     <Grid VerticalAlignment="Center">
-        <TextBox x:Name="Box" IsReadOnly="True" PlaceholderText="Off" Padding="11,5,68,6"
+        <TextBox x:Name="Box" IsReadOnly="True" PlaceholderText="None" Padding="11,5,68,6"
                  PreviewKeyDown="OnKeyDown" PreviewKeyUp="OnKeyUp"
                  GotFocus="OnGotFocus" LostFocus="OnLostFocus" />
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center"
@@ -31,8 +31,8 @@
                 <FontIcon Glyph="&#xE777;" FontSize="12" />
             </Button>
             <Button x:Name="ClearButton" Style="{StaticResource HotkeyBoxButton}" Click="OnClear"
-                    AutomationProperties.Name="Turn off shortcut"
-                    ToolTipService.ToolTip="Turn off" Visibility="Collapsed">
+                    AutomationProperties.Name="Clear shortcut"
+                    ToolTipService.ToolTip="Clear" Visibility="Collapsed">
                 <FontIcon Glyph="&#xE894;" FontSize="12" />
             </Button>
         </StackPanel>

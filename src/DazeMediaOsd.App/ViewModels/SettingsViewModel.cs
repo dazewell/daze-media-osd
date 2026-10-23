@@ -36,7 +36,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         ReadAutostart();
         var current = store.Current;
         // Each setter saves back the value it just read: Update sees no change and does nothing.
-        PositionIndex = (int)current.Position;
+        PositionIndex = Array.IndexOf(PositionOrder, current.Position);
         HideAfterSeconds = current.HideAfterSeconds;
         ShowInput = current.ShowInput;
         ShowMedia = current.ShowMedia;
@@ -52,7 +52,14 @@ public sealed partial class SettingsViewModel : ObservableObject
         SaveError = store.SaveError;
     }
 
-    /// <summary>Index into the position ComboBox, whose items follow <see cref="OsdPosition"/>'s order.</summary>
+    /// <summary>The position ComboBox's items, in screen order (not <see cref="OsdPosition"/>'s, which is stored).</summary>
+    private static readonly OsdPosition[] PositionOrder =
+    [
+        OsdPosition.TopLeft, OsdPosition.TopCenter, OsdPosition.TopRight,
+        OsdPosition.BottomLeft, OsdPosition.BottomCenter, OsdPosition.BottomRight,
+    ];
+
+    /// <summary>Index into the position ComboBox, see <see cref="PositionOrder"/>.</summary>
     [ObservableProperty]
     public partial int PositionIndex { get; set; }
 
@@ -89,7 +96,7 @@ public sealed partial class SettingsViewModel : ObservableObject
     partial void OnPositionIndexChanged(int value)
     {
         if (value >= 0)
-            Update(s => s with { Position = (OsdPosition)value });
+            Update(s => s with { Position = PositionOrder[value] });
     }
 
     partial void OnHideAfterSecondsChanged(double value)
@@ -154,12 +161,12 @@ public sealed partial class SettingsViewModel : ObservableObject
 
     // Without the hotkey window no edit can take effect: keep saying so instead of looking healthy.
     internal string? RegistrationNote(int id) =>
-        _hotkey is null ? "The shortcut isn't available: see the log."
+        _hotkey is null ? "Shortcuts couldn't start. Restart the app, or see the log."
         : _hotkey.Errors.TryGetValue(id, out var error) ? error
         : null;
 
     internal const string InvalidHotkeyNote =
-        "Not a shortcut. Use Win, Ctrl or Alt with a letter, digit or F1–F24, like Win+Alt+A.";
+        "Use Win, Ctrl or Alt with a letter, number or function key, like Win+Alt+A.";
 
     /// <summary>One row per device shortcut, in settings order: row i registers as <see cref="Shortcuts.DeviceId"/>(i).</summary>
     public ObservableCollection<DeviceHotkeyRowViewModel> DeviceHotkeys { get; } = [];
@@ -185,9 +192,9 @@ public sealed partial class SettingsViewModel : ObservableObject
         if (chord.Length == 0)
             return null;
         if (row is not null && chord == CycleOutputHotkey)
-            return $"{chord} already switches to the next output.";
+            return $"{chord} already switches to the next output. Try another one.";
         return DeviceHotkeys.FirstOrDefault(r => r != row && r.Hotkey == chord) is { } other
-            ? $"{chord} already switches to {(other.Selected is { } device ? device.Name : "another device")}."
+            ? $"{chord} already switches to {(other.Selected is { } device ? device.Name : "another device")}. Try another one."
             : null;
     }
 
@@ -255,7 +262,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         catch (Exception e) when (e is UnauthorizedAccessException or IOException or System.Security.SecurityException)
         {
             Log.Info($"autostart: change failed: {e.Message}");
-            error = "Couldn't change the startup entry: " + e.Message;
+            error = "Couldn't change this setting. Try again, or see the log for details.";
         }
         ReadAutostart();
         AutostartNote = error ?? AutostartNote;
@@ -272,16 +279,16 @@ public sealed partial class SettingsViewModel : ObservableObject
         catch (Exception e) when (e is UnauthorizedAccessException or IOException or System.Security.SecurityException)
         {
             status = new AutostartStatus(AutostartState.Off, null);
-            readError = "Couldn't read the startup entry: " + e.Message;
+            readError = "Couldn't check if this is on. See the log for details.";
         }
         _readingAutostart = true;
         StartWithWindows = status.State == AutostartState.On;
         _readingAutostart = false;
         AutostartNote = readError ?? status switch
         {
-            { State: AutostartState.DisabledByWindows } => "Turned off in Task Manager. Turn it on here to start again.",
+            { State: AutostartState.DisabledByWindows } => "Turned off in Task Manager. Turn it on here to start with Windows again.",
             { State: AutostartState.On, Path: var path } when !string.Equals(path, _exePath, StringComparison.OrdinalIgnoreCase)
-                => $"Starts another copy: {path}. Turn it off and on to start this one.",
+                => $"Windows starts a copy in another folder: {path}. Turn this off and on to use this one.",
             _ => null,
         };
     }

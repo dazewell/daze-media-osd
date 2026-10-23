@@ -8,7 +8,8 @@ this file and know what to build next. History of *why* lives in [DECISIONS.md](
 - Extend the Windows 11 media OSD (the flyout shown on volume/media keys) with extra information. The
   first concrete ask: **show the current output and input device when changing volume.**
 - Windows 11 only. No cross-platform concerns, ever.
-- A configuration UI with a modern design (should feel like a native Windows 11 app).
+- A configuration UI with a modern design (should feel like a native Windows 11 app). Its wording is
+  plain and friendly, not geeky (user, 2026-10-23; D-026).
 - The repo is driven purely by AI agents. Decisions, reasons, rejected options and dead ends are written
   down so the next agent understands *why* the code is the way it is — but kept lean, no bloat.
 - v1 builds on the local machine. GitHub CI comes in v2.
@@ -101,6 +102,8 @@ this file and know what to build next. History of *why* lives in [DECISIONS.md](
 - [x] App identity: own mark for exe, settings window, title bar and tray (D-025); version 0.1.0 + commit in
   About and the launcher log (D-024); About page with Copy details, folders, log, GitHub. Seen: About,
   title bar and taskbar icons, copied details (2026-10-23)
+- [x] Settings wording rewritten by a UX-writer pass (D-026): "pop-up" for the OSD, "What to show",
+  positions in screen order, plain notes. Seen: all three pages (2026-10-23)
 
 **Next step:** the user tries Plan C and Bluetooth connect (D-023) on the daily driver (real device
 shortcuts, presses while the headphones are off or disconnected, live with them a day). Then pick the next feature from the PR #8 survey with the user. When convenient: the headset glyph

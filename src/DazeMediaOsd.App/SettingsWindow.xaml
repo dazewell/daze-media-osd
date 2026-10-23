@@ -44,7 +44,7 @@
                         IsPaneToggleButtonVisible="False" OpenPaneLength="200"
                         SelectionChanged="OnNavigationSelectionChanged">
             <NavigationView.MenuItems>
-                <NavigationViewItem x:Name="OsdItem" Content="OSD" Tag="Osd" IsSelected="True">
+                <NavigationViewItem x:Name="OsdItem" Content="Pop-up" Tag="Osd" IsSelected="True">
                     <NavigationViewItem.Icon>
                         <FontIcon Glyph="&#xE767;" />
                     </NavigationViewItem.Icon>
@@ -70,17 +70,17 @@
                         <RowDefinition Height="*" />
                     </Grid.RowDefinitions>
                     <!-- Above the pages: any page's edit can fail to save. -->
-                    <InfoBar Margin="0,0,0,8" Severity="Error" Title="Settings not saved" IsClosable="False"
+                    <InfoBar Margin="0,0,0,8" Severity="Error" Title="Couldn't save your settings" IsClosable="False"
                              IsOpen="{x:Bind ViewModel.HasSaveError, Mode=OneWay}"
                              Message="{x:Bind ViewModel.SaveError, Mode=OneWay}">
                         <InfoBar.Content>
-                            <TextBlock Text="Your changes apply until the app exits." Margin="0,0,0,12"
+                            <TextBlock Text="Your changes will work until you quit the app." Margin="0,0,0,12"
                                        Style="{StaticResource CaptionTextBlockStyle}" />
                         </InfoBar.Content>
                     </InfoBar>
 
                     <StackPanel x:Name="OsdPage" Grid.Row="1" Spacing="4">
-                        <TextBlock Text="OSD" Style="{StaticResource TitleTextBlockStyle}" Margin="0,0,0,4" />
+                        <TextBlock Text="Pop-up" Style="{StaticResource TitleTextBlockStyle}" Margin="0,0,0,4" />
 
                         <TextBlock Text="Appearance" Style="{StaticResource SettingsSection}" />
                         <Grid Style="{StaticResource SettingsCard}">
@@ -92,17 +92,17 @@
                             <FontIcon Glyph="&#xE7F4;" Style="{StaticResource SettingsCardIcon}" />
                             <StackPanel Grid.Column="1" VerticalAlignment="Center">
                                 <TextBlock Text="Position" />
-                                <TextBlock Text="Where the OSD appears on the primary display" Style="{StaticResource SettingsCardDescription}" />
+                                <TextBlock Text="Where the pop-up shows on your main display" Style="{StaticResource SettingsCardDescription}" />
                             </StackPanel>
-                            <!-- Item order = OsdPosition's order (SettingsViewModel.PositionIndex). -->
+                            <!-- Item order = SettingsViewModel.PositionOrder (screen order). -->
                             <ComboBox Grid.Column="2" MinWidth="160" VerticalAlignment="Center"
                                       AutomationProperties.Name="Position"
                                       SelectedIndex="{x:Bind ViewModel.PositionIndex, Mode=TwoWay}">
-                                <x:String>Bottom center</x:String>
-                                <x:String>Top center</x:String>
                                 <x:String>Top left</x:String>
+                                <x:String>Top center</x:String>
                                 <x:String>Top right</x:String>
                                 <x:String>Bottom left</x:String>
+                                <x:String>Bottom center (default)</x:String>
                                 <x:String>Bottom right</x:String>
                             </ComboBox>
                         </Grid>
@@ -115,7 +115,7 @@
                             <FontIcon Glyph="&#xE916;" Style="{StaticResource SettingsCardIcon}" />
                             <StackPanel Grid.Column="1" VerticalAlignment="Center">
                                 <TextBlock Text="Hide after" />
-                                <TextBlock Text="Seconds after the last change; Windows uses about 2.5" Style="{StaticResource SettingsCardDescription}" />
+                                <TextBlock Text="Seconds it stays after your last change. Windows uses 2.5." Style="{StaticResource SettingsCardDescription}" />
                             </StackPanel>
                             <NumberBox x:Name="HideAfterBox" Grid.Column="2" MinWidth="160" VerticalAlignment="Center"
                                        AutomationProperties.Name="Hide after (seconds)"
@@ -123,7 +123,7 @@
                                        Value="{x:Bind ViewModel.HideAfterSeconds, Mode=TwoWay}" />
                         </Grid>
 
-                        <TextBlock Text="Sections" Style="{StaticResource SettingsSection}" />
+                        <TextBlock Text="What to show" Style="{StaticResource SettingsSection}" />
                         <Grid Style="{StaticResource SettingsCard}">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto" />
@@ -133,7 +133,7 @@
                             <FontIcon Glyph="&#xE720;" Style="{StaticResource SettingsCardIcon}" />
                             <StackPanel Grid.Column="1" VerticalAlignment="Center">
                                 <TextBlock Text="Microphone" />
-                                <TextBlock Text="Show the default input device and whether it's muted" Style="{StaticResource SettingsCardDescription}" />
+                                <TextBlock Text="Show your microphone and whether it's muted" Style="{StaticResource SettingsCardDescription}" />
                             </StackPanel>
                             <ToggleSwitch Grid.Column="2" VerticalAlignment="Center" MinWidth="0"
                                           AutomationProperties.Name="Show microphone"
@@ -147,15 +147,14 @@
                             </Grid.ColumnDefinitions>
                             <FontIcon Glyph="&#xE8D6;" Style="{StaticResource SettingsCardIcon}" />
                             <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                <TextBlock Text="Media" />
-                                <TextBlock Text="Show what's playing; media keys show the OSD too" Style="{StaticResource SettingsCardDescription}" />
+                                <TextBlock Text="Now playing" />
+                                <TextBlock Text="Show the song or video that's playing. Media keys open it too." Style="{StaticResource SettingsCardDescription}" />
                             </StackPanel>
                             <ToggleSwitch Grid.Column="2" VerticalAlignment="Center" MinWidth="0"
-                                          AutomationProperties.Name="Show media"
+                                          AutomationProperties.Name="Show now playing"
                                           IsOn="{x:Bind ViewModel.ShowMedia, Mode=TwoWay}" />
                         </Grid>
 
-                        <TextBlock Text="Show the OSD" Style="{StaticResource SettingsSection}" />
                         <Grid Style="{StaticResource SettingsCard}">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto" />
@@ -164,8 +163,8 @@
                             </Grid.ColumnDefinitions>
                             <FontIcon Glyph="&#xE703;" Style="{StaticResource SettingsCardIcon}" />
                             <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                <TextBlock Text="When a device connects or disconnects" />
-                                <TextBlock Text="Any audio device: Bluetooth, USB or wired" Style="{StaticResource SettingsCardDescription}" />
+                                <TextBlock Text="When devices connect or disconnect" />
+                                <TextBlock Text="Headphones, speakers or mics: Bluetooth, USB or wired" Style="{StaticResource SettingsCardDescription}" />
                             </StackPanel>
                             <ToggleSwitch Grid.Column="2" VerticalAlignment="Center" MinWidth="0"
                                           AutomationProperties.Name="Show when a device connects or disconnects"
@@ -196,7 +195,7 @@
 
                     <StackPanel x:Name="ShortcutsPage" Grid.Row="1" Spacing="4" Visibility="Collapsed">
                         <TextBlock Text="Shortcuts" Style="{StaticResource TitleTextBlockStyle}" Margin="0,0,0,4" />
-                        <TextBlock Text="Work in any app. Click a box and press the keys" Style="{StaticResource SettingsCardDescription}" />
+                        <TextBlock Text="They work in any app. To set one, select a box and press the keys." Style="{StaticResource SettingsCardDescription}" />
 
                         <TextBlock Text="Output" Style="{StaticResource SettingsSection}" />
                         <Grid Style="{StaticResource SettingsCard}">
@@ -207,8 +206,8 @@
                             </Grid.ColumnDefinitions>
                             <FontIcon Glyph="&#xE8AB;" Style="{StaticResource SettingsCardIcon}" />
                             <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                <TextBlock Text="Switch to the next output device" />
-                                <TextBlock Text="Goes through the outputs the tray menu lists" Style="{StaticResource SettingsCardDescription}" />
+                                <TextBlock Text="Switch to next output" />
+                                <TextBlock Text="Moves to the next speaker or headphones in the tray menu" Style="{StaticResource SettingsCardDescription}" />
                                 <TextBlock Text="{x:Bind ViewModel.HotkeyNote, Mode=OneWay}"
                                            Visibility="{x:Bind ViewModel.HasHotkeyNote, Mode=OneWay}"
                                            Foreground="{ThemeResource SystemFillColorCautionBrush}"
@@ -224,7 +223,7 @@
                         </Grid>
 
                         <TextBlock Text="Devices" Style="{StaticResource SettingsSection}" />
-                        <TextBlock Text="One press makes the device the default output or input"
+                        <TextBlock Text="One press switches to that device and connects it if it's Bluetooth."
                                    Style="{StaticResource SettingsCardDescription}" Margin="1,0,0,4" />
                         <ItemsControl ItemsSource="{x:Bind ViewModel.DeviceHotkeys}">
                             <ItemsControl.ItemsPanel>
@@ -272,7 +271,7 @@
                                                               Rejected="{x:Bind Reject}"
                                                               RecordingChanged="{x:Bind Recording}" />
                                         <Button Grid.Column="2" VerticalAlignment="Center" Click="{x:Bind Remove}"
-                                                AutomationProperties.Name="Remove shortcut" ToolTipService.ToolTip="Remove">
+                                                AutomationProperties.Name="Remove shortcut" ToolTipService.ToolTip="Remove shortcut">
                                             <FontIcon Glyph="&#xE74D;" FontSize="16" />
                                         </Button>
                                     </Grid>
@@ -302,12 +301,12 @@
                             <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
                                 <TextBlock Text="Daze Media OSD" Style="{StaticResource SubtitleTextBlockStyle}" />
                                 <TextBlock x:Name="VersionText" IsTextSelectionEnabled="True" />
-                                <TextBlock Text="The volume and media flyout, with your output and input device on it"
+                                <TextBlock Text="A volume pop-up that also shows your audio devices and what's playing"
                                            Style="{StaticResource SettingsCardDescription}" />
                             </StackPanel>
                             <Button Grid.Column="2" VerticalAlignment="Center" Click="OnCopyDetails"
                                     AutomationProperties.Name="Copy version and system details"
-                                    ToolTipService.ToolTip="Version, Windows build and app folder, for a bug report">
+                                    ToolTipService.ToolTip="Copies the app version, Windows version and folder for a bug report">
                                 <StackPanel Orientation="Horizontal" Spacing="8">
                                     <FontIcon x:Name="CopyDetailsIcon" Glyph="&#xE8C8;" FontSize="14" />
                                     <TextBlock x:Name="CopyDetailsText" Text="Copy details" />
@@ -324,7 +323,7 @@
                             </Grid.ColumnDefinitions>
                             <FontIcon Glyph="&#xE7B8;" Style="{StaticResource SettingsCardIcon}" />
                             <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                <TextBlock Text="Runs from" />
+                                <TextBlock Text="App folder" />
                                 <TextBlock x:Name="AppFolderText" Style="{StaticResource SettingsCardDescription}" IsTextSelectionEnabled="True" />
                             </StackPanel>
                             <HyperlinkButton Grid.Column="2" VerticalAlignment="Center" Content="Open folder"
@@ -348,7 +347,22 @@
                             </StackPanel>
                         </Grid>
 
-                        <TextBlock Text="Project" Style="{StaticResource SettingsSection}" />
+                        <TextBlock Text="Help and feedback" Style="{StaticResource SettingsSection}" />
+                        <Grid Style="{StaticResource SettingsCard}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <FontIcon Glyph="&#xEBE8;" Style="{StaticResource SettingsCardIcon}" />
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock Text="Report a problem" />
+                                <TextBlock Text="Select Copy details, then paste them and attach the log" Style="{StaticResource SettingsCardDescription}" />
+                            </StackPanel>
+                            <HyperlinkButton Grid.Column="2" VerticalAlignment="Center" Content="Report on GitHub"
+                                             AutomationProperties.Name="Report a problem on GitHub"
+                                             NavigateUri="https://github.com/dazewell/daze-media-osd/issues/new" />
+                        </Grid>
                         <Grid Style="{StaticResource SettingsCard}">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto" />
@@ -362,32 +376,6 @@
                             </StackPanel>
                             <HyperlinkButton Grid.Column="2" VerticalAlignment="Center" Content="Open on GitHub"
                                              NavigateUri="https://github.com/dazewell/daze-media-osd" />
-                        </Grid>
-                        <Grid Style="{StaticResource SettingsCard}">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-                            <FontIcon Glyph="&#xEBE8;" Style="{StaticResource SettingsCardIcon}" />
-                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                <TextBlock Text="Report a problem" />
-                                <TextBlock Text="Paste the copied details and attach the log" Style="{StaticResource SettingsCardDescription}" />
-                            </StackPanel>
-                            <HyperlinkButton Grid.Column="2" VerticalAlignment="Center" Content="New issue"
-                                             AutomationProperties.Name="Report a problem on GitHub"
-                                             NavigateUri="https://github.com/dazewell/daze-media-osd/issues/new" />
-                        </Grid>
-                        <Grid Style="{StaticResource SettingsCard}">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="*" />
-                            </Grid.ColumnDefinitions>
-                            <FontIcon Glyph="&#xE74C;" Style="{StaticResource SettingsCardIcon}" />
-                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                <TextBlock Text="Built with" />
-                                <TextBlock x:Name="BuiltWithText" Style="{StaticResource SettingsCardDescription}" />
-                            </StackPanel>
                         </Grid>
                     </StackPanel>
                 </Grid>

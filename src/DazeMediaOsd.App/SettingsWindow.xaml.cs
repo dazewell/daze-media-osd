@@ -40,8 +40,6 @@ public sealed partial class SettingsWindow : Window
         VersionText.Text = "Version " + AppVersion.Current.Display;
         AppFolderText.Text = AppContext.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar);
         DataFolderText.Text = SettingsStore.DefaultDirectory;
-        BuiltWithText.Text = $"{RuntimeInformation.FrameworkDescription} · Windows App SDK {WindowsAppSdkVersion()}"
-            + " · CommunityToolkit.Mvvm · CsWin32";
 
         Handle = Win32Interop.GetWindowFromWindowId(AppWindow.Id);
         var scale = OverlayWindow.Scale(Handle);

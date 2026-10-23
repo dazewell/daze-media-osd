@@ -406,3 +406,18 @@ Supersedes: D-009 (only the tray glyph: Segoe "Volume3" → our mark)
   ours sat beside the system one looking identical. The mark is what the app adds: output and input.
 - Why not an SVG + rasterizer: a new tool on the dev machine; GDI+ is already what the script used.
 - Revisit if: the 16/20 px frames read badly on a real 100 %/125 % display (only seen in a 4× preview).
+
+## D-026 · 2026-10-23 · Settings wording: plain Windows voice, "pop-up" for the OSD
+Status: accepted
+- Decision: every string in the settings window follows the Windows 11 Settings voice: sentence case,
+  "you", contractions, short descriptions, no jargon ("default device", "register", "entry", "OSD").
+  The OSD is "pop-up" everywhere the user reads (nav, page, descriptions); "Daze Media OSD" stays as the
+  name. Notes say what happened and what to do next ("Try another one."); raw exception text goes to the
+  log only, and the UI says "see the log". Position items are in screen order (`PositionOrder` maps to the
+  stored `OsdPosition`), with the default marked. About has no "Built with" card: the versions that
+  matter are in Copy details.
+- Why: the user asked for simpler, nicer, less geeky text (2026-10-23); a UX-writer agent rewrote it.
+  "Pop-up" rather than "volume pop-up": it also shows devices, media and connect messages.
+- Why not keep "OSD" or "flyout": jargon a regular user doesn't know. Why the App folder card stays
+  (the writer suggested dropping it): it's how the user tells a Debug copy from the installed one.
+- Revisit if: the OSD itself or the tray menu gets user-facing text — use the same terms there.
