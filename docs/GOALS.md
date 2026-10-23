@@ -43,13 +43,14 @@ this file and know what to build next. History of *why* lives in [DECISIONS.md](
   restores on any exit (D-006) (2026-10-22)
 - [x] Solution skeleton: launcher/`--app` split, native flyout minimized while running; `build` skill
   updated (2026-10-22)
-- [ ] Core: audio endpoint volume + default device tracking
+- [x] Core: default output/input tracking, volume keys, OSD show rules (D-007) — logged, no window yet
+  (2026-10-22)
 - [ ] OSD window (Win11 look) with device names
 - [ ] Tray icon + settings window + persisted settings
 - [ ] Media session info in OSD
 - [ ] Autostart, publish to a local folder, daily-driver test
 
-**Next step:** Core audio: `AudioService` (default render + capture endpoint name, volume, mute, change
-events via Core Audio COM through CsWin32) and `KeySource` (raw-input volume keys) feeding an immutable
-`OsdState`, with unit tests for state building. While the app runs there is currently **no** volume
-OSD at all — the OSD window step should follow right after.
+**Next step:** OSD window (Q2 first): render `OsdState` from `OsdController.ShowRequested` — output
+device name + volume/mute, input device name + mute — topmost, no-activate, click-through, auto-hide,
+Win11 look; replace the `show …` log line in `App.Show`. While the app runs there is still **no**
+visible volume OSD, so this is the most urgent gap.
