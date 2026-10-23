@@ -6,6 +6,7 @@ using DazeMediaOsd.Core.Windowing;
 using Microsoft.UI;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Windows.Graphics;
 
@@ -51,6 +52,14 @@ public sealed partial class SettingsWindow : Window
         var about = (args.SelectedItem as NavigationViewItem)?.Tag as string == "About";
         OsdPage.Visibility = about ? Visibility.Collapsed : Visibility.Visible;
         AboutPage.Visibility = about ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private void OnHotkeyKeyDown(object sender, KeyRoutedEventArgs e)
+    {
+        if (e.Key != Windows.System.VirtualKey.Enter)
+            return;
+        ViewModel.CycleOutputHotkey = ((TextBox)sender).Text;
+        e.Handled = true;
     }
 
     private void OnOpenDataFolder(object sender, RoutedEventArgs e)

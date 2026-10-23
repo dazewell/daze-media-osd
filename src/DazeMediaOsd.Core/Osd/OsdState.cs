@@ -22,6 +22,8 @@ public enum OsdReason
     MediaChanged,
     /// <summary>A setting changed: show the OSD so its effect is visible.</summary>
     SettingsPreview,
+    /// <summary>The cycle-output hotkey found no other output: show the current one as the answer (D-020).</summary>
+    Hotkey,
 }
 
 /// <summary>

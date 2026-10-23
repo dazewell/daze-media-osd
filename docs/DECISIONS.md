@@ -299,3 +299,21 @@ Status: accepted
   mic 13 ms later; switching back the same way restored it.
 - Revisit if: a Windows update moves the vtable (then the HRESULT logs and nothing switches — check
   `scripts/audio-device.ps1` first) or a documented API appears.
+
+## D-020 · 2026-10-23 · Cycle-output hotkey through `RegisterHotKey`, default Win+Alt+A, typed in Settings
+Status: accepted
+- Decision: `GlobalHotkey` registers one chord (`MOD_NOREPEAT`) on its own message-only window. A press
+  switches to `DeviceCycle.Next` (the `DeviceChoices` list by name, wrapping around). With no other
+  output, the OSD shows the current one (`OsdReason.Hotkey`), so the press always gets an answer.
+  Default Win+Alt+A (user, 2026-10-23); `cycleOutputHotkey` "" is off. Settings has a text box committed
+  on Enter or focus loss: invalid text gets a note and isn't saved, and a chord Windows refuses
+  (1409, taken) shows its reason under the card.
+- Why: `RegisterHotKey` needs no hook and no admin, adds no input latency, and fails cleanly when the
+  shell or another app owns the chord. Win+Ctrl+V is Windows 11's own output picker (taken, 1409 on
+  26300). Win+Alt+A was free on 26300.
+- Why not a key-capture box: the shell eats many Win+ chords before XAML sees them, so capturing would
+  miss exactly the ones people want. Typed text works for every chord.
+- Verified on 26300: registered at start; Win+Alt+A with only the speakers active showed the OSD,
+  foreground unchanged, still click-through. Win+Ctrl+V showed "already used"; "Alt+Banana" was refused
+  and not saved; "ctrl+alt+f11" was stored as "Ctrl+Alt+F11" and registered; empty turned it off.
+- Revisit if: users want more shortcuts (input cycle, show OSD): `GlobalHotkey` would then take ids.

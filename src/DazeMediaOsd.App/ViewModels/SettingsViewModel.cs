@@ -1,5 +1,6 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using DazeMediaOsd.Core.Diagnostics;
+using DazeMediaOsd.Core.Input;
 using DazeMediaOsd.Core.Lifecycle;
 using DazeMediaOsd.Core.Settings;
 
@@ -11,15 +12,18 @@ public sealed partial class SettingsViewModel : ObservableObject
     private readonly SettingsStore _store;
     private readonly Autostart _autostart;
     private readonly string _exePath;
+    private readonly GlobalHotkey? _hotkey;
     private bool _readingAutostart;
 
-    public SettingsViewModel(SettingsStore store, Autostart autostart, string exePath)
+    /// <param name="hotkey">Reports whether the cycle-output shortcut registered; null when the app runs without it.</param>
+    public SettingsViewModel(SettingsStore store, Autostart autostart, string exePath, GlobalHotkey? hotkey)
     {
         ArgumentNullException.ThrowIfNull(store);
         ArgumentNullException.ThrowIfNull(autostart);
         _store = store;
         _autostart = autostart;
         _exePath = exePath;
+        _hotkey = hotkey;
         ReadAutostart();
         var current = store.Current;
         // Each setter saves back the value it just read: Update sees no change and does nothing.
@@ -28,6 +32,8 @@ public sealed partial class SettingsViewModel : ObservableObject
         ShowInput = current.ShowInput;
         ShowMedia = current.ShowMedia;
         ShowOnDeviceConnect = current.ShowOnDeviceConnect;
+        CycleOutputHotkey = current.CycleOutputHotkey;
+        HotkeyNote = hotkey is null ? "The shortcut isn't available: see the log." : hotkey.Error;
         // A failure from an earlier, closed window still applies until a save succeeds.
         SaveError = store.SaveError;
     }
@@ -88,6 +94,31 @@ public sealed partial class SettingsViewModel : ObservableObject
     partial void OnShowMediaChanged(bool value) => Update(s => s with { ShowMedia = value });
 
     partial void OnShowOnDeviceConnectChanged(bool value) => Update(s => s with { ShowOnDeviceConnect = value });
+
+    /// <summary>The cycle-output shortcut as typed; committed when the box loses focus or on Enter. "" is off.</summary>
+    [ObservableProperty]
+    public partial string CycleOutputHotkey { get; set; }
+
+    /// <summary>Why the shortcut isn't active: not a valid shortcut, or Windows refused it.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasHotkeyNote))]
+    public partial string? HotkeyNote { get; set; }
+
+    public bool HasHotkeyNote => HotkeyNote is not null;
+
+    partial void OnCycleOutputHotkeyChanged(string value)
+    {
+        var text = value.Trim();
+        if (text.Length > 0 && !Hotkey.TryParse(text, out _))
+        {
+            HotkeyNote = "Not a shortcut. Use Win, Ctrl or Alt with a letter, digit or F1–F24, like Win+Alt+A.";
+            return;
+        }
+        Update(s => s with { CycleOutputHotkey = text });
+        // Show what was stored ("alt+win+a" → "Win+Alt+A"); setting it again re-enters with no change.
+        CycleOutputHotkey = _store.Current.CycleOutputHotkey;
+        HotkeyNote = _hotkey?.Error;
+    }
 
     partial void OnStartWithWindowsChanged(bool value)
     {

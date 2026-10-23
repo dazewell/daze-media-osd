@@ -159,6 +159,30 @@
                                           IsOn="{x:Bind ViewModel.ShowOnDeviceConnect, Mode=TwoWay}" />
                         </Grid>
 
+                        <TextBlock Text="Shortcuts" Style="{StaticResource SettingsSection}" />
+                        <Grid Style="{StaticResource SettingsCard}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <FontIcon Glyph="&#xE8AB;" Style="{StaticResource SettingsCardIcon}" />
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock Text="Switch to the next output device" />
+                                <TextBlock Text="Works in any app. Leave empty to turn it off" Style="{StaticResource SettingsCardDescription}" />
+                                <TextBlock Text="{x:Bind ViewModel.HotkeyNote, Mode=OneWay}"
+                                           Visibility="{x:Bind ViewModel.HasHotkeyNote, Mode=OneWay}"
+                                           Foreground="{ThemeResource SystemFillColorCautionBrush}"
+                                           Style="{StaticResource CaptionTextBlockStyle}" TextWrapping="Wrap" />
+                            </StackPanel>
+                            <!-- Commits on focus loss (x:Bind default) or Enter. -->
+                            <TextBox Grid.Column="2" MinWidth="160" VerticalAlignment="Center"
+                                     AutomationProperties.Name="Next output shortcut"
+                                     PlaceholderText="Off"
+                                     KeyDown="OnHotkeyKeyDown"
+                                     Text="{x:Bind ViewModel.CycleOutputHotkey, Mode=TwoWay}" />
+                        </Grid>
+
                         <TextBlock Text="Startup" Style="{StaticResource SettingsSection}" />
                         <Grid Style="{StaticResource SettingsCard}">
                             <Grid.ColumnDefinitions>
