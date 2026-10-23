@@ -34,7 +34,7 @@ Directory.Packages.props         central package versions
 src/DazeMediaOsd.Core/           no UI; Win32/COM via CsWin32 (NativeMethods.txt). Lifecycle/ (LaunchArgs,
                                  Launcher), NativeFlyout/ (FlyoutHost, FlyoutSuppressor), Audio/
                                  (CoreAudioService), Input/ (RawInputKeySource), Osd/ (OsdState, OsdRules,
-                                 OsdController, OsdPlacement), Windowing/ (OverlayWindow styles), Tray/
+                                 OsdController, OsdPlacement, OsdAnimation), Windowing/ (OverlayWindow styles), Tray/
                                  (TrayIcon), Settings/ (AppSettings, SettingsStore), Media/
                                  (GsmtcMediaService, CsWinRT), Diagnostics/Log.
 src/DazeMediaOsd.App/            WinUI 3 exe `DazeMediaOsd.exe`: Program.Main → launcher or `--app` mode;
@@ -63,7 +63,7 @@ unit-tested with fakes. App never P/Invokes directly; window styling goes throug
 | `Launcher` | Start `--app`, wait on its handle, restore the native flyout when it exits (D-006) | `Process`, `WaitForSingleObject` |
 | `GsmtcMediaService` (`IMediaService`) | Current session → `MediaState` (app id, title, artist, playing, thumbnail bytes) or null when none / no title. Starts in the background; a GSMTC failure only logs (media is optional). Every event marks dirty; one refresh loop re-reads; a failed read keeps the last state and retries (5 × 200 ms) | `GlobalSystemMediaTransportControlsSessionManager` (CsWinRT via the TFM), `TryGetMediaPropertiesAsync`, `GetPlaybackInfo`, thumbnail via `DataReader` (≤ 4 MB) |
 | `SettingsStore` + `AppSettings` | `%LOCALAPPDATA%\DazeMediaOsd\settings.json` (`version` 1): position, hide-after seconds (1–10), mic row on/off, media row on/off (`showMedia`, added without a version bump: missing → constructor default, X-003). Saves on every change (temp file + move); missing → defaults, unparsable → defaults + copy to `settings.invalid.json`; out-of-range values clamped (`Normalize`). A failed save keeps the change for the session and sets `SaveError`; the settings window shows it in an InfoBar | `System.Text.Json` source-gen (AOT-safe), enums as names (`"TopRight"`) |
-| `OsdWindow` + `OverlayWindow` | Render `OsdState` (media cover/title/artist/play state, output name/level/mute, mic name/level/mute), auto-hide after the configured time, at the configured position in the primary work area (`OsdPlacement`, 24 DIP margin) (D-008) | WinUI 3 `Window`, `OverlappedPresenter.SetBorderAndTitleBar(true,false)`, `DesktopAcrylicController`, `SetWindowPos(SWP_NOACTIVATE)` |
+| `OsdWindow` + `OverlayWindow` | Render `OsdState` (media cover/title/artist/play state, output name/level/mute, mic name/level/mute), fade/slide in and out (`OsdAnimation`, D-012), auto-hide after the configured time, at the configured position in the primary work area (`OsdPlacement`, 24 DIP margin) (D-008) | WinUI 3 `Window`, `OverlappedPresenter.SetBorderAndTitleBar(true,false)`, `DesktopAcrylicController`, `SetWindowPos(SWP_NOACTIVATE)` |
 | `SettingsWindow` | Fluent settings UI, created on open, destroyed on close; one at a time (D-010) | WinUI 3 `NavigationView` + `TitleBar`, Mica, CommunityToolkit.Mvvm partial `[ObservableProperty]` |
 | `TrayIcon` | Notification-area icon + menu: Settings (default, bold), Exit (D-009) | `Shell_NotifyIcon` v4, `TrackPopupMenuEx`, uxtheme #135/#136 for the dark menu, `TaskbarCreated` |
 
@@ -163,7 +163,14 @@ unit-tested with fakes. App never P/Invokes directly; window styling goes throug
   (2026-10-22). Watch against D-001.
 - `Refresh` (media change) re-renders and re-places only while visible and never restarts the hide
   timer; the media row sits on top, cover in place of the icon column, play-state glyph in the value column.
-- Not verified yet: light theme, multi-monitor/DPI change, show latency.
+- Animation (D-012): layered alpha 0→255 + 16-DIP slide from the nearest edge (bottom positions rise,
+  top ones drop), 200 ms in / 150 ms out, stepped per frame; `SW_HIDE` once fully faded. A show during
+  the fade-out reverses it; a show or `Refresh` while visible re-places at the current frame without
+  replaying. Measured 2026-10-22: content visible from the first frame after the key, settled ~180 ms.
+  The first show after app start puts one frame darker than the background (the window's first
+  composition) — not compared with the unanimated build.
+- Not verified yet: light theme, multi-monitor/DPI change, show latency, "Animation effects" off (needs
+  changing the user's setting).
 
 ## Tray icon (verified on build 26300, 2026-10-22; D-009)
 

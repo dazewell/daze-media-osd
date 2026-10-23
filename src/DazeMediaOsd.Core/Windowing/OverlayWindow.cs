@@ -44,6 +44,17 @@ public static class OverlayWindow
         return (window.right - window.left - (client.right - client.left), window.bottom - window.top - (client.bottom - client.top));
     }
 
+    /// <summary>Whole-window opacity (0–255) of the layered window: content, acrylic and frame alike.</summary>
+    public static bool SetAlpha(nint hwnd, byte alpha) =>
+        PInvoke.SetLayeredWindowAttributes((HWND)hwnd, new COLORREF(0), alpha, LAYERED_WINDOW_ATTRIBUTES_FLAGS.LWA_ALPHA);
+
+    /// <summary>Windows Settings › Accessibility › Visual effects › "Animation effects". Read per show: it can change any time.</summary>
+    public static unsafe bool AnimationsEnabled()
+    {
+        BOOL enabled = true;
+        return !PInvoke.SystemParametersInfo(SYSTEM_PARAMETERS_INFO_ACTION.SPI_GETCLIENTAREAANIMATION, 0, &enabled, 0) || enabled;
+    }
+
     public static void Hide(nint hwnd) => _ = PInvoke.ShowWindow((HWND)hwnd, SHOW_WINDOW_CMD.SW_HIDE);
 
     /// <summary>Device pixels per DIP for the monitor the window is on.</summary>

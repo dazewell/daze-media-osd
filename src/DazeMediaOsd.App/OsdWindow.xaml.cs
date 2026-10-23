@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Globalization;
 using System.Runtime.InteropServices;
 using DazeMediaOsd.Core.Audio;
@@ -11,6 +12,7 @@ using Microsoft.UI;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Imaging;
 using Windows.Foundation;
 
@@ -20,13 +22,22 @@ namespace DazeMediaOsd.App;
 public sealed partial class OsdWindow : Window
 {
     private const double MarginDip = 24;
+    // Fade + short slide from the nearest screen edge, close to the native flyout's feel.
+    private const double SlideDip = 16;
+    private static readonly TimeSpan ShowDuration = TimeSpan.FromMilliseconds(200);
+    private static readonly TimeSpan HideDuration = TimeSpan.FromMilliseconds(150);
+    // Shows start one frame in, so the first composed frame is already visible (no later than unanimated).
+    private static readonly TimeSpan FirstFrameLead = TimeSpan.FromMilliseconds(16);
 
     private readonly nint _hwnd;
     private readonly DispatcherQueueTimer _hideTimer;
     private AppSettings _settings = AppSettings.Default;
     private int _outputPercent;
     private byte[]? _thumbnail;
-    private bool _visible;
+    private readonly OsdAnimation _animation = new(ShowDuration, HideDuration);
+    private readonly Stopwatch _clock = Stopwatch.StartNew();
+    private bool _ticking;
+    private (int X, int Y, int Width, int Height) _bounds;
 
     public OsdWindow(AppSettings settings)
     {
@@ -49,8 +60,8 @@ public sealed partial class OsdWindow : Window
         Apply(settings);
         _hideTimer.Tick += (_, _) =>
         {
-            _visible = false;
-            OverlayWindow.Hide(_hwnd);
+            _animation.Hide(_clock.Elapsed, OverlayWindow.AnimationsEnabled());
+            Animate();
         };
         // Before the first layout the track has no width yet.
         OutputTrack.SizeChanged += (_, _) => SizeFill();
@@ -68,8 +79,13 @@ public sealed partial class OsdWindow : Window
     public void Show(OsdState state)
     {
         ArgumentNullException.ThrowIfNull(state);
+        // Before Render, so the first frame is already the animation's first frame. A no-op while shown.
+        // The lead only from hidden: a reversal mid-fade continues from the current value, without a jump.
+        var now = _clock.Elapsed;
+        _animation.Show(_animation.IsHidden ? now - FirstFrameLead : now, OverlayWindow.AnimationsEnabled());
+        _animation.Tick(now);
         Render(state);
-        _visible = true;
+        Animate();
         _hideTimer.Stop();
         _hideTimer.Start();
     }
@@ -78,7 +94,7 @@ public sealed partial class OsdWindow : Window
     public void Refresh(OsdState state)
     {
         ArgumentNullException.ThrowIfNull(state);
-        if (_visible)
+        if (!_animation.IsHidden)
             Render(state);
     }
 
@@ -191,7 +207,55 @@ public sealed partial class OsdWindow : Window
         var area = DisplayArea.Primary.WorkArea;
         var (x, y) = OsdPlacement.Place(new PixelRect(area.X, area.Y, area.Width, area.Height), width, height,
             _settings.Position, (int)Math.Round(MarginDip * scale));
-        if (!OverlayWindow.ShowAt(_hwnd, x, y, width, height))
+        _bounds = (x, y, width, height);
+        ApplyFrame();
+    }
+
+    // Steps the animation once per composition frame while it runs; idle otherwise.
+    private void Animate()
+    {
+        if (_animation.IsRunning && !_ticking)
+        {
+            _ticking = true;
+            CompositionTarget.Rendering += OnRendering;
+        }
+        else if (!_animation.IsRunning)
+        {
+            StopTicking();
+            ApplyFrame();
+        }
+    }
+
+    private void OnRendering(object? sender, object e)
+    {
+        if (!_animation.Tick(_clock.Elapsed))
+            StopTicking();
+        ApplyFrame();
+    }
+
+    private void StopTicking()
+    {
+        if (!_ticking)
+            return;
+        _ticking = false;
+        CompositionTarget.Rendering -= OnRendering;
+    }
+
+    // Opacity through the layered window's alpha and the slide through the window position: XAML/Composition
+    // animations on Root wouldn't move the DWM frame, shadow and acrylic with it (D-012).
+    private void ApplyFrame()
+    {
+        if (_animation.IsHidden)
+        {
+            OverlayWindow.Hide(_hwnd);
+            return;
+        }
+        var visibility = _animation.Visibility;
+        var (x, y, width, height) = _bounds;
+        var fromTop = _settings.Position is OsdPosition.TopCenter or OsdPosition.TopLeft or OsdPosition.TopRight;
+        var slide = (int)Math.Round((1 - visibility) * SlideDip * OverlayWindow.Scale(_hwnd));
+        _ = OverlayWindow.SetAlpha(_hwnd, (byte)Math.Round(255 * visibility));
+        if (!OverlayWindow.ShowAt(_hwnd, x, fromTop ? y - slide : y + slide, width, height))
             Log.Error($"OSD not shown at {x},{y} {width}x{height}", new Win32Exception());
     }
 }
