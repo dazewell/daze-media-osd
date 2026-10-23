@@ -65,16 +65,22 @@
 
             <ScrollViewer>
                 <Grid Padding="36,8,36,36" MaxWidth="1000" HorizontalAlignment="Stretch">
-                    <StackPanel x:Name="OsdPage" Spacing="4">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+                    <!-- Above the pages: any page's edit can fail to save. -->
+                    <InfoBar Margin="0,0,0,8" Severity="Error" Title="Settings not saved" IsClosable="False"
+                             IsOpen="{x:Bind ViewModel.HasSaveError, Mode=OneWay}"
+                             Message="{x:Bind ViewModel.SaveError, Mode=OneWay}">
+                        <InfoBar.Content>
+                            <TextBlock Text="Your changes apply until the app exits." Margin="0,0,0,12"
+                                       Style="{StaticResource CaptionTextBlockStyle}" />
+                        </InfoBar.Content>
+                    </InfoBar>
+
+                    <StackPanel x:Name="OsdPage" Grid.Row="1" Spacing="4">
                         <TextBlock Text="OSD" Style="{StaticResource TitleTextBlockStyle}" Margin="0,0,0,4" />
-                        <InfoBar Severity="Error" Title="Settings not saved" IsClosable="False"
-                                 IsOpen="{x:Bind ViewModel.HasSaveError, Mode=OneWay}"
-                                 Message="{x:Bind ViewModel.SaveError, Mode=OneWay}">
-                            <InfoBar.Content>
-                                <TextBlock Text="Your changes apply until the app exits." Margin="0,0,0,12"
-                                           Style="{StaticResource CaptionTextBlockStyle}" />
-                            </InfoBar.Content>
-                        </InfoBar>
 
                         <TextBlock Text="Appearance" Style="{StaticResource SettingsSection}" />
                         <Grid Style="{StaticResource SettingsCard}">
@@ -188,7 +194,7 @@
                         </Grid>
                     </StackPanel>
 
-                    <StackPanel x:Name="ShortcutsPage" Spacing="4" Visibility="Collapsed">
+                    <StackPanel x:Name="ShortcutsPage" Grid.Row="1" Spacing="4" Visibility="Collapsed">
                         <TextBlock Text="Shortcuts" Style="{StaticResource TitleTextBlockStyle}" Margin="0,0,0,4" />
                         <TextBlock Text="Work in any app. Click a box and press the keys" Style="{StaticResource SettingsCardDescription}" />
 
@@ -260,7 +266,7 @@
                                                        Style="{StaticResource CaptionTextBlockStyle}" TextWrapping="Wrap" />
                                         </StackPanel>
                                         <local:HotkeyRecorder Grid.Column="1" VerticalAlignment="Center"
-                                                              AccessibleName="Device shortcut"
+                                                              AccessibleName="{x:Bind ShortcutName, Mode=OneWay}"
                                                               Hotkey="{x:Bind Hotkey, Mode=OneWay}"
                                                               Recorded="{x:Bind Record}"
                                                               Rejected="{x:Bind Reject}"
@@ -281,7 +287,7 @@
                         </Button>
                     </StackPanel>
 
-                    <StackPanel x:Name="AboutPage" Spacing="4" Visibility="Collapsed">
+                    <StackPanel x:Name="AboutPage" Grid.Row="1" Spacing="4" Visibility="Collapsed">
                         <TextBlock Text="About" Style="{StaticResource TitleTextBlockStyle}" Margin="0,0,0,20" />
                         <Grid Style="{StaticResource SettingsCard}">
                             <Grid.ColumnDefinitions>

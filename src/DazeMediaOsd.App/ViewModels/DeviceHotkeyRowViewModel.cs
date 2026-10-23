@@ -36,7 +36,11 @@ public sealed partial class DeviceHotkeyRowViewModel : ObservableObject
     public partial IReadOnlyList<DeviceOption> Options { get; set; } = [];
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShortcutName))]
     public partial DeviceOption? Selected { get; set; }
+
+    /// <summary>The recorder's UI Automation name: which device it edits, since every row has one.</summary>
+    public string ShortcutName => Selected is { } device ? device.Name + " shortcut" : "Device shortcut";
 
     [ObservableProperty]
     public partial string Hotkey { get; set; }

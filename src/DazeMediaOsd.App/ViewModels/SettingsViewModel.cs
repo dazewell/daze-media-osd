@@ -124,6 +124,8 @@ public sealed partial class SettingsViewModel : ObservableObject
             return;
         }
         CycleOutputHotkey = chord;
+        // The same chord again doesn't run the change handler: clear an earlier refusal here.
+        HotkeyNote = RegistrationNote(Shortcuts.CycleOutputId);
     }
 
     /// <summary>Keys were pressed that make no shortcut: say what would.</summary>
