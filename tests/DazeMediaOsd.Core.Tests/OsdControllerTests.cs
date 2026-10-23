@@ -63,11 +63,54 @@ public class OsdControllerTests
         Assert.Empty(shown);
     }
 
+    [Fact]
+    public void IdenticalRequestWithinWindowIsCoalesced()
+    {
+        using var audio = new FakeAudio { Current = new AudioSnapshot(Speakers, Mic) };
+        using var keys = new FakeKeys();
+        var time = new ManualTime();
+        using var controller = new OsdController(audio, keys, time);
+        var shown = Record(controller);
+
+        keys.Press(VolumeKey.Up); // keyboard path
+        time.Advance(TimeSpan.FromMilliseconds(5));
+        keys.Press(VolumeKey.Up); // same press via Consumer Control
+        time.Advance(OsdController.CoalesceWindow);
+        keys.Press(VolumeKey.Up); // held key, after the window
+
+        Assert.Equal(2, shown.Count);
+    }
+
+    [Fact]
+    public void DifferentStateWithinWindowIsNotCoalesced()
+    {
+        using var audio = new FakeAudio { Current = new AudioSnapshot(Speakers with { Volume = 0.5f }, Mic) };
+        using var keys = new FakeKeys();
+        using var controller = new OsdController(audio, keys, new ManualTime());
+        var shown = Record(controller);
+
+        keys.Press(VolumeKey.Up);
+        audio.Change(new AudioSnapshot(Speakers with { Volume = 0.52f }, Mic), EndpointFlow.Output, AudioChangeKind.VolumeOrMute);
+
+        Assert.Equal([OsdReason.VolumeKey, OsdReason.VolumeChanged], shown.Select(s => s.Reason));
+    }
+
     private static List<OsdState> Record(OsdController controller)
     {
         var shown = new List<OsdState>();
         controller.ShowRequested += (_, state) => shown.Add(state);
         return shown;
+    }
+
+    private sealed class ManualTime : TimeProvider
+    {
+        private long _ticks;
+
+        public override long TimestampFrequency => TimeSpan.TicksPerSecond;
+
+        public override long GetTimestamp() => _ticks;
+
+        public void Advance(TimeSpan by) => _ticks += by.Ticks;
     }
 
     private sealed class FakeAudio : IAudioService

@@ -53,6 +53,8 @@ public static class Log
             {
                 owned = true; // the other process died mid-write; the mutex is ours now
             }
+            if (!owned)
+                return; // another writer is stuck: drop the line rather than collide (debugger still has it)
             File.AppendAllText(_path, line + Environment.NewLine);
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException)

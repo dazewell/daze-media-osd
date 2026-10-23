@@ -68,8 +68,8 @@ public sealed class CoreAudioService : IAudioService
     {
         _enumerator = (IMMDeviceEnumerator)new MMDeviceEnumerator();
         _enumerator.RegisterEndpointNotificationCallback(_notifications);
-        Attach(_output);
-        Attach(_input);
+        Attach(_output, DefaultDevice(EndpointFlow.Output));
+        Attach(_input, DefaultDevice(EndpointFlow.Input));
     }
 
     // Callbacks can still be in flight while Dispose completes the queue: late posts are dropped.
@@ -103,14 +103,42 @@ public sealed class CoreAudioService : IAudioService
 
     private Endpoint EndpointFor(EndpointFlow flow) => flow == EndpointFlow.Output ? _output : _input;
 
-    private unsafe void Attach(Endpoint endpoint)
+    private IMMDevice? DefaultDevice(EndpointFlow flow)
+    {
+        try
+        {
+            var dataFlow = flow == EndpointFlow.Output ? EDataFlow.eRender : EDataFlow.eCapture;
+            _enumerator!.GetDefaultAudioEndpoint(dataFlow, ERole.eConsole, out var device);
+            return device;
+        }
+        catch (COMException e) when (e.HResult == (int)HRESULT.E_NOTFOUND)
+        {
+            return null; // no endpoint of this flow, e.g. no microphone
+        }
+    }
+
+    private IMMDevice? DeviceById(string? id)
+    {
+        if (id is null)
+            return null; // the notification says there is no default endpoint anymore
+        try
+        {
+            _enumerator!.GetDevice(id, out var device);
+            return device;
+        }
+        catch (COMException e) when (e.HResult == (int)HRESULT.E_NOTFOUND)
+        {
+            return null; // gone again before we got to it; a later notification follows
+        }
+    }
+
+    /// <summary>Tracks <paramref name="device"/> (released here) as this flow's endpoint; null clears it.</summary>
+    private unsafe void Attach(Endpoint endpoint, IMMDevice? device)
     {
         Detach(endpoint);
         EndpointState? state = null;
-        try
+        if (device is not null)
         {
-            var dataFlow = endpoint.Flow == EndpointFlow.Output ? EDataFlow.eRender : EDataFlow.eCapture;
-            _enumerator!.GetDefaultAudioEndpoint(dataFlow, ERole.eConsole, out var device);
             try
             {
                 var id = DeviceId(device);
@@ -130,10 +158,6 @@ public sealed class CoreAudioService : IAudioService
             {
                 Marshal.ReleaseComObject(device);
             }
-        }
-        catch (COMException e) when (e.HResult == (int)HRESULT.E_NOTFOUND)
-        {
-            // No endpoint of this flow (e.g. no microphone): state stays null.
         }
         _current = _current.With(endpoint.Flow, state);
     }
@@ -180,10 +204,11 @@ public sealed class CoreAudioService : IAudioService
         Raise(previous, flow, AudioChangeKind.VolumeOrMute);
     }
 
-    private void OnDefaultDevice(EndpointFlow flow)
+    // Uses the id from the notification: re-querying the default could still return the old device.
+    private void OnDefaultDevice(EndpointFlow flow, string? deviceId)
     {
         var previous = _current;
-        Attach(EndpointFor(flow));
+        Attach(EndpointFor(flow), DeviceById(deviceId));
         // Windows reports each role separately and sometimes repeats itself.
         if (previous.Get(flow)?.Id != _current.Get(flow)?.Id)
             Raise(previous, flow, AudioChangeKind.DefaultDevice);
@@ -289,12 +314,13 @@ public sealed class CoreAudioService : IAudioService
 
     private sealed class NotificationClient(CoreAudioService owner) : IMMNotificationClient
     {
-        public void OnDefaultDeviceChanged(EDataFlow flow, ERole role, PCWSTR defaultDeviceId)
+        public unsafe void OnDefaultDeviceChanged(EDataFlow flow, ERole role, PCWSTR defaultDeviceId)
         {
             if (role != ERole.eConsole)
                 return;
             var endpoint = flow == EDataFlow.eRender ? EndpointFlow.Output : EndpointFlow.Input;
-            owner.Post(() => owner.OnDefaultDevice(endpoint));
+            var id = defaultDeviceId.Value is null ? null : defaultDeviceId.ToString(); // copy: dies with the call
+            owner.Post(() => owner.OnDefaultDevice(endpoint, id));
         }
 
         public void OnPropertyValueChanged(PCWSTR deviceId, PROPERTYKEY key)

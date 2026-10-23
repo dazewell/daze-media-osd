@@ -106,7 +106,10 @@ unit-tested with fakes. App never P/Invokes directly except window styling.
 - `SendInput` volume keys reach raw input (hDevice 0) and Windows alike → `scripts/press-key.ps1`
   exercises the keyboard path. It can't produce Consumer Control HID reports: that path is only
   verified with a physical media key/knob (log line `consumer-control key …`). The dev machine has 9
-  consumer-control collections. A press seen on both paths raises twice (harmless: show is idempotent).
+  consumer-control collections. A press seen on both paths raises twice; `OsdController` drops an
+  identical request within 100 ms.
+- Default-device switch attaches the device id the notification carries (re-querying the default
+  could still return the old one).
 - Default-device switch: `OnDefaultDeviceChanged` fires per role; we act on eConsole only and re-attach
   the volume callback; a late notification from the old endpoint is dropped by endpoint id.
 - Raw input registration is per process and per device class: if a future window (settings) or WinUI
