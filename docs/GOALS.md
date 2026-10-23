@@ -79,9 +79,11 @@ this file and know what to build next. History of *why* lives in [DECISIONS.md](
 build the two features below, in this order, one PR each.
 
 **Plan A — device-type icons** (S, ~½ day)
-- Core: read `PKEY_AudioEndpoint_FormFactor` with the name; add `EndpointState.Kind` (Speakers,
-  Headphones, Headset, Display = DigitalAudioDisplayDevice/HDMI/DP, Microphone, Other). Pure
-  `DeviceKind.From(formFactor, bluetooth)`, unit-tested. Log the kind in the `show` line.
+- Core: read `PKEY_AudioEndpoint_FormFactor` with the name; add `Kind` (Speakers, Headphones, Headset,
+  Display = DigitalAudioDisplayDevice/HDMI/DP, Microphone, Other) to `EndpointState` and `DeviceEvent`,
+  and to `DeviceNotice` (the event line's model). Cache it with the name in the active-endpoint set:
+  a disconnecting endpoint may no longer be readable. Pure form factor → kind mapping, unit-tested.
+  Log the kind in the `show` line.
 - OSD: the row icon becomes the device type (Segoe Fluent: speakers E7F5, headphone E7F6, headset E95B,
   monitor E7F4, mic E720; check each in a screenshot). It replaces today's volume-level glyph — the
   value and bar already show the level. Muted keeps Mute E74F / MicOff EC54 (the state matters more
