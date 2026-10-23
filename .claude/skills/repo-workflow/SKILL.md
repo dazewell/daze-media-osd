@@ -11,6 +11,11 @@ Skipping either step is how the next agent ends up re-deciding settled questions
 
 ## 1. Orient (before touching code)
 
+0. `gh pr list --state open` — `main` lags behind work still in review, and its GOALS may name a
+   step that an open PR already did. If PRs are open, the newest one's docs are the truth:
+   `git fetch && git show origin/<its branch>:docs/GOALS.md`. Address their review comments
+   (`gh pr view <n> --comments`) before new work, and stack new work on that branch only if the user
+   wants to keep going before the merge.
 1. `docs/GOALS.md` — user intent, scope, **Status** checklist and **Next step**.
 2. `docs/ARCHITECTURE.md` — the sections relevant to the task (components, invariants, open questions).
 3. Grep `docs/DECISIONS.md` and `docs/DEADENDS.md` for the area you're touching (component name, API
