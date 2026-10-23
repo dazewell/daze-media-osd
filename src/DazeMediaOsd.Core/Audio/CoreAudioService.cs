@@ -25,6 +25,7 @@ public sealed class CoreAudioService : IAudioService
     private IMMDeviceEnumerator? _enumerator;
     private volatile AudioSnapshot _current = AudioSnapshot.Empty;
 
+    /// <exception cref="InvalidOperationException">Core Audio could not be initialized.</exception>
     public CoreAudioService()
     {
         _notifications = new NotificationClient(this);
@@ -33,11 +34,16 @@ public sealed class CoreAudioService : IAudioService
         _worker.Start();
 
         using var ready = new ManualResetEventSlim();
+        Exception? failure = null;
         Post(() =>
         {
             try
             {
                 Initialize();
+            }
+            catch (Exception e) when (e is not OutOfMemoryException)
+            {
+                failure = e;
             }
             finally
             {
@@ -45,6 +51,13 @@ public sealed class CoreAudioService : IAudioService
             }
         });
         ready.Wait();
+        // Startup failure is not an ordinary queue step: the caller must not suppress the native flyout
+        // on top of a service that will never report anything.
+        if (failure is not null)
+        {
+            Dispose();
+            throw new InvalidOperationException("Core Audio initialization failed.", failure);
+        }
     }
 
     public AudioSnapshot Current => _current;

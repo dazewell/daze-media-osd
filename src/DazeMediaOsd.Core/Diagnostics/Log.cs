@@ -9,7 +9,9 @@ namespace DazeMediaOsd.Core.Diagnostics;
 /// </summary>
 public static class Log
 {
-    private static readonly Lock Gate = new();
+    // Launcher and app append to the same file; File.AppendAllText shares it read-only, so serialize
+    // across processes (and threads) instead of losing lines to sharing violations.
+    private static readonly Mutex FileMutex = new(initiallyOwned: false, @"Local\DazeMediaOsd.Log");
     private static string? _path;
 
     public static string DefaultDirectory { get; } =
@@ -40,16 +42,27 @@ public static class Log
         Debug.WriteLine(line);
         if (_path is null)
             return;
-        lock (Gate)
+        var owned = false;
+        try
         {
             try
             {
-                File.AppendAllText(_path, line + Environment.NewLine);
+                owned = FileMutex.WaitOne(TimeSpan.FromSeconds(1));
             }
-            catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+            catch (AbandonedMutexException)
             {
-                // Logging must never take the app down; it is called from audio and input callbacks.
+                owned = true; // the other process died mid-write; the mutex is ours now
             }
+            File.AppendAllText(_path, line + Environment.NewLine);
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            // Logging must never take the app down; it is called from audio and input callbacks.
+        }
+        finally
+        {
+            if (owned)
+                FileMutex.ReleaseMutex();
         }
     }
 }

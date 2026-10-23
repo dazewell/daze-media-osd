@@ -139,7 +139,8 @@ unit-tested with fakes. App never P/Invokes directly except window styling.
 ## Invariants
 
 - **Fail-open:** whenever our app is not running, the native flyout works. It is minimized only while
-  the app runs, and every exit path restores it (D-006).
+  the app runs, and every exit path restores it (D-006). Audio and key sources start **before** any
+  suppression; if either fails, the app logs it and exits with Windows untouched.
 - OSD window never takes focus or activation (would steal focus from games/apps on every key press).
 - No admin rights required.
 

@@ -30,19 +30,30 @@ public sealed partial class App : Application, IDisposable
     protected override void OnLaunched(LaunchActivatedEventArgs args)
     {
         var ui = DispatcherQueue.GetForCurrentThread();
-        // Watch first: minimizing is only safe while a live launcher will restore the host if we die
-        // (D-006). If it dies right after, the queued fallback runs after this method and restores.
+        // Services first: suppressing the native flyout is only right once ours can take over. If they
+        // can't start, exit with Windows untouched (fail-open); the launcher then exits too.
+        try
+        {
+            _audio = new CoreAudioService();
+            _keys = new RawInputKeySource();
+        }
+        catch (InvalidOperationException e)
+        {
+            Log.Error("audio or key source failed to start; exiting without suppressing the native flyout", e);
+            Exit();
+            return;
+        }
+        _osd = new OsdController(_audio, _keys);
+        _osd.ShowRequested += (_, state) => ui.TryEnqueue(() => Show(state));
+
+        // Watch the launcher before choosing a mode: minimizing is only safe while a live launcher will
+        // restore the host if we die (D-006). If it dies right after, the queued fallback restores.
         _launcher = Launcher.WatchLauncher(_args.LauncherPid, () => ui.TryEnqueue(() =>
         {
             Log.Info("no launcher: native flyout restored, hiding it per show from now on");
             _suppressor?.FallBackToHidePerShow();
         }));
         _suppressor = new FlyoutSuppressor(_launcher is null ? SuppressionMode.HidePerShow : SuppressionMode.Minimize);
-
-        _audio = new CoreAudioService();
-        _keys = new RawInputKeySource();
-        _osd = new OsdController(_audio, _keys);
-        _osd.ShowRequested += (_, state) => ui.TryEnqueue(() => Show(state));
         Log.Info($"app started, suppression={_suppressor.Mode}, {OsdState.Describe(_audio.Current)}");
     }
 

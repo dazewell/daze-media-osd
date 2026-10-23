@@ -191,7 +191,9 @@ public sealed class RawInputKeySource : IKeySource
             return cached;
         uint size = 0;
         var handle = new HANDLE(device);
-        if (PInvoke.GetRawInputDeviceInfo(handle, RAW_INPUT_DEVICE_INFO_COMMAND.RIDI_PREPARSEDDATA, null, &size) != 0 || size == 0)
+        // Documented to return 0 for a NULL buffer (it does on 26300); only -1 is failure, the size is in `size`.
+        if (PInvoke.GetRawInputDeviceInfo(handle, RAW_INPUT_DEVICE_INFO_COMMAND.RIDI_PREPARSEDDATA, null, &size) == unchecked((uint)-1)
+            || size == 0)
             return null;
         var data = new byte[size];
         fixed (byte* p = data)
