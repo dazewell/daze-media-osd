@@ -44,7 +44,34 @@
             <Style x:Key="OsdFillMuted" TargetType="Border" BasedOn="{StaticResource OsdFill}">
                 <Setter Property="Background" Value="{ThemeResource ControlStrongFillColorDefaultBrush}" />
             </Style>
+            <Style x:Key="OsdTitle" TargetType="TextBlock" BasedOn="{StaticResource BodyStrongTextBlockStyle}">
+                <Setter Property="Foreground" Value="{ThemeResource TextFillColorPrimaryBrush}" />
+                <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+                <Setter Property="TextWrapping" Value="NoWrap" />
+                <Setter Property="MaxLines" Value="1" />
+            </Style>
         </StackPanel.Resources>
+
+        <!-- Media row on top, like the native flyout. Same value column (44) so the play-state glyph lines
+             up with the numbers below; the 40-DIP cover replaces the icon column. -->
+        <Grid x:Name="MediaRow" ColumnSpacing="12" Visibility="Collapsed">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" MinWidth="44" />
+            </Grid.ColumnDefinitions>
+            <Grid Width="40" Height="40" CornerRadius="4" VerticalAlignment="Center"
+                  Background="{ThemeResource ControlStrongFillColorDisabledBrush}">
+                <FontIcon x:Name="MediaPlaceholder" Glyph="&#xE8D6;" Style="{StaticResource OsdIcon}" />
+                <Image x:Name="MediaThumbnail" Stretch="UniformToFill" ImageFailed="OnThumbnailFailed" />
+            </Grid>
+            <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
+                <TextBlock x:Name="MediaTitle" Style="{StaticResource OsdTitle}" />
+                <TextBlock x:Name="MediaArtist" Style="{StaticResource OsdName}" />
+            </StackPanel>
+            <!-- Shows the state (playing/paused), not a button: the OSD is click-through. -->
+            <FontIcon x:Name="MediaPlayback" Grid.Column="2" Style="{StaticResource OsdIcon}" HorizontalAlignment="Right" />
+        </Grid>
 
         <Grid Style="{StaticResource OsdRow}">
             <Grid.ColumnDefinitions>

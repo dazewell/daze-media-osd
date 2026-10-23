@@ -71,6 +71,15 @@ public sealed class SettingsStoreTests : IDisposable
     }
 
     [Fact]
+    public void FileFromBeforeShowMediaGetsItOn()
+    {
+        Directory.CreateDirectory(_directory);
+        File.WriteAllText(SettingsFile, """{ "version": 1, "position": "BottomRight", "hideAfterSeconds": 2.5, "showInput": false }""");
+
+        Assert.True(new SettingsStore(_directory).Current.ShowMedia);
+    }
+
+    [Fact]
     public void FailedSaveKeepsTheChangeAndReportsIt()
     {
         var store = new SettingsStore(_directory);

@@ -126,6 +126,21 @@
                                           AutomationProperties.Name="Show microphone"
                                           IsOn="{x:Bind ViewModel.ShowInput, Mode=TwoWay}" />
                         </Grid>
+                        <Grid Style="{StaticResource SettingsCard}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <FontIcon Glyph="&#xE8D6;" Style="{StaticResource SettingsCardIcon}" />
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock Text="Media" />
+                                <TextBlock Text="Show what's playing; media keys show the OSD too" Style="{StaticResource SettingsCardDescription}" />
+                            </StackPanel>
+                            <ToggleSwitch Grid.Column="2" VerticalAlignment="Center" MinWidth="0"
+                                          AutomationProperties.Name="Show media"
+                                          IsOn="{x:Bind ViewModel.ShowMedia, Mode=TwoWay}" />
+                        </Grid>
                     </StackPanel>
 
                     <StackPanel x:Name="AboutPage" Spacing="4" Visibility="Collapsed">

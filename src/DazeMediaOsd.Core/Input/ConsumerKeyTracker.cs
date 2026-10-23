@@ -11,12 +11,17 @@ internal sealed class ConsumerKeyTracker
     internal const ushort VolumeIncrement = 0xE9;
     internal const ushort VolumeDecrement = 0xEA;
     internal const ushort Mute = 0xE2;
+    internal const ushort PlayPause = 0xCD;
+    internal const ushort Play = 0xB0;
+    internal const ushort Pause = 0xB1;
+    internal const ushort ScanNextTrack = 0xB5;
+    internal const ushort ScanPreviousTrack = 0xB6;
 
-    private readonly Dictionary<nint, HashSet<VolumeKey>> _held = [];
+    private readonly Dictionary<nint, HashSet<MediaKey>> _held = [];
 
-    public IReadOnlyList<VolumeKey> Update(nint device, IEnumerable<(ushort Page, ushort Usage)> usages)
+    public IReadOnlyList<MediaKey> Update(nint device, IEnumerable<(ushort Page, ushort Usage)> usages)
     {
-        var now = new HashSet<VolumeKey>();
+        var now = new HashSet<MediaKey>();
         foreach (var (page, usage) in usages)
         {
             if (page == ConsumerPage && ToKey(usage) is { } key)
@@ -27,11 +32,15 @@ internal sealed class ConsumerKeyTracker
         return [.. now.Where(key => !before.Contains(key))];
     }
 
-    private static VolumeKey? ToKey(ushort usage) => usage switch
+    private static MediaKey? ToKey(ushort usage) => usage switch
     {
-        VolumeIncrement => VolumeKey.Up,
-        VolumeDecrement => VolumeKey.Down,
-        Mute => VolumeKey.Mute,
+        VolumeIncrement => MediaKey.VolumeUp,
+        VolumeDecrement => MediaKey.VolumeDown,
+        Mute => MediaKey.Mute,
+        // Separate Play and Pause buttons exist on some remotes; the OSD treats them alike.
+        PlayPause or Play or Pause => MediaKey.PlayPause,
+        ScanNextTrack => MediaKey.NextTrack,
+        ScanPreviousTrack => MediaKey.PreviousTrack,
         _ => null,
     };
 }

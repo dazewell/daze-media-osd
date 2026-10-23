@@ -87,7 +87,7 @@ Supersedes: D-005
 - Ref: probe modes `minimize`/`restore` in `spikes/FlyoutProbe`.
 
 ## D-007 · 2026-10-22 · When our OSD pops up
-Status: accepted
+Status: superseded by D-011 (adds media keys; the audio rules stand)
 - Decision: show on a volume key (raw input), an output volume (displayed % changed) or mute change from
   any source, a default output/input device switch, and a mic mute change. Never on mic level alone or
   a device rename. Rules live in `OsdRules`.
@@ -139,3 +139,18 @@ Status: accepted
   support not checked. Why not `Frame` + pages: two pages, nothing to navigate back to. Why not an
   Apply/OK button: extra state and unlike native settings.
 - Revisit if: pages grow past ~4 or need deep links (→ `Frame`), or cards need expanders (→ `SettingsCard`).
+
+## D-011 · 2026-10-22 · Media keys pop the OSD; media session changes only refresh it
+Status: accepted
+Supersedes: D-007
+- Decision: D-007's audio rules, plus Play/Pause, Next and Previous (keyboard `VK_MEDIA_*`, Consumer
+  Control 0xCD/0xB0/0xB1/0xB5/0xB6) pop the OSD — only while a GSMTC session exists and the Media
+  setting is on. A session change (track, play state) never pops it; it re-renders a visible OSD
+  without extending its time (`OsdController.RefreshRequested`).
+- Why: the user decided media keys show the OSD (2026-10-22). The key arrives before the player
+  reacts, so the shown state is stale until GSMTC reports the new track; refresh fixes that.
+  No session / Media off → nothing to show, like the native flyout.
+- Why not pop on every session change: players change tracks on their own → OSD every few minutes.
+  Why not wait for the session change before showing: adds latency (20–50 ms seen with Chromium,
+  player-dependent) and shows nothing if the player ignores the key.
+- Revisit if: the user wants track changes announced, or refresh flicker shows in daily use.

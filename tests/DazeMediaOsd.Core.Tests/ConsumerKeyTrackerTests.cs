@@ -12,10 +12,10 @@ public class ConsumerKeyTrackerTests
     {
         var tracker = new ConsumerKeyTracker();
 
-        Assert.Equal([VolumeKey.Up], tracker.Update(1, [(Page, ConsumerKeyTracker.VolumeIncrement)]));
+        Assert.Equal([MediaKey.VolumeUp], tracker.Update(1, [(Page, ConsumerKeyTracker.VolumeIncrement)]));
         Assert.Empty(tracker.Update(1, [(Page, ConsumerKeyTracker.VolumeIncrement)]));
         Assert.Empty(tracker.Update(1, Released));
-        Assert.Equal([VolumeKey.Up], tracker.Update(1, [(Page, ConsumerKeyTracker.VolumeIncrement)]));
+        Assert.Equal([MediaKey.VolumeUp], tracker.Update(1, [(Page, ConsumerKeyTracker.VolumeIncrement)]));
     }
 
     [Fact]
@@ -24,7 +24,7 @@ public class ConsumerKeyTrackerTests
         var tracker = new ConsumerKeyTracker();
         tracker.Update(1, [(Page, ConsumerKeyTracker.Mute)]);
 
-        Assert.Equal([VolumeKey.Mute], tracker.Update(2, [(Page, ConsumerKeyTracker.Mute)]));
+        Assert.Equal([MediaKey.Mute], tracker.Update(2, [(Page, ConsumerKeyTracker.Mute)]));
     }
 
     [Fact]
@@ -32,9 +32,18 @@ public class ConsumerKeyTrackerTests
     {
         var tracker = new ConsumerKeyTracker();
 
-        Assert.Empty(tracker.Update(1, [(Page, 0xCD)]));                                 // Play/Pause
+        Assert.Empty(tracker.Update(1, [(Page, 0xB7)]));                                 // Stop
         Assert.Empty(tracker.Update(1, [(0x07, ConsumerKeyTracker.VolumeIncrement)]));   // keyboard page
     }
+
+    [Theory]
+    [InlineData(ConsumerKeyTracker.PlayPause, MediaKey.PlayPause)]
+    [InlineData(ConsumerKeyTracker.Play, MediaKey.PlayPause)]
+    [InlineData(ConsumerKeyTracker.Pause, MediaKey.PlayPause)]
+    [InlineData(ConsumerKeyTracker.ScanNextTrack, MediaKey.NextTrack)]
+    [InlineData(ConsumerKeyTracker.ScanPreviousTrack, MediaKey.PreviousTrack)]
+    public void MediaUsagesRaiseMediaKeys(ushort usage, MediaKey expected) =>
+        Assert.Equal([expected], new ConsumerKeyTracker().Update(1, [(Page, usage)]));
 
     [Fact]
     public void SecondKeyWhileFirstHeldRaisesOnlyTheNewOne()
@@ -42,7 +51,7 @@ public class ConsumerKeyTrackerTests
         var tracker = new ConsumerKeyTracker();
         tracker.Update(1, [(Page, ConsumerKeyTracker.VolumeDecrement)]);
 
-        Assert.Equal([VolumeKey.Mute],
+        Assert.Equal([MediaKey.Mute],
             tracker.Update(1, [(Page, ConsumerKeyTracker.VolumeDecrement), (Page, ConsumerKeyTracker.Mute)]));
     }
 }

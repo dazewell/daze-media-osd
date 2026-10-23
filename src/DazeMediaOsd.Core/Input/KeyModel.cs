@@ -1,19 +1,23 @@
 namespace DazeMediaOsd.Core.Input;
 
-public enum VolumeKey
+/// <summary>Keys that pop the OSD (D-011): volume keys and media transport keys.</summary>
+public enum MediaKey
 {
-    Up,
-    Down,
+    VolumeUp,
+    VolumeDown,
     Mute,
+    PlayPause,
+    NextTrack,
+    PreviousTrack,
 }
 
-public sealed class VolumeKeyEventArgs(VolumeKey key) : EventArgs
+public sealed class MediaKeyEventArgs(MediaKey key) : EventArgs
 {
-    public VolumeKey Key { get; } = key;
+    public MediaKey Key { get; } = key;
 }
 
 public interface IKeySource : IDisposable
 {
     /// <summary>Raised on key down (auto-repeat included) on the source's own thread.</summary>
-    event EventHandler<VolumeKeyEventArgs>? KeyPressed;
+    event EventHandler<MediaKeyEventArgs>? KeyPressed;
 }

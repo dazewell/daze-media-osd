@@ -17,6 +17,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         PositionIndex = (int)current.Position;
         HideAfterSeconds = current.HideAfterSeconds;
         ShowInput = current.ShowInput;
+        ShowMedia = current.ShowMedia;
         // A failure from an earlier, closed window still applies until a save succeeds.
         SaveError = store.SaveError;
     }
@@ -30,6 +31,9 @@ public sealed partial class SettingsViewModel : ObservableObject
 
     [ObservableProperty]
     public partial bool ShowInput { get; set; }
+
+    [ObservableProperty]
+    public partial bool ShowMedia { get; set; }
 
     /// <summary>Set while the last edit couldn't be written to disk: it applies only until the app exits.</summary>
     [ObservableProperty]
@@ -56,6 +60,8 @@ public sealed partial class SettingsViewModel : ObservableObject
     }
 
     partial void OnShowInputChanged(bool value) => Update(s => s with { ShowInput = value });
+
+    partial void OnShowMediaChanged(bool value) => Update(s => s with { ShowMedia = value });
 
     private void Update(Func<AppSettings, AppSettings> change)
     {
