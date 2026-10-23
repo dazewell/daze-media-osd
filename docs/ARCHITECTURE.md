@@ -97,7 +97,7 @@ unit-tested with fakes. App never P/Invokes directly; window styling goes throug
 - `CoreAudioService` owns one MTA worker thread that makes every COM call. Callbacks copy their
   arguments (pointers die with the call) and post to it — Register/Unregister must never run inside a
   Core Audio callback. `Changed` is raised on that worker.
-- `RawInputKeySource` runs its own thread + message-only window; `KeyPressed` is raised there. So does`r
+- `RawInputKeySource` runs its own thread + message-only window; `KeyPressed` is raised there. So does
   `GlobalHotkey` (`Pressed`); App cycles right there, off the UI thread, since `Endpoints` waits on the audio worker.
 - `TrayIcon` runs its own thread + hidden **top-level** window (a message-only window misses the
   `TaskbarCreated` and `WM_SETTINGCHANGE` broadcasts); `ExitRequested` is raised there. Building the menu

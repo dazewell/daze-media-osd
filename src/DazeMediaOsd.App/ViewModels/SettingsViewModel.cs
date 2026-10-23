@@ -33,7 +33,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         ShowMedia = current.ShowMedia;
         ShowOnDeviceConnect = current.ShowOnDeviceConnect;
         CycleOutputHotkey = current.CycleOutputHotkey;
-        HotkeyNote = hotkey is null ? "The shortcut isn't available: see the log." : hotkey.Error;
+        HotkeyNote = RegistrationNote();
         // A failure from an earlier, closed window still applies until a save succeeds.
         SaveError = store.SaveError;
     }
@@ -116,6 +116,9 @@ public sealed partial class SettingsViewModel : ObservableObject
     /// <summary>Keys were pressed that make no shortcut: say what would.</summary>
     public void RejectHotkey() => HotkeyNote = InvalidHotkeyNote;
 
+    // Without the hotkey window no edit can take effect: keep saying so instead of looking healthy.
+    private string? RegistrationNote() => _hotkey is null ? "The shortcut isn't available: see the log." : _hotkey.Error;
+
     private const string InvalidHotkeyNote =
         "Not a shortcut. Use Win, Ctrl or Alt with a letter, digit or F1–F24, like Win+Alt+A.";
 
@@ -137,7 +140,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         Update(s => s with { CycleOutputHotkey = text });
         // Show what was stored ("alt+win+a" → "Win+Alt+A"); setting it again re-enters with no change.
         CycleOutputHotkey = _store.Current.CycleOutputHotkey;
-        HotkeyNote = _hotkey?.Error;
+        HotkeyNote = RegistrationNote();
     }
 
     partial void OnStartWithWindowsChanged(bool value)

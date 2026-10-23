@@ -12,7 +12,7 @@ namespace DazeMediaOsd.Core.Settings;
 /// </summary>
 public sealed class SettingsStore
 {
-    // Relaxed escaping keeps the file hand-editable: "Win+Alt+A", not "Win+Alt+A". Only we and the user read it.
+    // Relaxed escaping keeps the file hand-editable: "Win+Alt+A" rather than the default encoder's escaped "+" (U+002B as a JSON escape). Only we and the user read it.
     private static readonly SettingsJsonContext Json = new(new JsonSerializerOptions(SettingsJsonContext.Default.Options)
     {
         Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
