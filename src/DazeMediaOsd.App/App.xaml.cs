@@ -109,7 +109,7 @@ public sealed partial class App : Application, IDisposable
     {
         if (_settingsWindow is null)
         {
-            _settingsWindow = new SettingsWindow(new SettingsViewModel(_settings!));
+            _settingsWindow = new SettingsWindow(new SettingsViewModel(_settings!, new Autostart(), Environment.ProcessPath!));
             _settingsWindow.Closed += (_, _) => _settingsWindow = null;
             _settingsWindow.Activate();
         }

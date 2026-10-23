@@ -1,4 +1,6 @@
 using CommunityToolkit.Mvvm.ComponentModel;
+using DazeMediaOsd.Core.Diagnostics;
+using DazeMediaOsd.Core.Lifecycle;
 using DazeMediaOsd.Core.Settings;
 
 namespace DazeMediaOsd.App.ViewModels;
@@ -7,11 +9,18 @@ namespace DazeMediaOsd.App.ViewModels;
 public sealed partial class SettingsViewModel : ObservableObject
 {
     private readonly SettingsStore _store;
+    private readonly Autostart _autostart;
+    private readonly string _exePath;
+    private bool _readingAutostart;
 
-    public SettingsViewModel(SettingsStore store)
+    public SettingsViewModel(SettingsStore store, Autostart autostart, string exePath)
     {
         ArgumentNullException.ThrowIfNull(store);
+        ArgumentNullException.ThrowIfNull(autostart);
         _store = store;
+        _autostart = autostart;
+        _exePath = exePath;
+        ReadAutostart();
         var current = store.Current;
         // Each setter saves back the value it just read: Update sees no change and does nothing.
         PositionIndex = (int)current.Position;
@@ -46,6 +55,17 @@ public sealed partial class SettingsViewModel : ObservableObject
 
     public bool HasSaveError => SaveError is not null;
 
+    /// <summary>Mirrors the Run value (D-015); re-read whenever the window opens, never stored.</summary>
+    [ObservableProperty]
+    public partial bool StartWithWindows { get; set; }
+
+    /// <summary>Why the toggle may not match expectations: off in Task Manager, another copy, or a failed write.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasAutostartNote))]
+    public partial string? AutostartNote { get; set; }
+
+    public bool HasAutostartNote => AutostartNote is not null;
+
     partial void OnPositionIndexChanged(int value)
     {
         if (value >= 0)
@@ -68,6 +88,53 @@ public sealed partial class SettingsViewModel : ObservableObject
     partial void OnShowMediaChanged(bool value) => Update(s => s with { ShowMedia = value });
 
     partial void OnShowOnDeviceConnectChanged(bool value) => Update(s => s with { ShowOnDeviceConnect = value });
+
+    partial void OnStartWithWindowsChanged(bool value)
+    {
+        if (_readingAutostart)
+            return;
+        string? error = null;
+        try
+        {
+            if (value)
+                _autostart.Enable(_exePath);
+            else
+                _autostart.Disable();
+            Log.Info($"autostart: {(value ? "enabled for " + _exePath : "disabled")}");
+        }
+        catch (Exception e) when (e is UnauthorizedAccessException or IOException or System.Security.SecurityException)
+        {
+            Log.Info($"autostart: change failed: {e.Message}");
+            error = "Couldn't change the startup entry: " + e.Message;
+        }
+        ReadAutostart();
+        AutostartNote = error ?? AutostartNote;
+    }
+
+    private void ReadAutostart()
+    {
+        AutostartStatus status;
+        string? readError = null;
+        try
+        {
+            status = _autostart.Read();
+        }
+        catch (Exception e) when (e is UnauthorizedAccessException or IOException or System.Security.SecurityException)
+        {
+            status = new AutostartStatus(AutostartState.Off, null);
+            readError = "Couldn't read the startup entry: " + e.Message;
+        }
+        _readingAutostart = true;
+        StartWithWindows = status.State == AutostartState.On;
+        _readingAutostart = false;
+        AutostartNote = readError ?? status switch
+        {
+            { State: AutostartState.DisabledByWindows } => "Turned off in Task Manager. Turn it on here to start again.",
+            { State: AutostartState.On, Path: var path } when !string.Equals(path, _exePath, StringComparison.OrdinalIgnoreCase)
+                => $"Starts another copy: {path}. Turn it off and on to start this one.",
+            _ => null,
+        };
+    }
 
     private void Update(Func<AppSettings, AppSettings> change)
     {
