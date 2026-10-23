@@ -517,6 +517,12 @@ public class OsdControllerTests
 
         public event EventHandler<AudioChangedEventArgs>? Changed;
 
+        public IReadOnlyList<AudioEndpoint> Endpoints(EndpointFlow flow) => [];
+
+        public void SetDefault(string id, EndpointFlow flow)
+        {
+        }
+
         public void Change(AudioSnapshot next, EndpointFlow flow, AudioChangeKind kind, DeviceEvent? device = null)
         {
             var previous = Current;

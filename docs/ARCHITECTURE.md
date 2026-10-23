@@ -34,7 +34,7 @@ Directory.Build.props            shared props: TFM net10.0-windows10.0.26100.0, 
 Directory.Packages.props         central package versions
 src/DazeMediaOsd.Core/           no UI; Win32/COM via CsWin32 (NativeMethods.txt). Lifecycle/ (LaunchArgs,
                                  Launcher), NativeFlyout/ (FlyoutHost, FlyoutSuppressor), Audio/
-                                 (CoreAudioService), Input/ (RawInputKeySource), Osd/ (OsdState, OsdRules,
+                                 (CoreAudioService, DeviceChoices), Input/ (RawInputKeySource), Osd/ (OsdState, OsdRules,
                                  OsdController, DeviceNotice, OsdPlacement, OsdAnimation), Windowing/ (OverlayWindow styles), Tray/
                                  (TrayIcon), Settings/ (AppSettings, SettingsStore), Media/
                                  (GsmtcMediaService, CsWinRT), Diagnostics/Log.
@@ -57,7 +57,7 @@ unit-tested with fakes. App never P/Invokes directly; window styling goes throug
 
 | Component | Responsibility | Key APIs |
 |---|---|---|
-| `CoreAudioService` (`IAudioService`) | Default render + capture endpoint (role eConsole): name, volume, mute; raise on change, rename, default switch; set of active endpoints (any flow) → raise on connect/disconnect with a `DeviceEvent` (name, flow, Bluetooth, kind) | `IMMDeviceEnumerator`, `IMMNotificationClient`, `IAudioEndpointVolume` + `IAudioEndpointVolumeCallback`, `PKEY_Device_FriendlyName`, `PKEY_Device_EnumeratorName`, `PKEY_AudioEndpoint_FormFactor` (→ `DeviceKind`, D-017), `EnumAudioEndpoints`, `IMMDevice.GetState`, `IMMEndpoint` |
+| `CoreAudioService` (`IAudioService`) | Default render + capture endpoint (role eConsole): name, volume, mute; raise on change, rename, default switch; set of active endpoints (any flow) → raise on connect/disconnect with a `DeviceEvent` (name, flow, Bluetooth, kind); `Endpoints(flow)` lists active ones, `SetDefault` switches (D-019) | `IMMDeviceEnumerator`, `IMMNotificationClient`, `IAudioEndpointVolume` + `IAudioEndpointVolumeCallback`, `PKEY_Device_FriendlyName`, `PKEY_Device_EnumeratorName`, `PKEY_AudioEndpoint_FormFactor` (→ `DeviceKind`, D-017), `EnumAudioEndpoints`, `IMMDevice.GetState`, `IMMEndpoint`, undocumented `IPolicyConfig` (Interop/PolicyConfig.cs) |
 | `OsdController` + `OsdRules` | Audio changes + keys → `ShowRequested(OsdState)`; media session changes → `RefreshRequested` (re-render a visible OSD, never pop); the rules decide what pops the OSD (D-011); device connect/disconnect shows once, 500 ms after a burst (D-013), carrying the burst as one `DeviceNotice` (also on a default switch that cancels it); a burst repeating the device announced < 2 s ago is dropped (D-016) | — (pure, unit-tested) |
 | `NativeFlyout` | Minimize the native flyout host while the app runs, re-minimize a re-created host, restore on exit | `SetWinEventHook` (out-of-context, `EVENT_OBJECT_CREATE`) on explorer.exe, `ShowWindowAsync` |
 | `RawInputKeySource` (`IKeySource`) | Trigger: volume/mute and play-pause/next/previous key downs (`MediaKey`), incl. at 0 %/100 % where the volume doesn't change. Keyboard VKs + Consumer Control HID reports (`ConsumerKeyTracker`: usages 0xE9/0xEA/0xE2, 0xCD/0xB0/0xB1 → PlayPause, 0xB5/0xB6; raise on newly held) | Message-only window, `RegisterRawInputDevices` (0x01/0x06 and 0x0C/0x01) + `RIDEV_INPUTSINK` (passive, no input latency), `HidP_GetUsagesEx` |
@@ -66,7 +66,7 @@ unit-tested with fakes. App never P/Invokes directly; window styling goes throug
 | `SettingsStore` + `AppSettings` | `%LOCALAPPDATA%\DazeMediaOsd\settings.json` (`version` 1): position, hide-after seconds (1–10), mic row on/off, media row on/off (`showMedia`), pop on device connect (`showOnDeviceConnect`, D-013); both added without a version bump: missing → constructor default, X-003. Saves on every change (temp file + move); missing → defaults, unparsable → defaults + copy to `settings.invalid.json`; out-of-range values clamped (`Normalize`). A failed save keeps the change for the session and sets `SaveError`; the settings window shows it in an InfoBar | `System.Text.Json` source-gen (AOT-safe), enums as names (`"TopRight"`) |
 | `OsdWindow` + `OverlayWindow` | Render `OsdState` (device event line, media cover/title/artist/play state, output name/level/mute, mic name/level/mute; row glyph by device kind, D-017), fade/slide in and out (`OsdAnimation`, D-012), auto-hide after the configured time, at the configured position in the primary work area (`OsdPlacement`, 24 DIP margin) (D-008) | WinUI 3 `Window`, `OverlappedPresenter.SetBorderAndTitleBar(true,false)`, `DesktopAcrylicController`, `SetWindowPos(SWP_NOACTIVATE)` |
 | `SettingsWindow` | Fluent settings UI, created on open, destroyed on close; one at a time (D-010) | WinUI 3 `NavigationView` + `TitleBar`, Mica, CommunityToolkit.Mvvm partial `[ObservableProperty]` |
-| `TrayIcon` | Notification-area icon + menu: Settings (default, bold), Exit (D-009) | `Shell_NotifyIcon` v4, `TrackPopupMenuEx`, uxtheme #135/#136 for the dark menu, `TaskbarCreated` |
+| `TrayIcon` | Notification-area icon + menu: Output / Input submenus (`DeviceChoices`, default checked; pick → `SetDefault`, D-019), Settings (default, bold), Exit (D-009) | `Shell_NotifyIcon` v4, `TrackPopupMenuEx`, uxtheme #135/#136 for the dark menu, `TaskbarCreated` |
 
 ## Native flyout (verified on build 26300; strategy D-006)
 
@@ -98,7 +98,8 @@ unit-tested with fakes. App never P/Invokes directly; window styling goes throug
   Core Audio callback. `Changed` is raised on that worker.
 - `RawInputKeySource` runs its own thread + message-only window; `KeyPressed` is raised there.
 - `TrayIcon` runs its own thread + hidden **top-level** window (a message-only window misses the
-  `TaskbarCreated` and `WM_SETTINGCHANGE` broadcasts); `ExitRequested` is raised there.
+  `TaskbarCreated` and `WM_SETTINGCHANGE` broadcasts); `ExitRequested` is raised there. Building the menu
+  calls `IAudioService.Endpoints`, which waits (≤ 2 s) on the Core Audio worker — run inline when called from it.
 - GSMTC events and `GsmtcMediaService.Changed` arrive on thread-pool (MTA) threads; reads happen in
   its single refresh loop.
 - `OsdController.ShowRequested` / `RefreshRequested` therefore arrive on any of those threads: App
