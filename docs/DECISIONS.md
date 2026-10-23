@@ -23,7 +23,7 @@ Status: accepted
 - Ref: [research/2026-10-tech-stack.md](research/2026-10-tech-stack.md)
 
 ## D-002 · 2026-10-22 · Replace the native OSD, don't modify it
-Status: accepted (pending spike Q1)
+Status: accepted (Q1 spike confirmed suppression works on build 26300, see D-005)
 - Decision: detect the native volume flyout (WinEvent hook on explorer.exe windows), hide it, show our
   own OSD. Same model as ModernFlyouts/Flylet.
 - Why: there is no API to add content to the native flyout. Hiding it per-show is reversible and
@@ -52,3 +52,17 @@ Status: accepted
 - Why: personal app; native flyout window classes differ between Win11 releases, supporting only
   current builds keeps suppression code small.
 - Revisit if: the app gets shared with users on older builds.
+
+## D-005 · 2026-10-22 · Detect the flyout by WinEvent SHOW on the explorer host, hide per show
+Status: accepted
+- Decision: out-of-context `SetWinEventHook(EVENT_OBJECT_CREATE..)` filtered to the shell explorer pid;
+  the flyout host is `XamlExplorerHostIslandWindow` with band `ZBID_ABOVELOCK_UX` (18); on every
+  `EVENT_OBJECT_SHOW` of it call `ShowWindowAsync(SW_HIDE)` and show our OSD. Details in ARCHITECTURE.
+- Why: SHOW fires on every press within ~10 ms, even when already shown/hidden by us, so it is a
+  complete trigger; explorer tolerates the hide and stays stock once we exit (fail-open). Verified with
+  `spikes/FlyoutProbe` on 26300.
+- Why not low-level keyboard hook as trigger: adds latency to all input, anti-cheat noise, and misses
+  volume changes Windows shows without a key. Why not Flylet's "permanent hide" (`SW_MINIMIZE` +
+  `SW_FORCEMINIMIZE` on the host): state outlives our process → violates fail-open.
+- Revisit if: a Windows update changes class/band (re-run the probe), or Q4/Q5 show SHOW-time hiding
+  is not good enough.

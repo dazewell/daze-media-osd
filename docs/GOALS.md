@@ -37,7 +37,8 @@ this file and know what to build next. History of *why* lives in [DECISIONS.md](
 ## Status
 
 - [x] Repo scaffolded: docs, skills, stack decision (2026-10-22)
-- [ ] Spike: detect + suppress native volume flyout on current Win11 build (open question Q1 in ARCHITECTURE)
+- [x] .NET 10 SDK on the dev machine (10.0.402) (2026-10-22)
+- [x] Spike Q1: native flyout detected + suppressed per show on build 26300, fail-open confirmed → D-005 (2026-10-22)
 - [ ] Solution skeleton per ARCHITECTURE layout; update `build` skill with real commands
 - [ ] Core: audio endpoint volume + default device tracking
 - [ ] OSD window (Win11 look) with device names
@@ -45,4 +46,7 @@ this file and know what to build next. History of *why* lives in [DECISIONS.md](
 - [ ] Media session info in OSD
 - [ ] Autostart, publish to a local folder, daily-driver test
 
-**Next step:** install the .NET 10 SDK (`build` skill → prerequisites), then the Q1 spike.
+**Next step:** solution skeleton per ARCHITECTURE → Layout (slnx, global.json, Directory.*.props,
+Core/App/Tests projects, WinUI 3 unpackaged per D-003), building with `dotnet build`; then rewrite the
+`build` skill commands to match. Q4 (tell volume from other flyouts) must be answered before
+`FlyoutWatcher` hides anything in the real app.

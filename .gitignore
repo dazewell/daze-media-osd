@@ -6,6 +6,7 @@ publish/
 AppPackages/
 BundleArtifacts/
 TestResults/
+probe-out/
 *.binlog
 
 # IDE / user state

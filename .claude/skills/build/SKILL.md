@@ -50,4 +50,5 @@ Grow this table when you hit something non-obvious (and record a dead end if a f
 |---|---|
 | `MSB3027` / file is locked by `DazeMediaOsd` | Running instance; stop it (command above). |
 | `NETSDK1045` / SDK 10 not supported | Only an older SDK installed; install .NET 10 SDK. `global.json` pins it. |
+| Native flyout shows again / ours doesn't appear after a Windows update | Host class or band changed: `dotnet run --project spikes/FlyoutProbe -- watch`, compare with ARCHITECTURE → Native flyout and D-005. |
 | App starts then exits silently (unpackaged) | Windows App SDK runtime not found: ensure `WindowsAppSDKSelfContained=true` and `WindowsPackageType=None`. |
