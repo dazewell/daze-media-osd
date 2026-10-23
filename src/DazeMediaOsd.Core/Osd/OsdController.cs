@@ -19,6 +19,12 @@ public sealed class OsdController : IDisposable
     /// </summary>
     internal static readonly TimeSpan DeviceSettle = TimeSpan.FromMilliseconds(500);
 
+    /// <summary>
+    /// A burst of the same device doing the same thing that starts this soon after it was announced is a
+    /// straggler endpoint, not news (D-016). Measured from the announce, which a default switch makes at once.
+    /// </summary>
+    internal static readonly TimeSpan RepeatWindow = TimeSpan.FromSeconds(2);
+
     private readonly IAudioService _audio;
     private readonly IKeySource _keys;
     private readonly IMediaService _media;
@@ -134,15 +140,15 @@ public sealed class OsdController : IDisposable
         }
     }
 
-    // A Bluetooth headset's second endpoint often comes 30–900 ms after the first, after that one's show (a
+    // A Bluetooth headset's second endpoint often comes 30–930 ms after the first, after that one's show (a
     // default switch, or a settled burst) already announced the device: a burst that began within
-    // DeviceSettle of announcing the same device doing the same thing only repeats it (D-014).
+    // RepeatWindow of announcing the same device doing the same thing only repeats it (D-014, D-016).
     private bool RepeatsAnnounced(DeviceNotice? device) =>
         device is not null
         && _announced is { } announced
         && string.Equals(announced.Name, device.Name, StringComparison.OrdinalIgnoreCase)
         && announced.Connected == device.Connected
-        && _time.GetElapsedTime(_announcedAt, _burstStartedAt) < DeviceSettle;
+        && _time.GetElapsedTime(_announcedAt, _burstStartedAt) < RepeatWindow;
 
     // Caller holds _deviceGate.
     private DeviceNotice? TakeDeviceNotice()

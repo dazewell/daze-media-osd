@@ -58,7 +58,7 @@ unit-tested with fakes. App never P/Invokes directly; window styling goes throug
 | Component | Responsibility | Key APIs |
 |---|---|---|
 | `CoreAudioService` (`IAudioService`) | Default render + capture endpoint (role eConsole): name, volume, mute; raise on change, rename, default switch; set of active endpoints (any flow) → raise on connect/disconnect with a `DeviceEvent` (name, flow, Bluetooth) | `IMMDeviceEnumerator`, `IMMNotificationClient`, `IAudioEndpointVolume` + `IAudioEndpointVolumeCallback`, `PKEY_Device_FriendlyName`, `PKEY_Device_EnumeratorName`, `EnumAudioEndpoints`, `IMMDevice.GetState`, `IMMEndpoint` |
-| `OsdController` + `OsdRules` | Audio changes + keys → `ShowRequested(OsdState)`; media session changes → `RefreshRequested` (re-render a visible OSD, never pop); the rules decide what pops the OSD (D-011); device connect/disconnect shows once, 500 ms after a burst (D-013), carrying the burst as one `DeviceNotice` (also on a default switch that cancels it); a burst repeating the device just announced is dropped (D-014) | — (pure, unit-tested) |
+| `OsdController` + `OsdRules` | Audio changes + keys → `ShowRequested(OsdState)`; media session changes → `RefreshRequested` (re-render a visible OSD, never pop); the rules decide what pops the OSD (D-011); device connect/disconnect shows once, 500 ms after a burst (D-013), carrying the burst as one `DeviceNotice` (also on a default switch that cancels it); a burst repeating the device announced < 2 s ago is dropped (D-016) | — (pure, unit-tested) |
 | `NativeFlyout` | Minimize the native flyout host while the app runs, re-minimize a re-created host, restore on exit | `SetWinEventHook` (out-of-context, `EVENT_OBJECT_CREATE`) on explorer.exe, `ShowWindowAsync` |
 | `RawInputKeySource` (`IKeySource`) | Trigger: volume/mute and play-pause/next/previous key downs (`MediaKey`), incl. at 0 %/100 % where the volume doesn't change. Keyboard VKs + Consumer Control HID reports (`ConsumerKeyTracker`: usages 0xE9/0xEA/0xE2, 0xCD/0xB0/0xB1 → PlayPause, 0xB5/0xB6; raise on newly held) | Message-only window, `RegisterRawInputDevices` (0x01/0x06 and 0x0C/0x01) + `RIDEV_INPUTSINK` (passive, no input latency), `HidP_GetUsagesEx` |
 | `Launcher` | Start `--app`, wait on its handle, restore the native flyout when it exits (D-006) | `Process`, `WaitForSingleObject` |
@@ -131,7 +131,8 @@ unit-tested with fakes. App never P/Invokes directly; window styling goes throug
   `audio device connected/disconnected` log line each (Stereo Mix, 2026-10-22).
 - Bluetooth headset (Technics EAH-AZ80, user's log 2026-10-22): two endpoints, "Headphones (…)" output
   and "Headset (…)" hands-free input. Connect: headphones, default switch ~40 ms later, headset ~35–80 ms
-  after that. Disconnect: headphones, headset 0.2–0.9 s later. Hence D-014's repeat drop. On this Intel
+  after that. Disconnect: headphones, headset 0.2–0.9 s later, also when the default switches at once
+  (850 ms, 2026-10-23). Hence the repeat drop (D-014, window D-016). On this Intel
   Smart Sound machine offloaded BT endpoints report enumerator INTELAUDIO; see D-014 for the BT test.
   Without a default switch (23:27): headphones + headset 80 ms apart → one burst, one show. USB bursts
   not observed yet.
@@ -140,6 +141,8 @@ unit-tested with fakes. App never P/Invokes directly; window styling goes throug
   `RawInputKeySource` (2026-10-22). Re-check if anything else registers 0x01/0x06 in this process.
 - Log: `%LOCALAPPDATA%\DazeMediaOsd\logs\app.log`, both processes (pid per line). Every show is a
   `show <reason>: out=… in=… media=…` line; every media state change a `media: …` line.
+  Read it with PowerShell: the Bash tool's sandbox served a stale copy (2026-10-23). `launcher: app
+  exited with -1` is a kill (install script, Task Manager); a crash is an NTSTATUS like -1073741189.
 
 ## Media sessions (verified on build 26300, 2026-10-22; D-011)
 
@@ -149,8 +152,8 @@ unit-tested with fakes. App never P/Invokes directly; window styling goes throug
 - A media key's raw input arrives before the player reacts; the session change follows ~20–50 ms
   later (Chromium) and refreshes the visible OSD.
 - `TryGetMediaPropertiesAsync` intermittently throws `RPC_E_WRONG_THREAD` (0x8001010E) on the second
-  read of a burst (every play/pause/next with Chromium), with no event after it; a retry 200 ms later
-  succeeds. Hence retry, never "no session" on a failed read.
+  read of a burst (every play/pause/next with Chromium; Telegram Desktop too, 2026-10-23), with no
+  event after it; a retry 200 ms later succeeds. Hence retry, never "no session" on a failed read.
 - Artwork arrives as encoded PNG/JPEG bytes; the window decodes them with `BitmapImage.SetSourceAsync`
   only when the array instance changes (the service reuses it for identical bytes).
 
