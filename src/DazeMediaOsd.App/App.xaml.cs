@@ -8,6 +8,7 @@ using DazeMediaOsd.Core.NativeFlyout;
 using DazeMediaOsd.Core.Osd;
 using DazeMediaOsd.Core.Settings;
 using DazeMediaOsd.Core.Tray;
+using DazeMediaOsd.Core.Windowing;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
 
@@ -105,8 +106,9 @@ public sealed partial class App : Application, IDisposable
         {
             _settingsWindow = new SettingsWindow(new SettingsViewModel(_settings!));
             _settingsWindow.Closed += (_, _) => _settingsWindow = null;
+            _settingsWindow.Activate();
         }
-        _settingsWindow.Activate();
+        WindowActivation.BringToFront(_settingsWindow.Handle);
     }
 
     private void Show(OsdState state)

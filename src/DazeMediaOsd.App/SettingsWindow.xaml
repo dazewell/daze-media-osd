@@ -60,6 +60,14 @@
                 <Grid Padding="36,8,36,36" MaxWidth="1000" HorizontalAlignment="Stretch">
                     <StackPanel x:Name="OsdPage" Spacing="4">
                         <TextBlock Text="OSD" Style="{StaticResource TitleTextBlockStyle}" Margin="0,0,0,4" />
+                        <InfoBar Severity="Error" Title="Settings not saved" IsClosable="False"
+                                 IsOpen="{x:Bind ViewModel.HasSaveError, Mode=OneWay}"
+                                 Message="{x:Bind ViewModel.SaveError, Mode=OneWay}">
+                            <InfoBar.Content>
+                                <TextBlock Text="Your changes apply until the app exits." Margin="0,0,0,12"
+                                           Style="{StaticResource CaptionTextBlockStyle}" />
+                            </InfoBar.Content>
+                        </InfoBar>
 
                         <TextBlock Text="Appearance" Style="{StaticResource SettingsSection}" />
                         <Grid Style="{StaticResource SettingsCard}">

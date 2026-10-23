@@ -62,7 +62,7 @@ unit-tested with fakes. App never P/Invokes directly; window styling goes throug
 | `RawInputKeySource` (`IKeySource`) | Trigger: volume/mute key downs, incl. at 0 %/100 % where the volume doesn't change. Keyboard VKs + Consumer Control HID reports (`ConsumerKeyTracker`: usages 0xE9/0xEA/0xE2, raise on newly held) | Message-only window, `RegisterRawInputDevices` (0x01/0x06 and 0x0C/0x01) + `RIDEV_INPUTSINK` (passive, no input latency), `HidP_GetUsagesEx` |
 | `Launcher` | Start `--app`, wait on its handle, restore the native flyout when it exits (D-006) | `Process`, `WaitForSingleObject` |
 | `MediaService` | Current media session: title, artist, thumbnail, playback state, controls | `GlobalSystemMediaTransportControlsSessionManager` |
-| `SettingsStore` + `AppSettings` | `%LOCALAPPDATA%\DazeMediaOsd\settings.json` (`version` 1): position, hide-after seconds (1–10), mic row on/off. Saves on every change (temp file + move); missing → defaults, unparsable → defaults + copy to `settings.invalid.json`; out-of-range values clamped (`Normalize`) | `System.Text.Json` source-gen (AOT-safe), enums as names (`"TopRight"`) |
+| `SettingsStore` + `AppSettings` | `%LOCALAPPDATA%\DazeMediaOsd\settings.json` (`version` 1): position, hide-after seconds (1–10), mic row on/off. Saves on every change (temp file + move); missing → defaults, unparsable → defaults + copy to `settings.invalid.json`; out-of-range values clamped (`Normalize`). A failed save keeps the change for the session and sets `SaveError`; the settings window shows it in an InfoBar | `System.Text.Json` source-gen (AOT-safe), enums as names (`"TopRight"`) |
 | `OsdWindow` + `OverlayWindow` | Render `OsdState` (output name/level/mute, mic name/level/mute), auto-hide after the configured time, at the configured position in the primary work area (`OsdPlacement`, 24 DIP margin) (D-008) | WinUI 3 `Window`, `OverlappedPresenter.SetBorderAndTitleBar(true,false)`, `DesktopAcrylicController`, `SetWindowPos(SWP_NOACTIVATE)` |
 | `SettingsWindow` | Fluent settings UI, created on open, destroyed on close; one at a time (D-010) | WinUI 3 `NavigationView` + `TitleBar`, Mica, CommunityToolkit.Mvvm partial `[ObservableProperty]` |
 | `TrayIcon` | Notification-area icon + menu: Settings (default, bold), Exit (D-009) | `Shell_NotifyIcon` v4, `TrackPopupMenuEx`, uxtheme #135/#136 for the dark menu, `TaskbarCreated` |
@@ -152,8 +152,9 @@ unit-tested with fakes. App never P/Invokes directly; window styling goes throug
 - Icon by `uID` + hwnd, not a GUID (a GUID binds to the exe path and breaks across Debug/publish folders).
 - Left-click and keyboard select (Enter/Space) open Settings; right-click / Shift+F10 open the menu.
   `SetForegroundWindow` before `TrackPopupMenuEx` is required for the menu to close on an outside click.
-- The settings window comes to the foreground from both paths (the shell lets the icon's process take
-  focus after a click). The overflow flyout stays open behind it — explorer's behaviour.
+- Opening settings (new or already open) calls `WindowActivation.BringToFront` (`SetForegroundWindow`):
+  `Window.Activate()` alone left it behind other apps, and after a left-click the overflow flyout kept
+  focus. The shell lets the icon's process take focus after a click or menu pick.
 - Theme: icon + menu follow `SystemUsesLightTheme` (taskbar), re-read on `WM_SETTINGCHANGE`
   "ImmersiveColorSet". Seen: dark taskbar → white glyph, dark rounded menu. Not verified yet: light
   taskbar swap, re-add after explorer restart (`TaskbarCreated`), runtime DPI change (icon size is
