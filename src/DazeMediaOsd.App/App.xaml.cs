@@ -18,6 +18,7 @@ public sealed partial class App : Application, IDisposable
     private CoreAudioService? _audio;
     private RawInputKeySource? _keys;
     private OsdController? _osd;
+    private OsdWindow? _window;
 
     public App(LaunchArgs args)
     {
@@ -43,6 +44,16 @@ public sealed partial class App : Application, IDisposable
             Exit();
             return;
         }
+        try
+        {
+            _window = new OsdWindow();
+        }
+        catch (InvalidOperationException e)
+        {
+            Log.Error("OSD window failed to start; exiting without suppressing the native flyout", e);
+            Exit();
+            return;
+        }
         _osd = new OsdController(_audio, _keys);
         _osd.ShowRequested += (_, state) => ui.TryEnqueue(() => Show(state));
 
@@ -57,8 +68,11 @@ public sealed partial class App : Application, IDisposable
         Log.Info($"app started, suppression={_suppressor.Mode}, {OsdState.Describe(_audio.Current)}");
     }
 
-    // Placeholder until OsdWindow exists: the log is the only visible output.
-    private static void Show(OsdState state) => Log.Info($"show {state.Describe()}");
+    private void Show(OsdState state)
+    {
+        Log.Info($"show {state.Describe()}");
+        _window?.Show(state);
+    }
 
     /// <summary>Unhooks and restores the native flyout. Called by Program after the dispatcher stops.</summary>
     public void Dispose()

@@ -34,9 +34,11 @@ Directory.Packages.props         central package versions
 src/DazeMediaOsd.Core/           no UI; Win32/COM via CsWin32 (NativeMethods.txt). Lifecycle/ (LaunchArgs,
                                  Launcher), NativeFlyout/ (FlyoutHost, FlyoutSuppressor), Audio/
                                  (CoreAudioService), Input/ (RawInputKeySource), Osd/ (OsdState, OsdRules,
-                                 OsdController), Diagnostics/Log. Later: media, settings.
+                                 OsdController), Windowing/ (OverlayWindow styles), Diagnostics/Log.
+                                 Later: media, settings.
 src/DazeMediaOsd.App/            WinUI 3 exe `DazeMediaOsd.exe`: Program.Main → launcher or `--app` mode;
-                                 App wires services. Later: TrayIcon, OsdWindow, SettingsWindow, ViewModels
+                                 App wires services; OsdWindow (+ AlwaysActiveAcrylicBackdrop). Later:
+                                 TrayIcon, SettingsWindow, ViewModels
 tests/DazeMediaOsd.Core.Tests/   xUnit v3; logic only, fakes for IAudioService / IKeySource
 scripts/                         stop.ps1 (safe stop), press-key.ps1 (SendInput volume keys),
                                  audio-device.ps1 (list / set default output, dev only)
@@ -45,7 +47,7 @@ spikes/FlyoutProbe/              console probe for the native flyout — re-run 
 ```
 
 Rule: Win32/COM/WinRT calls live in Core behind small interfaces so view models and state logic can be
-unit-tested with fakes. App never P/Invokes directly except window styling.
+unit-tested with fakes. App never P/Invokes directly; window styling goes through `Core.Windowing`.
 
 ## Components
 
@@ -58,7 +60,7 @@ unit-tested with fakes. App never P/Invokes directly except window styling.
 | `Launcher` | Start `--app`, wait on its handle, restore the native flyout when it exits (D-006) | `Process`, `WaitForSingleObject` |
 | `MediaService` | Current media session: title, artist, thumbnail, playback state, controls | `GlobalSystemMediaTransportControlsSessionManager` |
 | `SettingsStore` | Load/save JSON, versioned schema, change notifications | `System.Text.Json` source-gen (AOT-safe) |
-| `OsdWindow` _(planned; today App logs each show)_ | Render `OsdState`, auto-hide timer, position per settings | WinUI 3 `AppWindow`, backdrop, `WS_EX_NOACTIVATE \| WS_EX_TOOLWINDOW \| WS_EX_TRANSPARENT` |
+| `OsdWindow` + `OverlayWindow` | Render `OsdState` (output name/level/mute, mic name/level/mute), auto-hide 2.5 s after the last show, bottom-centre of the primary work area (D-008) | WinUI 3 `Window`, `OverlappedPresenter.SetBorderAndTitleBar(true,false)`, `DesktopAcrylicController`, `SetWindowPos(SWP_NOACTIVATE)` |
 | `SettingsWindow` | Fluent settings UI | WinUI 3 `NavigationView`, CommunityToolkit.Mvvm |
 | `TrayIcon` | Open settings, pause, exit | TBD (Q3) |
 
@@ -118,6 +120,23 @@ unit-tested with fakes. App never P/Invokes directly except window styling.
 - Log: `%LOCALAPPDATA%\DazeMediaOsd\logs\app.log`, both processes (pid per line). Until OsdWindow
   exists every would-be show is a `show <reason>: out=… in=…` line.
 
+## OSD window (verified on build 26300, 2026-10-22; D-008)
+
+- Created once at startup (before suppression; failure → exit, Windows untouched), hidden between shows.
+  Never `Activate()`d: `SetWindowPos(HWND_TOPMOST, SWP_NOACTIVATE|SWP_SHOWWINDOW)` renders XAML fine.
+- Ex styles `NOACTIVATE|TOOLWINDOW|TOPMOST|TRANSPARENT|LAYERED` + `SetLayeredWindowAttributes(alpha 255)`:
+  the acrylic backdrop and XAML still draw on the layered window; `WindowFromPoint` over it returns the
+  window below (click-through); foreground window unchanged by a show.
+- Frame: border without title bar gives DWM rounded corners + 1 px outline + shadow for free.
+- Size: `Root` sets the **client** size × `GetDpiForWindow`/96: 340 × 100 DIP, 60 without mic, taller
+  when Windows text size is above 100 %. The border frame is added on top (`OverlayWindow.FrameSize`,
+  24 × 12 px at 175 %); sizing the window rect to `Root` clipped its right/bottom edge.
+- Layout: 4-px grid, padding 16, rows min 28 high with shared min columns 20 / * / 44 so names, bar and
+  values align; text honours the Windows text-size setting (rows/columns grow, never clip). Level bar
+  is our own track + fill (X-002), set without animation; nothing drawn at 0 %.
+- `--app` with the window: ~176 MB working set / 86 MB private (launcher 36 / 9 MB). Watch against D-001.
+- Not verified yet: light theme, multi-monitor/DPI change, show latency.
+
 ## Process lifecycle (D-006)
 
 - Launcher mode (no args): start self with `--app`, wait. On child exit (clean, crash, killed): restore
@@ -149,8 +168,6 @@ unit-tested with fakes. App never P/Invokes directly except window styling.
 
 ## Open questions
 
-- **Q2:** WinUI 3 window with true per-pixel transparency + rounded corners for the OSD — check
-  Windows App SDK 2.x backdrop APIs vs. WinUIEx before hand-rolling.
 - **Q3:** tray icon: H.NotifyIcon.WinUI vs. own `Shell_NotifyIcon` via CsWin32 (pick the AOT-safe one).
 - **Q4:** the same host very likely also shows the brightness / airplane-mode / other hardware-key
   flyouts, so minimizing it probably hides those too. Not tested: brightness keys aren't scriptable on

@@ -45,12 +45,13 @@ this file and know what to build next. History of *why* lives in [DECISIONS.md](
   updated (2026-10-22)
 - [x] Core: default output/input tracking, volume keys, OSD show rules (D-007) — logged, no window yet
   (2026-10-22)
-- [ ] OSD window (Win11 look) with device names
+- [x] OSD window: output/input names, volume, mute; acrylic, no-activate, click-through, auto-hide
+  (D-008) (2026-10-22)
 - [ ] Tray icon + settings window + persisted settings
 - [ ] Media session info in OSD
 - [ ] Autostart, publish to a local folder, daily-driver test
 
-**Next step:** OSD window (Q2 first): render `OsdState` from `OsdController.ShowRequested` — output
-device name + volume/mute, input device name + mute — topmost, no-activate, click-through, auto-hide,
-Win11 look; replace the `show …` log line in `App.Show`. While the app runs there is still **no**
-visible volume OSD, so this is the most urgent gap.
+**Next step:** tray icon (Q3 first: H.NotifyIcon.WinUI vs. own `Shell_NotifyIcon`, AOT-safe) with
+Exit — a clean exit is still untested (ARCHITECTURE → Process lifecycle) — then the settings window and
+`SettingsStore` (position, timeout, sections; today hard-coded in `OsdWindow`). Also eyeball the OSD in
+light theme and on a second monitor when convenient (ARCHITECTURE → OSD window).

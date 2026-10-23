@@ -51,6 +51,13 @@ Builds passing doesn't mean the OSD works. After a UI or interop change: run the
 (or change the default device in Sound settings), and confirm the OSD shows what you changed. If you
 can't verify visually, say so explicitly instead of claiming it works.
 
+- The OSD is the `--app` process's `WinUIDesktopWin32WindowClass` window titled `DazeMediaOsd`
+  (`FindWindow` by title alone misses it — enumerate by pid + class). It hides 2.5 s after a show.
+- Screen captures from PowerShell need `SetProcessDpiAwarenessContext(-4)` first, else they get the
+  scaled-down top-left part of the screen.
+- Also check: foreground window unchanged by a show (`GetForegroundWindow`), and `WindowFromPoint`
+  over the OSD returns the window below (click-through).
+
 ## Troubleshooting
 
 Grow this table when you hit something non-obvious (and record a dead end if a fix attempt failed).
