@@ -128,7 +128,11 @@ unit-tested with fakes. App never P/Invokes directly; window styling goes throug
   the acrylic backdrop and XAML still draw on the layered window; `WindowFromPoint` over it returns the
   window below (click-through); foreground window unchanged by a show.
 - Frame: border without title bar gives DWM rounded corners + 1 px outline + shadow for free.
-- Size: XAML `Root` is 340 DIP wide, height measured per show; × `GetDpiForWindow`/96 → physical px.
+- Size: `Root` sets the **client** size (340 × 100 DIP, 56 without mic) × `GetDpiForWindow`/96; the
+  border frame is added on top (`OverlayWindow.FrameSize`, 24 × 12 px at 175 %). Sizing the window rect
+  to `Root` clipped its right/bottom edge.
+- Layout: 4-px grid, padding 16, rows 28 high with shared columns 20 / * / 44 so names, bar and values
+  align. Level bar is our own track + fill (X-002), set without animation; nothing drawn at 0 %.
 - `--app` with the window: ~176 MB working set / 86 MB private (launcher 36 / 9 MB). Watch against D-001.
 - Not verified yet: light theme, multi-monitor/DPI change, show latency.
 

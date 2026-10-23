@@ -33,6 +33,14 @@ public static class OverlayWindow
         _ = PInvoke.SetWindowPos((HWND)hwnd, HWND.HWND_TOPMOST, x, y, width, height,
             SET_WINDOW_POS_FLAGS.SWP_NOACTIVATE | SET_WINDOW_POS_FLAGS.SWP_SHOWWINDOW);
 
+    /// <summary>Window size minus client size, in physical pixels: what the non-client frame takes.</summary>
+    public static (int Width, int Height) FrameSize(nint hwnd)
+    {
+        if (!PInvoke.GetWindowRect((HWND)hwnd, out var window) || !PInvoke.GetClientRect((HWND)hwnd, out var client))
+            return (0, 0);
+        return (window.right - window.left - (client.right - client.left), window.bottom - window.top - (client.bottom - client.top));
+    }
+
     public static void Hide(nint hwnd) => _ = PInvoke.ShowWindow((HWND)hwnd, SHOW_WINDOW_CMD.SW_HIDE);
 
     /// <summary>Device pixels per DIP for the monitor the window is on.</summary>
