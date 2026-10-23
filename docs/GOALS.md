@@ -20,6 +20,7 @@ this file and know what to build next. History of *why* lives in [DECISIONS.md](
   (+ mic mute state). Media info (title/artist/controls) when a media session is active.
 - OSD also appears when the default output/input device changes.
 - Settings window: enable/disable sections, position, timeout, theme follows system, start with Windows.
+- Only our OSD is ever visible — the native flyout must not flash (user, 2026-10-22; D-006).
 - Fail-open: if the app is closed or crashes, the native OSD keeps working.
 
 ## Later (not v1)
@@ -38,7 +39,8 @@ this file and know what to build next. History of *why* lives in [DECISIONS.md](
 
 - [x] Repo scaffolded: docs, skills, stack decision (2026-10-22)
 - [x] .NET 10 SDK on the dev machine (10.0.402) (2026-10-22)
-- [x] Spike Q1: native flyout detected + suppressed per show on build 26300, fail-open confirmed → D-005 (2026-10-22)
+- [x] Spike Q1: native flyout detected + suppressed on build 26300 → minimize while running, launcher
+  restores on any exit (D-006) (2026-10-22)
 - [ ] Solution skeleton per ARCHITECTURE layout; update `build` skill with real commands
 - [ ] Core: audio endpoint volume + default device tracking
 - [ ] OSD window (Win11 look) with device names
@@ -47,6 +49,6 @@ this file and know what to build next. History of *why* lives in [DECISIONS.md](
 - [ ] Autostart, publish to a local folder, daily-driver test
 
 **Next step:** solution skeleton per ARCHITECTURE → Layout (slnx, global.json, Directory.*.props,
-Core/App/Tests projects, WinUI 3 unpackaged per D-003), building with `dotnet build`; then rewrite the
-`build` skill commands to match. Q4 (tell volume from other flyouts) must be answered before
-`FlyoutWatcher` hides anything in the real app.
+Core/App/Tests projects, WinUI 3 unpackaged per D-003) with the custom Main's launcher/`--app` split
+and `NativeFlyout` minimize/restore wired per "Process lifecycle"; measure Q5; add `scripts/stop.ps1`;
+rewrite the `build` skill commands to match.

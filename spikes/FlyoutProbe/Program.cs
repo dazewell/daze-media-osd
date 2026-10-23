@@ -1,5 +1,5 @@
 // Q1 spike probe: finds the native Win11 volume flyout host and tests per-show suppression.
-// Not product code — re-run it after a Windows update to re-check the window classes (D-002, D-005).
+// Not product code — re-run it after a Windows update to re-check the window classes (D-002, D-006).
 //
 //   dotnet run --project spikes/FlyoutProbe -- watch      log every top-level window event around a mute-key press
 //   dotnet run --project spikes/FlyoutProbe -- suppress   hide the flyout host each time it is shown

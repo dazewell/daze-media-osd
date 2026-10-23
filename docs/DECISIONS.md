@@ -34,7 +34,7 @@ Status: accepted (Q1 spike confirmed suppression works on build 26300, see D-005
 - Revisit if: suppression stops working on a Windows update and can't be fixed quickly.
 
 ## D-003 · 2026-10-22 · Unpackaged, self-contained, single process, local build
-Status: accepted
+Status: accepted; "single process" amended by D-006 (launcher process)
 - Decision: `WindowsPackageType=None`, `WindowsAppSDKSelfContained=true`, self-contained .NET publish to
   a folder, win-x64. One process hosts tray + OSD + settings window (settings window created on demand,
   destroyed on close). Settings as JSON in `%LOCALAPPDATA%\DazeMediaOsd\`. Autostart via HKCU Run key.
@@ -54,7 +54,7 @@ Status: accepted
 - Revisit if: the app gets shared with users on older builds.
 
 ## D-005 · 2026-10-22 · Detect the flyout by WinEvent SHOW on the explorer host, hide per show
-Status: accepted
+Status: superseded by D-006 (kept as the fallback when the launcher is gone)
 - Decision: out-of-context `SetWinEventHook(EVENT_OBJECT_CREATE..)` filtered to the shell explorer pid;
   the flyout host is `XamlExplorerHostIslandWindow` with band `ZBID_ABOVELOCK_UX` (18); on every
   `EVENT_OBJECT_SHOW` of it call `ShowWindowAsync(SW_HIDE)` and show our OSD. Details in ARCHITECTURE.
@@ -66,3 +66,22 @@ Status: accepted
   `SW_FORCEMINIMIZE` on the host): state outlives our process → violates fail-open.
 - Revisit if: a Windows update changes class/band (re-run the probe), or Q4/Q5 show SHOW-time hiding
   is not good enough.
+
+## D-006 · 2026-10-22 · Minimize the native flyout while running; a launcher restores it on any exit
+Status: accepted
+Supersedes: D-005
+- Decision: the app minimizes the flyout host for its whole lifetime (child `SW_MINIMIZE`, host
+  `SW_MINIMIZE` + `SW_FORCEMINIMIZE`) and restores it on exit. The same exe started without args is a
+  launcher: it starts `--app`, waits, and restores the host when the app exits for any reason ("finally"
+  in a separate process). The app restores and falls back to D-005 if the launcher dies. Our OSD's
+  trigger is raw input of the volume keys plus audio callbacks, no longer the host's SHOW.
+- Why: the user saw the native flyout flash now and then under per-show hiding and wants only ours.
+  Minimized, it never draws. An in-process `finally`/`ProcessExit` doesn't run on a hard kill or
+  native crash, so the restore has to live in another process. The user proposed the wrapper shape.
+- Why not per-show `SW_HIDE` (D-005): visible flash. Why not minimize with restore only on clean exit:
+  a crash leaves the user without any volume OSD. Why not a separate launcher project: one exe is
+  simpler to build, publish and locate; only worth it if launcher-mode memory is heavy (Q5). Why not
+  SHOW as the trigger: a minimized host raises it only sometimes.
+- Revisit if: launcher-mode working set is heavy (→ tiny AOT launcher exe), or Q4 confirms brightness
+  etc. disappear and the user won't accept that.
+- Ref: probe modes `minimize`/`restore` in `spikes/FlyoutProbe`.

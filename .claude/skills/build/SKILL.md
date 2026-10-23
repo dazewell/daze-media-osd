@@ -25,7 +25,11 @@ Installing software changes the user's machine — ask before running it.
 
 ```powershell
 # The tray app keeps running after you test it and locks its own exe → stop it before every build.
-Get-Process DazeMediaOsd -ErrorAction SilentlyContinue | Stop-Process -Force
+# Two DazeMediaOsd.exe processes run (launcher + `--app`, D-006). Kill only the `--app` one: the
+# launcher then restores the native flyout and exits. Killing both at once leaves the native OSD
+# minimized (fix: `dotnet run --project spikes/FlyoutProbe -- restore`). TODO(skeleton): scripts/stop.ps1.
+Get-CimInstance Win32_Process -Filter "Name='DazeMediaOsd.exe'" | Where-Object CommandLine -like '*--app*' |
+    ForEach-Object { Stop-Process -Id $_.ProcessId -Force }
 
 dotnet build DazeMediaOsd.slnx -c Debug
 dotnet test  DazeMediaOsd.slnx -c Debug --no-build
@@ -50,5 +54,6 @@ Grow this table when you hit something non-obvious (and record a dead end if a f
 |---|---|
 | `MSB3027` / file is locked by `DazeMediaOsd` | Running instance; stop it (command above). |
 | `NETSDK1045` / SDK 10 not supported | Only an older SDK installed; install .NET 10 SDK. `global.json` pins it. |
-| Native flyout shows again / ours doesn't appear after a Windows update | Host class or band changed: `dotnet run --project spikes/FlyoutProbe -- watch`, compare with ARCHITECTURE → Native flyout and D-005. |
+| No volume OSD at all (neither ours nor native) | Host left minimized after both processes were killed: `dotnet run --project spikes/FlyoutProbe -- restore`, or restart explorer. |
+| Native flyout shows again / ours doesn't appear after a Windows update | Host class or band changed: `dotnet run --project spikes/FlyoutProbe -- watch`, compare with ARCHITECTURE → Native flyout and D-006. |
 | App starts then exits silently (unpackaged) | Windows App SDK runtime not found: ensure `WindowsAppSDKSelfContained=true` and `WindowsPackageType=None`. |
