@@ -100,7 +100,7 @@ Status: superseded by D-011 (adds media keys; the audio rules stand)
   feel noisy (then: ignore changes while Quick Settings is open, or use the event context GUID).
 
 ## D-008 · 2026-10-22 · OSD window: plain WinUI Window, native frame, always-active acrylic
-Status: accepted
+Status: superseded by D-018 (topmost needs `IsAlwaysOnTop`; the rest stands)
 - Decision: `OsdWindow` is a stock WinUI 3 `Window` with `SetBorderAndTitleBar(true, false)`, a custom
   `SystemBackdrop` driving `DesktopAcrylicController` with `IsInputActive = true`, and Win32 ex styles
   from `Core.Windowing.OverlayWindow` (layered + transparent for click-through, no-activate, tool, topmost).
@@ -253,3 +253,17 @@ Supersedes: D-014 (only the repeat window; the event line and burst rules stand)
 - Why a wide window is free: only the same name *and* direction count, and only a one-way burst: one
   that went and came back (a flap merged into one burst) always shows (PR #14 review).
 - Revisit if: a real second device with the same "(…)" product within 2 s is hidden.
+
+## D-018 · 2026-10-23 · OSD topmost through `OverlappedPresenter.IsAlwaysOnTop`, plus SetWindowPos
+Status: accepted
+Supersedes: D-008 (only "why not `IsAlwaysOnTop`"; the window design stands)
+- Decision: `OsdWindow` sets `presenter.IsAlwaysOnTop = true`; `ShowAt` keeps `SetWindowPos(HWND_TOPMOST)`.
+- Why: the user saw no OSD while changing volume over a maximized, focused window (2026-10-23). The
+  presenter owns z-order: it drops the `WS_EX_TOPMOST` that `OverlayWindow.Apply` sets and turns every
+  `HWND_TOPMOST` request into a non-topmost one (`SetWindowPos` returns true, flag stays off, also from
+  another process). So the OSD was never topmost; it only came up above inactive windows, and a
+  focused maximized window stayed above it. With `IsAlwaysOnTop` it is topmost from the start.
+- Verified on 26300, WinAppSDK 2.5.1: topmost before the first show, above the maximized Claude window
+  in a screen capture, foreground unchanged, `WindowFromPoint` still hits the window below.
+- Revisit if: a WinAppSDK update changes presenter z-order handling, or a topmost app (e.g. a video
+  player in always-on-top) still covers the OSD — then the native flyout's band is the only way up.
