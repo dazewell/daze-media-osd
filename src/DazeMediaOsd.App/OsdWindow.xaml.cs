@@ -80,7 +80,10 @@ public sealed partial class OsdWindow : Window
     {
         ArgumentNullException.ThrowIfNull(state);
         // Before Render, so the first frame is already the animation's first frame. A no-op while shown.
-        _animation.Show(_clock.Elapsed - FirstFrameLead, OverlayWindow.AnimationsEnabled());
+        // The lead only from hidden: a reversal mid-fade continues from the current value, without a jump.
+        var now = _clock.Elapsed;
+        _animation.Show(_animation.IsHidden ? now - FirstFrameLead : now, OverlayWindow.AnimationsEnabled());
+        _animation.Tick(now);
         Render(state);
         Animate();
         _hideTimer.Stop();
