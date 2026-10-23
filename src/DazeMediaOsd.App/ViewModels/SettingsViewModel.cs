@@ -114,6 +114,7 @@ public sealed partial class SettingsViewModel : ObservableObject
     private void ReadAutostart()
     {
         AutostartStatus status;
+        string? readError = null;
         try
         {
             status = _autostart.Read();
@@ -121,12 +122,12 @@ public sealed partial class SettingsViewModel : ObservableObject
         catch (Exception e) when (e is UnauthorizedAccessException or IOException or System.Security.SecurityException)
         {
             status = new AutostartStatus(AutostartState.Off, null);
-            AutostartNote = "Couldn't read the startup entry: " + e.Message;
+            readError = "Couldn't read the startup entry: " + e.Message;
         }
         _readingAutostart = true;
         StartWithWindows = status.State == AutostartState.On;
         _readingAutostart = false;
-        AutostartNote = status switch
+        AutostartNote = readError ?? status switch
         {
             { State: AutostartState.DisabledByWindows } => "Turned off in Task Manager. Turn it on here to start again.",
             { State: AutostartState.On, Path: var path } when !string.Equals(path, _exePath, StringComparison.OrdinalIgnoreCase)

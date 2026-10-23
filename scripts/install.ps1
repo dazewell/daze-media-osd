@@ -7,16 +7,27 @@ $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
 $exe = Join-Path $Destination 'DazeMediaOsd.exe'
 
+# Publish to a staging folder while the old copy keeps running: a failed publish changes nothing.
+$staging = "$Destination.new"
+$backup = "$Destination.old"
+if (Test-Path $staging) { Remove-Item $staging -Recurse -Force }
+dotnet publish (Join-Path $root 'src/DazeMediaOsd.App') -c Release -r win-x64 -o $staging -v q -nologo
+if ($LASTEXITCODE -ne 0) { Write-Error "Publish failed ($LASTEXITCODE); installed copy unchanged and still running." }
+
 # Any running copy (Debug or installed) locks files or would block the new one's single-instance mutex.
 & (Join-Path $PSScriptRoot 'stop.ps1')
 
-# Publish next to the destination, then swap: a failed publish leaves the installed copy intact.
-$staging = "$Destination.new"
-if (Test-Path $staging) { Remove-Item $staging -Recurse -Force }
-dotnet publish (Join-Path $root 'src/DazeMediaOsd.App') -c Release -r win-x64 -o $staging -v q -nologo
-if ($LASTEXITCODE -ne 0) { Write-Error "Publish failed ($LASTEXITCODE); installed copy unchanged." }
-if (Test-Path $Destination) { Remove-Item $Destination -Recurse -Force }
-Move-Item $staging $Destination
+# Swap with rollback: the old copy is only deleted once the new one is in place.
+if (Test-Path $backup) { Remove-Item $backup -Recurse -Force }
+try {
+    if (Test-Path $Destination) { Move-Item $Destination $backup }
+    Move-Item $staging $Destination
+} catch {
+    if (-not (Test-Path $Destination) -and (Test-Path $backup)) { Move-Item $backup $Destination }
+    if (Test-Path $exe) { Start-Process -FilePath $exe -WorkingDirectory $Destination | Out-Null }
+    throw "Install failed, previous copy restored and restarted: $_"
+}
+if (Test-Path $backup) { Remove-Item $backup -Recurse -Force }
 
 Start-Process -FilePath $exe -WorkingDirectory $Destination | Out-Null
 $run = (Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run' -Name DazeMediaOsd -ErrorAction SilentlyContinue).DazeMediaOsd
