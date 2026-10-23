@@ -19,6 +19,10 @@ public static class Program
             return 0;
         }
 
+        using var instance = Launcher.ClaimAppInstance();
+        if (instance is null)
+            return 0; // an app is already running (possibly orphaned by a killed launcher)
+
         App? app = null;
         try
         {

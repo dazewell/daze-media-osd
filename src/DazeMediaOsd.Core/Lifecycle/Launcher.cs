@@ -11,6 +11,7 @@ namespace DazeMediaOsd.Core.Lifecycle;
 public static class Launcher
 {
     private const string SingleInstanceMutex = @"Local\DazeMediaOsd.Launcher";
+    private const string AppInstanceMutex = @"Local\DazeMediaOsd.App";
 
     public static int Run()
     {
@@ -32,6 +33,20 @@ public static class Launcher
         {
             FlyoutHost.RestoreAll();
         }
+    }
+
+    /// <summary>
+    /// Single instance for the app process itself. The launcher's mutex dies with the launcher, while an
+    /// orphaned app (launcher killed) keeps running; without this the next launch would add a second
+    /// app and a second OSD. Dispose the returned mutex when the app exits; null means another app runs.
+    /// </summary>
+    public static Mutex? ClaimAppInstance()
+    {
+        var mutex = new Mutex(initiallyOwned: true, AppInstanceMutex, out var isFirst);
+        if (isFirst)
+            return mutex;
+        mutex.Dispose();
+        return null;
     }
 
     /// <summary>
@@ -66,8 +81,8 @@ public static class Launcher
             launcher = Process.GetProcessById(pid);
             using (var self = Process.GetCurrentProcess())
             {
-                // A recycled pid would be a process started after us.
-                if (launcher.StartTime > self.StartTime)
+                // A recycled pid would be another program, or a process started after us.
+                if (launcher.ProcessName != self.ProcessName || launcher.StartTime > self.StartTime)
                 {
                     launcher.Dispose();
                     return null;
