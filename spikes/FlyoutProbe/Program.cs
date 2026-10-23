@@ -4,6 +4,8 @@
 //   dotnet run --project spikes/FlyoutProbe -- watch      log every top-level window event around a mute-key press
 //   dotnet run --project spikes/FlyoutProbe -- suppress   hide the flyout host each time it is shown
 //   dotnet run --project spikes/FlyoutProbe -- manual     like suppress, but no synthetic keys: press real ones for 30 s
+//   dotnet run --project spikes/FlyoutProbe -- minimize   keep the host minimized for the run (Flylet's "permanent hide"), restore at exit
+//   dotnet run --project spikes/FlyoutProbe -- restore    un-minimize the host (recovery if a minimize run was killed)
 //
 // watch/suppress press Mute twice per round (net zero), take screenshots into ./probe-out and print a timeline.
 using System.Diagnostics;
@@ -37,6 +39,10 @@ static class Program
         Log($"mode={_mode} build={Environment.OSVersion.Version}");
         DumpHosts("before");
 
+        var host = FindVolumeHost();
+        if (_mode == "restore") { Restore(host); return; }
+        if (_mode == "minimize") Minimize(host);
+
         var hook = SetWinEventHook(EVENT_OBJECT_CREATE, EVENT_OBJECT_UNCLOAKED, 0, Proc, 0, 0,
             WINEVENT_OUTOFCONTEXT | WINEVENT_SKIPOWNPROCESS);
         Log($"hook={hook}");
@@ -67,6 +73,35 @@ static class Program
         }
         Application.Run();
         UnhookWinEvent(hook);
+        if (_mode == "minimize") Restore(host);
+    }
+
+    static nint FindVolumeHost()
+    {
+        nint h = 0;
+        while ((h = FindWindowEx(0, h, HostClass, null)) != 0)
+            if (IsVolumeHost(h)) return h;
+        return 0;
+    }
+
+    static void Minimize(nint host)
+    {
+        var dui = FindWindowEx(host, 0, null, null);
+        ShowWindowAsync(dui, 6 /*SW_MINIMIZE*/);
+        ShowWindowAsync(host, 6 /*SW_MINIMIZE*/);
+        ShowWindowAsync(host, 11 /*SW_FORCEMINIMIZE*/);
+        Thread.Sleep(200);
+        Log($"minimized host {host:X}: iconic={IsIconic(host)} visible={IsWindowVisible(host)}");
+    }
+
+    static void Restore(nint host)
+    {
+        var dui = FindWindowEx(host, 0, null, null);
+        ShowWindowAsync(dui, 9 /*SW_RESTORE*/);
+        ShowWindowAsync(host, 9 /*SW_RESTORE*/);
+        ShowWindowAsync(host, 0 /*SW_HIDE*/);
+        Thread.Sleep(200);
+        Log($"restored host {host:X}: iconic={IsIconic(host)} visible={IsWindowVisible(host)}");
     }
 
     static void OnWinEvent(nint hook, uint ev, nint hwnd, int idObject, int idChild, uint thread, uint time)
@@ -163,6 +198,7 @@ static class Program
     [DllImport("user32", CharSet = CharSet.Unicode)] static extern int GetWindowText(nint h, StringBuilder sb, int max);
     [DllImport("user32", CharSet = CharSet.Unicode)] static extern nint FindWindowEx(nint parent, nint after, string? cls, string? title);
     [DllImport("user32")] static extern bool IsWindowVisible(nint h);
+    [DllImport("user32")] static extern bool IsIconic(nint h);
     [DllImport("user32")] static extern bool GetWindowRect(nint h, out RECT r);
     [DllImport("user32")] static extern nint GetWindowLongPtr(nint h, int idx);
     [DllImport("user32")] static extern bool ShowWindowAsync(nint h, int cmd);

@@ -59,8 +59,14 @@ unit-tested with fakes. App never P/Invokes directly except window styling.
   so also watch `EVENT_OBJECT_CREATE`; explorer restart → new pid → re-hook.
 - Every key press raises `EVENT_OBJECT_SHOW` on the host 4–14 ms after the key, even while the flyout
   is already visible or we hid it. Native auto-hide raises `EVENT_OBJECT_HIDE` ~2.5 s after the last key.
-- Suppression: `ShowWindowAsync(host, SW_HIDE)` on each SHOW. Explorer keeps working; after our process
-  exits the next press shows the native flyout as stock (fail-open confirmed).
+- Per-show hide: `ShowWindowAsync(host, SW_HIDE)` on each SHOW. Explorer keeps working; after our process
+  exits the next press shows the native flyout as stock (fail-open). But the native flyout visibly
+  flashes now and then before the hide lands (user, real keys, 2026-10-22).
+- Minimized host (Flylet's "permanent hide": child `SW_MINIMIZE`, host `SW_MINIMIZE` + `SW_FORCEMINIMIZE`):
+  no native flyout at all. Host stays iconic and "visible" at a tiny rect; explorer then raises SHOW
+  only sometimes (LOCATIONCHANGE on every press), so it can't be our trigger. State **survives our
+  process being killed**: no native OSD until child+host `SW_RESTORE` then host `SW_HIDE` (probe
+  `restore` mode), or an explorer restart.
 
 ## Threading
 
@@ -88,5 +94,5 @@ unit-tested with fakes. App never P/Invokes directly except window styling.
   `VK_VOLUME_*`, no input latency unlike a LL hook) or an `IAudioEndpointVolumeCallback` within a few
   ms (fails at 0 %/100 % where no change fires). UIA can't read the island content (X-001). Not tested:
   brightness keys aren't scriptable on the dev machine.
-- **Q5:** SW_HIDE lands 4–14 ms after SHOW — check by eye whether the native flyout's first frame
-  flashes (`FlyoutProbe manual` + real key presses). If it does, revisit D-005.
+- **Q5 (user decision pending):** per-show hide flashes; minimizing doesn't, but breaks fail-open on a
+  crash. Which trade-off, and with what crash recovery?
