@@ -87,30 +87,20 @@ this file and know what to build next. History of *why* lives in [DECISIONS.md](
 - [x] Plan B hotkey: Win+Alt+A cycles the default output (D-020); Settings records the chord pressed, with
   reset / turn-off in the box (D-021). Seen by the user: cycles Speakers ↔ Technics Headphones, never the
   hands-free output (2026-10-23)
+- [x] Plan C: a hotkey per device (D-022): Shortcuts page (cycle card + device rows, recorder control),
+  `deviceHotkeys` in settings, `GlobalHotkey` ids. Seen: Speakers ↔ Technics, Microphone Array ↔ Stereo
+  Mix by chord; already default → OSD; Stereo Mix disabled → "Not connected" line, no switch; duplicate
+  chords refused with a note (2026-10-23)
 
-**Next step:** Plan C below. When convenient: the headset glyph (Technics hands-free as default mic) and
-the monitor glyph (Dell over DisplayPort).
+**Next step:** the user tries Plan C on the daily driver (set real device shortcuts, live with them a
+day). Then pick the next feature from the PR #8 survey with the user. When convenient: the headset glyph
+(Technics hands-free as default mic) and the monitor glyph (Dell over DisplayPort).
 
 Plan B (quick switching) is done: tray menu (D-019), cycle-output hotkey (D-020, D-021). Its third
 surface, clicking a device row in the OSD, was dropped (Non-goals).
 
-**Plan C — a hotkey per device** (M; user, 2026-10-23)
-- Want: a shortcut bound to one output or input device; pressing it makes that device the default
-  (eConsole + eMultimedia, D-019) and the OSD shows the switch as usual.
-- Settings: a new "Shortcuts" page in the `NavigationView` (beside OSD and About). The cycle-output
-  card moves there. Below it, one row per device shortcut: a device picker (active outputs and inputs
-  from `Endpoints`, through `DeviceChoices` so hands-free outputs aren't offered), the recorder box
-  (extract D-021's box into a reusable control), a remove button; "Add shortcut" at the end.
-- Model: `deviceHotkeys: [{ id, flow, name, hotkey }]`; `name` is the last-known friendly name, so a
-  row still reads right while its device is unplugged. A chord does one thing: refuse one already used
-  by another row or by the cycle shortcut, with a note in Settings.
-- `GlobalHotkey` takes many ids (D-020's revisit-if): an error per chord, `Pressed` says which.
-  Every recorder box pauses all registrations while it records.
-- A press for the device that is already default shows the OSD. A press for a device that isn't active
-  doesn't switch: ask the user what the OSD should say then (e.g. "Technics not connected" on the
-  event line).
-- Verify with Speakers ↔ Technics and Microphone Array ↔ Stereo Mix (disable Stereo Mix again after);
-  copy and restore `settings.json` around the test.
+Plan C (a hotkey per device) is done (D-022). An unplugged device's press shows "<name> · Not
+connected" on the event line and doesn't switch (user, 2026-10-23).
 
 When convenient: autostart at sign-in (log `launcher: started app` right after one), a USB audio
 device (one show per connect/disconnect, D-013/D-014/D-016), OSD + settings window in light theme,

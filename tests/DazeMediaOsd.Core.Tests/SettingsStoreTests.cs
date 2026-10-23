@@ -1,3 +1,4 @@
+using DazeMediaOsd.Core.Audio;
 using DazeMediaOsd.Core.Settings;
 
 namespace DazeMediaOsd.Core.Tests;
@@ -137,5 +138,80 @@ public sealed class SettingsStoreTests : IDisposable
 
         Assert.Equal(AppSettings.Default, new SettingsStore(_directory).Current);
         Assert.Equal("{ not json", File.ReadAllText(Path.Combine(_directory, "settings.invalid.json")));
+    }
+    [Fact]
+    public void DeviceHotkeysRoundTrip()
+    {
+        DeviceHotkey[] rows = [new("{out}", EndpointFlow.Output, "Speakers", "Win+Alt+1"), new("{in}", EndpointFlow.Input, "Mic", "")];
+        new SettingsStore(_directory).Update(s => s with { DeviceHotkeys = rows });
+
+        Assert.Equal(rows, new SettingsStore(_directory).Current.DeviceHotkeys);
+        Assert.Contains("\"Win+Alt+1\"", File.ReadAllText(SettingsFile), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void FileFromBeforeDeviceHotkeysHasNone()
+    {
+        Directory.CreateDirectory(_directory);
+        File.WriteAllText(SettingsFile, """{ "version": 1, "cycleOutputHotkey": "Win+Alt+A" }""");
+
+        Assert.Empty(new SettingsStore(_directory).Current.DeviceHotkeys);
+    }
+
+    [Fact]
+    public void DeviceHotkeysAreNormalized()
+    {
+        Directory.CreateDirectory(_directory);
+        File.WriteAllText(SettingsFile, """
+            { "cycleOutputHotkey": "Win+Alt+A", "deviceHotkeys": [
+                { "id": "a", "flow": "Output", "name": "A", "hotkey": "alt+win+1" },
+                { "id": "b", "flow": "Input", "name": "B", "hotkey": "Alt+Banana" },
+                { "id": "c", "flow": "Output", "name": "C", "hotkey": "Win+Alt+A" },
+                { "id": "d", "flow": "Output", "name": "D", "hotkey": "Win+Alt+1" },
+                { "id": null, "name": null, "hotkey": null },
+                null
+            ] }
+            """);
+
+        Assert.Equal(
+            [
+                new DeviceHotkey("a", EndpointFlow.Output, "A", "Win+Alt+1"), // canonical form
+                new DeviceHotkey("b", EndpointFlow.Input, "B", ""),           // not a chord
+                new DeviceHotkey("c", EndpointFlow.Output, "C", ""),          // the cycle shortcut's
+                new DeviceHotkey("d", EndpointFlow.Output, "D", ""),          // an earlier row's
+                new DeviceHotkey(),
+            ],
+            new SettingsStore(_directory).Current.DeviceHotkeys);
+    }
+
+    [Fact]
+    public void UnknownFlowDropsTheRow()
+    {
+        Directory.CreateDirectory(_directory);
+        File.WriteAllText(SettingsFile, """{ "deviceHotkeys": [ { "id": "a", "flow": 7, "hotkey": "Win+Alt+1" } ] }""");
+
+        Assert.Empty(new SettingsStore(_directory).Current.DeviceHotkeys);
+    }
+
+    [Fact]
+    public void EqualDeviceHotkeysAreNoChange()
+    {
+        var store = new SettingsStore(_directory);
+        store.Update(s => s with { DeviceHotkeys = [new DeviceHotkey("a", EndpointFlow.Output, "A", "Win+Alt+1")] });
+        var raised = 0;
+        store.Changed += (_, _) => raised++;
+
+        store.Update(s => s with { DeviceHotkeys = [new DeviceHotkey("a", EndpointFlow.Output, "A", "Win+Alt+1")] });
+
+        Assert.Equal(0, raised);
+    }
+
+    [Fact]
+    public void ChangingTheCycleShortcutToARowsChordDropsItFromTheRow()
+    {
+        var settings = new AppSettings(
+            CycleOutputHotkey: "Win+Alt+1", DeviceHotkeys: [new DeviceHotkey("a", EndpointFlow.Output, "A", "Win+Alt+1")]).Normalize();
+
+        Assert.Equal("", settings.DeviceHotkeys[0].Hotkey);
     }
 }

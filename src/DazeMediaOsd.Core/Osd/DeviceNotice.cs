@@ -6,11 +6,16 @@ namespace DazeMediaOsd.Core.Osd;
 /// What one device connect/disconnect burst shows in the OSD's event line (D-014): the device, as one item
 /// even when it is several endpoints, and whether it came or went. <paramref name="Others"/> counts further
 /// devices in the same burst. <paramref name="Name"/> is "" when Windows no longer gave one.
-/// <paramref name="Kind"/> is that of the endpoint whose flow the notice shows.
+/// <paramref name="Kind"/> is that of the endpoint whose flow the notice shows. <paramref name="Absent"/>: nothing
+/// came or went; a device shortcut was pressed for a device that isn't connected (D-022).
 /// </summary>
 public sealed record DeviceNotice(
-    string Name, EndpointFlow Flow, bool Connected, bool Bluetooth, int Others = 0, DeviceKind Kind = DeviceKind.Other)
+    string Name, EndpointFlow Flow, bool Connected, bool Bluetooth, int Others = 0, DeviceKind Kind = DeviceKind.Other,
+    bool Absent = false)
 {
+    /// <summary>The event line for a shortcut whose device isn't active: its stored name, "Not connected".</summary>
+    public static DeviceNotice NotConnected(string name, EndpointFlow flow) => new(name, flow, false, false, Absent: true);
+
     /// <summary>
     /// One notice for a burst, null for none. Endpoints of one product ("Headphones (WH-1000XM5)" +
     /// "Headset (WH-1000XM5)") merge into "WH-1000XM5"; the latest product of the burst is the headline.

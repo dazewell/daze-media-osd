@@ -3,6 +3,7 @@
     x:Class="DazeMediaOsd.App.SettingsWindow"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:DazeMediaOsd.App"
     xmlns:viewModels="using:DazeMediaOsd.App.ViewModels"
     Title="Daze Media OSD settings">
 
@@ -31,17 +32,6 @@
                 <Setter Property="Foreground" Value="{ThemeResource TextFillColorSecondaryBrush}" />
                 <Setter Property="TextWrapping" Value="Wrap" />
             </Style>
-            <!-- Small borderless button inside a text box, like TextBox's own clear button. -->
-            <Style x:Key="HotkeyBoxButton" TargetType="Button">
-                <Setter Property="Width" Value="30" />
-                <Setter Property="Height" Value="24" />
-                <Setter Property="Padding" Value="0" />
-                <Setter Property="MinWidth" Value="0" />
-                <Setter Property="MinHeight" Value="0" />
-                <Setter Property="Background" Value="Transparent" />
-                <Setter Property="BorderThickness" Value="0" />
-                <Setter Property="Foreground" Value="{ThemeResource TextFillColorSecondaryBrush}" />
-            </Style>
             <Style x:Key="SettingsSection" TargetType="TextBlock" BasedOn="{StaticResource BodyStrongTextBlockStyle}">
                 <Setter Property="Margin" Value="1,24,0,4" />
             </Style>
@@ -59,6 +49,11 @@
                         <FontIcon Glyph="&#xE767;" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
+                <NavigationViewItem Content="Shortcuts" Tag="Shortcuts">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE765;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
             </NavigationView.MenuItems>
             <NavigationView.FooterMenuItems>
                 <NavigationViewItem Content="About" Tag="About">
@@ -70,16 +65,22 @@
 
             <ScrollViewer>
                 <Grid Padding="36,8,36,36" MaxWidth="1000" HorizontalAlignment="Stretch">
-                    <StackPanel x:Name="OsdPage" Spacing="4">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+                    <!-- Above the pages: any page's edit can fail to save. -->
+                    <InfoBar Margin="0,0,0,8" Severity="Error" Title="Settings not saved" IsClosable="False"
+                             IsOpen="{x:Bind ViewModel.HasSaveError, Mode=OneWay}"
+                             Message="{x:Bind ViewModel.SaveError, Mode=OneWay}">
+                        <InfoBar.Content>
+                            <TextBlock Text="Your changes apply until the app exits." Margin="0,0,0,12"
+                                       Style="{StaticResource CaptionTextBlockStyle}" />
+                        </InfoBar.Content>
+                    </InfoBar>
+
+                    <StackPanel x:Name="OsdPage" Grid.Row="1" Spacing="4">
                         <TextBlock Text="OSD" Style="{StaticResource TitleTextBlockStyle}" Margin="0,0,0,4" />
-                        <InfoBar Severity="Error" Title="Settings not saved" IsClosable="False"
-                                 IsOpen="{x:Bind ViewModel.HasSaveError, Mode=OneWay}"
-                                 Message="{x:Bind ViewModel.SaveError, Mode=OneWay}">
-                            <InfoBar.Content>
-                                <TextBlock Text="Your changes apply until the app exits." Margin="0,0,0,12"
-                                           Style="{StaticResource CaptionTextBlockStyle}" />
-                            </InfoBar.Content>
-                        </InfoBar>
 
                         <TextBlock Text="Appearance" Style="{StaticResource SettingsSection}" />
                         <Grid Style="{StaticResource SettingsCard}">
@@ -171,47 +172,6 @@
                                           IsOn="{x:Bind ViewModel.ShowOnDeviceConnect, Mode=TwoWay}" />
                         </Grid>
 
-                        <TextBlock Text="Shortcuts" Style="{StaticResource SettingsSection}" />
-                        <Grid Style="{StaticResource SettingsCard}">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-                            <FontIcon Glyph="&#xE8AB;" Style="{StaticResource SettingsCardIcon}" />
-                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                <TextBlock Text="Switch to the next output device" />
-                                <TextBlock Text="Works in any app. Click the box and press the keys" Style="{StaticResource SettingsCardDescription}" />
-                                <TextBlock Text="{x:Bind ViewModel.HotkeyNote, Mode=OneWay}"
-                                           Visibility="{x:Bind ViewModel.HasHotkeyNote, Mode=OneWay}"
-                                           Foreground="{ThemeResource SystemFillColorCautionBrush}"
-                                           Style="{StaticResource CaptionTextBlockStyle}" TextWrapping="Wrap" />
-                            </StackPanel>
-                            <!-- Records the keys pressed while focused (D-021); reset and turn-off sit inside the box. -->
-                            <Grid Grid.Column="2" Width="220" VerticalAlignment="Center">
-                                <TextBox x:Name="HotkeyBox" IsReadOnly="True" PlaceholderText="Off" Padding="11,5,68,6"
-                                         AutomationProperties.Name="Next output shortcut"
-                                         Text="{x:Bind ViewModel.CycleOutputHotkey, Mode=OneWay}"
-                                         PreviewKeyDown="OnHotkeyKeyDown" PreviewKeyUp="OnHotkeyKeyUp"
-                                         GotFocus="OnHotkeyGotFocus" LostFocus="OnHotkeyLostFocus" />
-                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center"
-                                            Margin="0,0,4,0" Spacing="2">
-                                    <Button Style="{StaticResource HotkeyBoxButton}" Click="OnResetHotkey"
-                                            AutomationProperties.Name="Reset shortcut"
-                                            ToolTipService.ToolTip="{x:Bind viewModels:SettingsViewModel.ResetHotkeyTip}"
-                                            Visibility="{x:Bind ViewModel.CanResetHotkey, Mode=OneWay}">
-                                        <FontIcon Glyph="&#xE777;" FontSize="12" />
-                                    </Button>
-                                    <Button Style="{StaticResource HotkeyBoxButton}" Click="OnClearHotkey"
-                                            AutomationProperties.Name="Turn off shortcut"
-                                            ToolTipService.ToolTip="Turn off"
-                                            Visibility="{x:Bind ViewModel.CanClearHotkey, Mode=OneWay}">
-                                        <FontIcon Glyph="&#xE894;" FontSize="12" />
-                                    </Button>
-                                </StackPanel>
-                            </Grid>
-                        </Grid>
-
                         <TextBlock Text="Startup" Style="{StaticResource SettingsSection}" />
                         <Grid Style="{StaticResource SettingsCard}">
                             <Grid.ColumnDefinitions>
@@ -234,7 +194,100 @@
                         </Grid>
                     </StackPanel>
 
-                    <StackPanel x:Name="AboutPage" Spacing="4" Visibility="Collapsed">
+                    <StackPanel x:Name="ShortcutsPage" Grid.Row="1" Spacing="4" Visibility="Collapsed">
+                        <TextBlock Text="Shortcuts" Style="{StaticResource TitleTextBlockStyle}" Margin="0,0,0,4" />
+                        <TextBlock Text="Work in any app. Click a box and press the keys" Style="{StaticResource SettingsCardDescription}" />
+
+                        <TextBlock Text="Output" Style="{StaticResource SettingsSection}" />
+                        <Grid Style="{StaticResource SettingsCard}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <FontIcon Glyph="&#xE8AB;" Style="{StaticResource SettingsCardIcon}" />
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock Text="Switch to the next output device" />
+                                <TextBlock Text="Goes through the outputs the tray menu lists" Style="{StaticResource SettingsCardDescription}" />
+                                <TextBlock Text="{x:Bind ViewModel.HotkeyNote, Mode=OneWay}"
+                                           Visibility="{x:Bind ViewModel.HasHotkeyNote, Mode=OneWay}"
+                                           Foreground="{ThemeResource SystemFillColorCautionBrush}"
+                                           Style="{StaticResource CaptionTextBlockStyle}" TextWrapping="Wrap" />
+                            </StackPanel>
+                            <local:HotkeyRecorder Grid.Column="2" VerticalAlignment="Center"
+                                                  AccessibleName="Next output shortcut"
+                                                  Hotkey="{x:Bind ViewModel.CycleOutputHotkey, Mode=OneWay}"
+                                                  DefaultHotkey="{x:Bind viewModels:SettingsViewModel.DefaultCycleOutputHotkey}"
+                                                  Recorded="{x:Bind ViewModel.RecordCycleOutput}"
+                                                  Rejected="{x:Bind ViewModel.RejectHotkey}"
+                                                  RecordingChanged="{x:Bind ViewModel.Recording}" />
+                        </Grid>
+
+                        <TextBlock Text="Devices" Style="{StaticResource SettingsSection}" />
+                        <TextBlock Text="One press makes the device the default output or input"
+                                   Style="{StaticResource SettingsCardDescription}" Margin="1,0,0,4" />
+                        <ItemsControl ItemsSource="{x:Bind ViewModel.DeviceHotkeys}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <StackPanel Spacing="4" />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="viewModels:DeviceHotkeyRowViewModel">
+                                    <Grid Style="{StaticResource SettingsCard}">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel VerticalAlignment="Center" Spacing="4">
+                                            <ComboBox HorizontalAlignment="Stretch" PlaceholderText="Choose a device"
+                                                      AutomationProperties.Name="Device"
+                                                      ItemsSource="{x:Bind Options, Mode=OneWay}"
+                                                      SelectedItem="{x:Bind Selected, Mode=TwoWay}">
+                                                <ComboBox.ItemTemplate>
+                                                    <DataTemplate x:DataType="viewModels:DeviceOption">
+                                                        <Grid ColumnSpacing="12">
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="Auto" />
+                                                                <ColumnDefinition Width="*" />
+                                                                <ColumnDefinition Width="Auto" />
+                                                            </Grid.ColumnDefinitions>
+                                                            <FontIcon Glyph="{x:Bind Glyph}" FontSize="16" />
+                                                            <TextBlock Grid.Column="1" Text="{x:Bind Name}" TextTrimming="CharacterEllipsis" />
+                                                            <TextBlock Grid.Column="2" Text="{x:Bind Status}" Style="{StaticResource SettingsCardDescription}"
+                                                                       VerticalAlignment="Center" TextWrapping="NoWrap" />
+                                                        </Grid>
+                                                    </DataTemplate>
+                                                </ComboBox.ItemTemplate>
+                                            </ComboBox>
+                                            <TextBlock Text="{x:Bind Note, Mode=OneWay}" Visibility="{x:Bind HasNote, Mode=OneWay}"
+                                                       Foreground="{ThemeResource SystemFillColorCautionBrush}"
+                                                       Style="{StaticResource CaptionTextBlockStyle}" TextWrapping="Wrap" />
+                                        </StackPanel>
+                                        <local:HotkeyRecorder Grid.Column="1" VerticalAlignment="Center"
+                                                              AccessibleName="{x:Bind ShortcutName, Mode=OneWay}"
+                                                              Hotkey="{x:Bind Hotkey, Mode=OneWay}"
+                                                              Recorded="{x:Bind Record}"
+                                                              Rejected="{x:Bind Reject}"
+                                                              RecordingChanged="{x:Bind Recording}" />
+                                        <Button Grid.Column="2" VerticalAlignment="Center" Click="{x:Bind Remove}"
+                                                AutomationProperties.Name="Remove shortcut" ToolTipService.ToolTip="Remove">
+                                            <FontIcon Glyph="&#xE74D;" FontSize="16" />
+                                        </Button>
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <Button Margin="0,4,0,0" Click="{x:Bind ViewModel.AddDeviceHotkey}" AutomationProperties.Name="Add shortcut">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <FontIcon Glyph="&#xE710;" FontSize="14" />
+                                <TextBlock Text="Add shortcut" />
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
+
+                    <StackPanel x:Name="AboutPage" Grid.Row="1" Spacing="4" Visibility="Collapsed">
                         <TextBlock Text="About" Style="{StaticResource TitleTextBlockStyle}" Margin="0,0,0,20" />
                         <Grid Style="{StaticResource SettingsCard}">
                             <Grid.ColumnDefinitions>

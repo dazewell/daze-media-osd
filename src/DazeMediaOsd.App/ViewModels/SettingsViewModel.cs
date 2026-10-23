@@ -1,4 +1,6 @@
+using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
+using DazeMediaOsd.Core.Audio;
 using DazeMediaOsd.Core.Diagnostics;
 using DazeMediaOsd.Core.Input;
 using DazeMediaOsd.Core.Lifecycle;
@@ -13,17 +15,24 @@ public sealed partial class SettingsViewModel : ObservableObject
     private readonly Autostart _autostart;
     private readonly string _exePath;
     private readonly GlobalHotkey? _hotkey;
+    private readonly IAudioService _audio;
+    private IReadOnlyList<AudioEndpoint> _outputs = [];
+    private IReadOnlyList<AudioEndpoint> _inputs = [];
+    private int _recording; // recorder boxes with focus; normally 0 or 1, briefly 2 while focus moves
     private bool _readingAutostart;
 
-    /// <param name="hotkey">Reports whether the cycle-output shortcut registered; null when the app runs without it.</param>
-    public SettingsViewModel(SettingsStore store, Autostart autostart, string exePath, GlobalHotkey? hotkey)
+    /// <param name="hotkey">Reports whether each shortcut registered; null when the app runs without it.</param>
+    /// <param name="audio">Lists the devices a device shortcut can pick.</param>
+    public SettingsViewModel(SettingsStore store, Autostart autostart, string exePath, GlobalHotkey? hotkey, IAudioService audio)
     {
+        ArgumentNullException.ThrowIfNull(audio);
         ArgumentNullException.ThrowIfNull(store);
         ArgumentNullException.ThrowIfNull(autostart);
         _store = store;
         _autostart = autostart;
         _exePath = exePath;
         _hotkey = hotkey;
+        _audio = audio;
         ReadAutostart();
         var current = store.Current;
         // Each setter saves back the value it just read: Update sees no change and does nothing.
@@ -33,7 +42,12 @@ public sealed partial class SettingsViewModel : ObservableObject
         ShowMedia = current.ShowMedia;
         ShowOnDeviceConnect = current.ShowOnDeviceConnect;
         CycleOutputHotkey = current.CycleOutputHotkey;
-        HotkeyNote = RegistrationNote();
+        HotkeyNote = RegistrationNote(Shortcuts.CycleOutputId);
+        ReadEndpoints();
+        foreach (var row in current.DeviceHotkeys)
+            DeviceHotkeys.Add(new DeviceHotkeyRowViewModel(this, row));
+        // Rows of connected devices take their current name (renamed in Sound settings): the last-known one.
+        SaveDeviceHotkeys();
         // A failure from an earlier, closed window still applies until a save succeeds.
         SaveError = store.SaveError;
     }
@@ -97,30 +111,112 @@ public sealed partial class SettingsViewModel : ObservableObject
 
     /// <summary>The cycle-output shortcut, recorded from the keys pressed in its box. "" is off.</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(CanResetHotkey), nameof(CanClearHotkey))]
     public partial string CycleOutputHotkey { get; set; }
 
-    public bool CanResetHotkey => CycleOutputHotkey != AppSettings.DefaultCycleOutputHotkey;
+    public static string DefaultCycleOutputHotkey => AppSettings.DefaultCycleOutputHotkey;
 
-    public bool CanClearHotkey => CycleOutputHotkey.Length > 0;
-
-    public static string ResetHotkeyTip => "Reset to " + AppSettings.DefaultCycleOutputHotkey;
-
-    public void ResetHotkey() => CycleOutputHotkey = AppSettings.DefaultCycleOutputHotkey;
-
-    public void ClearHotkey() => CycleOutputHotkey = "";
-
-    /// <summary>While the box records, the current shortcut must not fire (D-021).</summary>
-    public void PauseHotkey(bool paused) => _hotkey?.Pause(paused);
+    /// <summary>The cycle box recorded <paramref name="chord"/> ("" = off); refused when a device shortcut has it (D-022).</summary>
+    public void RecordCycleOutput(object sender, string chord)
+    {
+        if (UsedBy(chord, null) is { } note)
+        {
+            HotkeyNote = note;
+            return;
+        }
+        CycleOutputHotkey = chord;
+        // The same chord again doesn't run the change handler: clear an earlier refusal here.
+        HotkeyNote = RegistrationNote(Shortcuts.CycleOutputId);
+    }
 
     /// <summary>Keys were pressed that make no shortcut: say what would.</summary>
     public void RejectHotkey() => HotkeyNote = InvalidHotkeyNote;
 
-    // Without the hotkey window no edit can take effect: keep saying so instead of looking healthy.
-    private string? RegistrationNote() => _hotkey is null ? "The shortcut isn't available: see the log." : _hotkey.Error;
+    /// <summary>
+    /// While any recorder box has focus, no shortcut may fire (D-021, D-022): pressing one there must reach
+    /// the box.
+    /// </summary>
+    public void Recording(object sender, bool recording)
+    {
+        _recording = recording ? _recording + 1 : Math.Max(0, _recording - 1);
+        _hotkey?.Pause(_recording > 0);
+        // A refusal note ("already switches to …") is for the box that just recorded; once focus leaves, back
+        // to what still applies.
+        if (!recording)
+            RefreshNotes();
+    }
 
-    private const string InvalidHotkeyNote =
+    /// <summary>The window closed: resume the shortcuts even if a box never saw its focus leave.</summary>
+    public void EndRecording()
+    {
+        _recording = 0;
+        _hotkey?.Pause(false);
+    }
+
+    // Without the hotkey window no edit can take effect: keep saying so instead of looking healthy.
+    internal string? RegistrationNote(int id) =>
+        _hotkey is null ? "The shortcut isn't available: see the log."
+        : _hotkey.Errors.TryGetValue(id, out var error) ? error
+        : null;
+
+    internal const string InvalidHotkeyNote =
         "Not a shortcut. Use Win, Ctrl or Alt with a letter, digit or F1–F24, like Win+Alt+A.";
+
+    /// <summary>One row per device shortcut, in settings order: row i registers as <see cref="Shortcuts.DeviceId"/>(i).</summary>
+    public ObservableCollection<DeviceHotkeyRowViewModel> DeviceHotkeys { get; } = [];
+
+    public void AddDeviceHotkey()
+    {
+        ReadEndpoints(); // a device connected since the window opened
+        foreach (var row in DeviceHotkeys)
+            row.RefreshOptions();
+        DeviceHotkeys.Add(new DeviceHotkeyRowViewModel(this, new DeviceHotkey()));
+        SaveDeviceHotkeys();
+    }
+
+    internal void Remove(DeviceHotkeyRowViewModel row)
+    {
+        DeviceHotkeys.Remove(row);
+        SaveDeviceHotkeys();
+    }
+
+    /// <summary>Why <paramref name="chord"/> can't go to <paramref name="row"/> (null: the cycle box): one chord does one thing.</summary>
+    internal string? UsedBy(string chord, DeviceHotkeyRowViewModel? row)
+    {
+        if (chord.Length == 0)
+            return null;
+        if (row is not null && chord == CycleOutputHotkey)
+            return $"{chord} already switches to the next output.";
+        return DeviceHotkeys.FirstOrDefault(r => r != row && r.Hotkey == chord) is { } other
+            ? $"{chord} already switches to {(other.Selected is { } device ? device.Name : "another device")}."
+            : null;
+    }
+
+    /// <summary>The devices a row can pick: active ones as the tray offers them (<see cref="DeviceChoices"/>), outputs first.</summary>
+    internal List<DeviceOption> Choices(string? rowId) =>
+        DeviceChoices.For(_outputs, rowId).Select(e => new DeviceOption(e.Id, EndpointFlow.Output, e.Name, Active: true))
+            .Concat(DeviceChoices.For(_inputs, rowId).Select(e => new DeviceOption(e.Id, EndpointFlow.Input, e.Name, Active: true)))
+            .ToList();
+
+    // Endpoints waits (briefly) on the audio worker: only on open and on Add.
+    private void ReadEndpoints()
+    {
+        _outputs = _audio.Endpoints(EndpointFlow.Output);
+        _inputs = _audio.Endpoints(EndpointFlow.Input);
+    }
+
+    internal void SaveDeviceHotkeys()
+    {
+        Update(s => s with { DeviceHotkeys = DeviceHotkeys.Select(r => r.ToModel()).ToList() });
+        RefreshNotes();
+    }
+
+    // Ids follow row positions, so every row's registration result may have moved.
+    private void RefreshNotes()
+    {
+        HotkeyNote = RegistrationNote(Shortcuts.CycleOutputId);
+        for (var i = 0; i < DeviceHotkeys.Count; i++)
+            DeviceHotkeys[i].Note = DeviceHotkeys[i].StatusNote(RegistrationNote(Shortcuts.DeviceId(i)));
+    }
 
     /// <summary>Why the shortcut isn't active: not a valid shortcut, or Windows refused it.</summary>
     [ObservableProperty]
@@ -140,7 +236,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         Update(s => s with { CycleOutputHotkey = text });
         // Show what was stored ("alt+win+a" → "Win+Alt+A"); setting it again re-enters with no change.
         CycleOutputHotkey = _store.Current.CycleOutputHotkey;
-        HotkeyNote = RegistrationNote();
+        HotkeyNote = RegistrationNote(Shortcuts.CycleOutputId);
     }
 
     partial void OnStartWithWindowsChanged(bool value)

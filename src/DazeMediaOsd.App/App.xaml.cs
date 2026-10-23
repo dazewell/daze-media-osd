@@ -29,7 +29,7 @@ public sealed partial class App : Application, IDisposable
     private SettingsStore? _settings;
     private SettingsWindow? _settingsWindow;
     private GlobalHotkey? _hotkey;
-    private string? _hotkeyText;
+    private volatile IReadOnlyList<Shortcut> _shortcuts = []; // read on the hotkey thread
 
     public App(LaunchArgs args)
     {
@@ -75,7 +75,7 @@ public sealed partial class App : Application, IDisposable
         try
         {
             _hotkey = new GlobalHotkey();
-            _hotkey.Pressed += (_, _) => CycleOutput(ui);
+            _hotkey.Pressed += (_, id) => OnShortcut(id, ui);
             ApplyHotkey(_settings.Current);
         }
         catch (InvalidOperationException e)
@@ -119,16 +119,49 @@ public sealed partial class App : Application, IDisposable
         }
     }
 
-    // Only on a real change: re-registering the same chord would log for every unrelated setting.
+    // Only on a real change: re-registering the same chords would log for every unrelated setting.
     private void ApplyHotkey(AppSettings settings)
     {
-        if (_hotkey is null || settings.CycleOutputHotkey == _hotkeyText)
+        var shortcuts = Shortcuts.From(settings);
+        if (_hotkey is null || shortcuts.SequenceEqual(_shortcuts))
             return;
-        _hotkeyText = settings.CycleOutputHotkey;
-        _hotkey.Set(Hotkey.TryParse(_hotkeyText, out var hotkey) ? hotkey : null);
+        _shortcuts = shortcuts;
+        _hotkey.Set(shortcuts.ToDictionary(s => s.Id, s => s.Hotkey));
     }
 
     // Raised on the hotkey thread. Endpoints waits on the audio worker, so stay off the UI thread.
+    private void OnShortcut(int id, DispatcherQueue ui)
+    {
+        switch (_shortcuts.FirstOrDefault(s => s.Id == id))
+        {
+            case { Device: null }:
+                CycleOutput(ui);
+                break;
+            case { Device: { } device }:
+                SwitchTo(device, ui);
+                break;
+        }
+    }
+
+    private void SwitchTo(DeviceHotkey device, DispatcherQueue ui)
+    {
+        var press = Shortcuts.Press(device, _audio!.Endpoints(device.Flow), _audio.Current.Get(device.Flow)?.Id);
+        Log.Info($"hotkey: default {device.Flow} -> \"{device.Name}\": {press}");
+        switch (press)
+        {
+            case DevicePress.Switch:
+                _audio.SetDefault(device.Id, device.Flow); // the OSD shows it as a default-device change
+                break;
+            case DevicePress.AlreadyDefault:
+                ui.TryEnqueue(() => Show(_osd!.Snapshot(OsdReason.Hotkey)));
+                break;
+            case DevicePress.NotActive:
+                var notice = DeviceNotice.NotConnected(device.Name, device.Flow);
+                ui.TryEnqueue(() => Show(_osd!.Snapshot(OsdReason.Hotkey) with { Device = notice }));
+                break;
+        }
+    }
+
     private void CycleOutput(DispatcherQueue ui)
     {
         var current = _audio!.Current.Output?.Id;
@@ -146,7 +179,7 @@ public sealed partial class App : Application, IDisposable
     {
         if (_settingsWindow is null)
         {
-            _settingsWindow = new SettingsWindow(new SettingsViewModel(_settings!, new Autostart(), Environment.ProcessPath!, _hotkey));
+            _settingsWindow = new SettingsWindow(new SettingsViewModel(_settings!, new Autostart(), Environment.ProcessPath!, _hotkey, _audio!));
             _settingsWindow.Closed += (_, _) => _settingsWindow = null;
             _settingsWindow.Activate();
         }
@@ -162,7 +195,8 @@ public sealed partial class App : Application, IDisposable
         {
             if (state.Reason is OsdReason.DeviceConnected or OsdReason.DeviceDisconnected)
                 return;
-            state = state with { Device = null }; // a default switch still shows, without the event line
+            if (state.Device is { Absent: false })
+                state = state with { Device = null }; // a default switch still shows, without the event line
         }
         Log.Info($"show {state.Describe()}");
         _window?.Show(state);
