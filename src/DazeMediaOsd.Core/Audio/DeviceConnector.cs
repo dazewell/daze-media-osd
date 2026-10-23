@@ -5,7 +5,8 @@ namespace DazeMediaOsd.Core.Audio;
 
 /// <summary>
 /// A device shortcut for a paired, disconnected Bluetooth device (D-023): asks it to connect, then makes it
-/// the default once its endpoint turns active. One press waits at a time; a later press replaces it.
+/// the default once its endpoint turns active. One press waits at a time; a later press replaces it, and
+/// any other shortcut press should <see cref="Cancel"/> it, so the newer choice wins.
 /// </summary>
 public sealed class DeviceConnector : IDisposable
 {
@@ -13,15 +14,19 @@ public sealed class DeviceConnector : IDisposable
     public static readonly TimeSpan Patience = TimeSpan.FromSeconds(15);
 
     private readonly IAudioService _audio;
+    private readonly TimeProvider _time;
     private readonly ITimer _timer;
     private readonly Lock _lock = new();
     private DeviceHotkey? _pending;
+    private long _armedAt;
+    private bool _disposed;
 
     public DeviceConnector(IAudioService audio, TimeProvider? time = null)
     {
         ArgumentNullException.ThrowIfNull(audio);
         _audio = audio;
-        _timer = (time ?? TimeProvider.System).CreateTimer(_ => OnTimeout(), null, Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
+        _time = time ?? TimeProvider.System;
+        _timer = _time.CreateTimer(_ => OnTimeout(), null, Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
         _audio.Changed += OnAudioChanged;
     }
 
@@ -36,6 +41,7 @@ public sealed class DeviceConnector : IDisposable
         lock (_lock)
         {
             _pending = device;
+            _armedAt = _time.GetTimestamp();
             _timer.Change(Patience, Timeout.InfiniteTimeSpan);
         }
         var result = _audio.Connect(device.Id);
@@ -44,6 +50,29 @@ public sealed class DeviceConnector : IDisposable
         if (result == ConnectResult.AlreadyConnected)
             _audio.SetDefault(device.Id, device.Flow); // it came back on its own meanwhile
         return result;
+    }
+
+    /// <summary>
+    /// Still waiting for this press (by reference): a "Connecting…" answer for a press that has already
+    /// connected, timed out or been replaced must not be shown.
+    /// </summary>
+    public bool IsWaitingFor(DeviceHotkey device)
+    {
+        lock (_lock)
+            return ReferenceEquals(_pending, device);
+    }
+
+    /// <summary>Stops waiting: the device may still connect, but won't become the default because of us.</summary>
+    public void Cancel()
+    {
+        lock (_lock)
+        {
+            if (_pending is null)
+                return;
+            Log.Info($"connecting \"{_pending.Name}\": cancelled by a later shortcut");
+            _pending = null;
+            _timer.Change(Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
+        }
     }
 
     private void OnAudioChanged(object? sender, AudioChangedEventArgs e)
@@ -63,13 +92,21 @@ public sealed class DeviceConnector : IDisposable
         _audio.SetDefault(device.Id, device.Flow); // Windows may already have switched; this makes it certain
     }
 
+    // The pending press and its arm time, not the timer, decide: a callback already queued for an earlier
+    // press still runs after a later one re-armed.
     private void OnTimeout()
     {
         DeviceHotkey device;
         lock (_lock)
         {
-            if (_pending is null)
+            if (_pending is null || _disposed)
                 return;
+            var left = Patience - _time.GetElapsedTime(_armedAt);
+            if (left > TimeSpan.Zero)
+            {
+                _timer.Change(left, Timeout.InfiniteTimeSpan);
+                return;
+            }
             device = _pending;
             _pending = null;
         }
@@ -91,6 +128,11 @@ public sealed class DeviceConnector : IDisposable
     public void Dispose()
     {
         _audio.Changed -= OnAudioChanged;
+        lock (_lock)
+        {
+            _disposed = true;
+            _pending = null;
+        }
         _timer.Dispose();
     }
 }

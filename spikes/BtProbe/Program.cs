@@ -191,6 +191,9 @@ static class Program
     [ComImport, Guid("28F54685-06FD-11D2-B27A-00A0C9223196"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
     interface IKsControl
     {
-        [PreserveSig] int KsProperty(ref KsProperty property, uint propertyLength, byte[]? data, uint dataLength, out uint returned);
+        // A raw buffer, not the SAFEARRAY an unannotated array becomes on a COM interface.
+        [PreserveSig]
+        int KsProperty(ref KsProperty property, uint propertyLength,
+            [In, Out, MarshalAs(UnmanagedType.LPArray, SizeParamIndex = 3)] byte[]? data, uint dataLength, out uint returned);
     }
 }

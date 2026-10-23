@@ -135,6 +135,8 @@ public sealed partial class App : Application, IDisposable
     // Raised on the hotkey thread. Endpoints waits on the audio worker, so stay off the UI thread.
     private void OnShortcut(int id, DispatcherQueue ui)
     {
+        // A newer choice wins over a device still connecting (D-023).
+        _connector!.Cancel();
         switch (_shortcuts.FirstOrDefault(s => s.Id == id))
         {
             case { Device: null }:
@@ -171,7 +173,13 @@ public sealed partial class App : Application, IDisposable
     private void ShowAnswer(DeviceHotkey device, PressAnswer answer, DispatcherQueue ui)
     {
         var notice = DeviceNotice.ForPress(device.Name, device.Flow, answer);
-        ui.TryEnqueue(() => Show(_osd!.Snapshot(OsdReason.Hotkey) with { Device = notice }));
+        ui.TryEnqueue(() =>
+        {
+            // Checked here, in UI order: the connect show may already have run (or a later press replaced it).
+            if (answer == PressAnswer.Connecting && !_connector!.IsWaitingFor(device))
+                return;
+            Show(_osd!.Snapshot(OsdReason.Hotkey) with { Device = notice });
+        });
     }
 
     private void CycleOutput(DispatcherQueue ui)

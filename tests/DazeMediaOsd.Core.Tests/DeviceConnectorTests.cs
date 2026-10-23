@@ -91,6 +91,50 @@ public class DeviceConnectorTests
         Assert.Empty(timedOut);
     }
 
+    [Fact]
+    public void AStaleTimeoutDoesNotExpireTheReplacement()
+    {
+        var (audio, time, connector, timedOut) = Create();
+
+        connector.Connect(Technics);
+        time.Advance(DeviceConnector.Patience - TimeSpan.FromSeconds(1));
+        connector.Connect(Sony);
+        time.RunAllCallbacks(); // the first press's callback, queued before the re-arm
+        Assert.Empty(timedOut);
+        audio.Device(Connected(Sony.Name, "x"));
+
+        Assert.Equal([("x", EndpointFlow.Output)], audio.Defaults);
+    }
+
+    [Fact]
+    public void CancelStopsWaiting()
+    {
+        var (audio, time, connector, timedOut) = Create();
+
+        connector.Connect(Technics);
+        Assert.True(connector.IsWaitingFor(Technics));
+        connector.Cancel();
+        audio.Device(Connected(Technics.Name, "h")); // connects after the user picked something else
+        time.Advance(DeviceConnector.Patience);
+
+        Assert.False(connector.IsWaitingFor(Technics));
+        Assert.Empty(audio.Defaults);
+        Assert.Empty(timedOut);
+    }
+
+    [Fact]
+    public void NotWaitingOnceConnectedOrReplaced()
+    {
+        var (audio, _, connector, _) = Create();
+
+        connector.Connect(Technics);
+        connector.Connect(Sony);
+        Assert.False(connector.IsWaitingFor(Technics));
+        audio.Device(Connected(Sony.Name, "x"));
+
+        Assert.False(connector.IsWaitingFor(Sony));
+    }
+
     private static DeviceEvent Connected(string name, string id, EndpointFlow flow = EndpointFlow.Output) =>
         new(name, flow, Connected: true, Bluetooth: true, DeviceKind.Headphones, id);
 
