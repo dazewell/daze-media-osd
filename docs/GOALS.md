@@ -30,6 +30,7 @@ this file and know what to build next. History of *why* lives in [DECISIONS.md](
 - v2: GitHub Actions CI (build + test + publish artifact), release packaging.
 - Brightness / airplane-mode / keyboard-layout flyouts.
 - Per-app volume in the OSD, quick device switching from the OSD.
+- Feature ideas from similar apps, to pick from: [research/2026-10-similar-apps-features.md](research/2026-10-similar-apps-features.md).
 
 ## Non-goals
 
