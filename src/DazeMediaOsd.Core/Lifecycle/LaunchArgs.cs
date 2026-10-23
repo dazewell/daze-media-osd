@@ -9,11 +9,15 @@ public enum LaunchMode
 
     /// <summary><c>--app</c>: the tray/OSD process.</summary>
     App,
+
+    /// <summary><c>--restore</c>: un-minimize the native flyout and exit (recovery, stop script).</summary>
+    Restore,
 }
 
 public sealed record LaunchArgs(LaunchMode Mode, int? LauncherPid)
 {
     public const string AppSwitch = "--app";
+    public const string RestoreSwitch = "--restore";
     public const string LauncherPidSwitch = "--launcher-pid";
 
     public static LaunchArgs Parse(IReadOnlyList<string> args)
@@ -24,6 +28,8 @@ public sealed record LaunchArgs(LaunchMode Mode, int? LauncherPid)
         {
             if (args[i] == AppSwitch)
                 mode = LaunchMode.App;
+            else if (args[i] == RestoreSwitch)
+                mode = LaunchMode.Restore;
             else if (args[i] == LauncherPidSwitch && i + 1 < args.Count
                      && int.TryParse(args[i + 1], NumberStyles.None, CultureInfo.InvariantCulture, out var pid))
                 launcherPid = pid;

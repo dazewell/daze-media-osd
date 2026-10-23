@@ -15,6 +15,11 @@ public static class Program
         Log.Initialize(Log.DefaultDirectory);
         if (launch.Mode == LaunchMode.Launcher)
             return Launcher.Run();
+        if (launch.Mode == LaunchMode.Restore)
+        {
+            FlyoutHost.RestoreAll();
+            return 0;
+        }
 
         App? app = null;
         try
