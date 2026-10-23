@@ -27,12 +27,14 @@ this file and know what to build next. History of *why* lives in [DECISIONS.md](
 - Settings window: enable/disable sections, position, timeout, theme follows system, start with Windows.
 - Only our OSD is ever visible — the native flyout must not flash (user, 2026-10-22; D-006).
 - Fail-open: if the app is closed or crashes, the native OSD keeps working.
+- Next features, picked from the PR #8 survey (user, 2026-10-23): **device-type icons** on the output
+  and input rows, and **quick switching** of the default output/input device.
 
 ## Later (not v1)
 
 - v2: GitHub Actions CI (build + test + publish artifact), release packaging.
 - Brightness / airplane-mode / keyboard-layout flyouts.
-- Per-app volume in the OSD, quick device switching from the OSD.
+- Per-app volume in the OSD.
 
 ## Non-goals
 
@@ -73,8 +75,45 @@ this file and know what to build next. History of *why* lives in [DECISIONS.md](
 - [x] Daily-driver test: no native flyout flashes (user, 2026-10-23). Autostart at sign-in and a USB
   device deferred by the user (2026-10-23) — see "When convenient"
 
-**Next step:** after this PR merges, re-run `scripts/install.ps1` so the installed copy has D-016. Then
-pick the next feature with the user: open PR #8 has a survey of similar apps; also "Later" above.
+**Next step:** after #14 merges, re-run `scripts/install.ps1` so the installed copy has D-016. Then
+build the two features below, in this order, one PR each.
+
+**Plan A — device-type icons** (S, ~½ day)
+- Core: read `PKEY_AudioEndpoint_FormFactor` with the name; add `Kind` (Speakers, Headphones, Headset,
+  Display = DigitalAudioDisplayDevice/HDMI/DP, Microphone, Other) to `EndpointState` and `DeviceEvent`,
+  and to `DeviceNotice` (the event line's model). Cache it with the name in the active-endpoint set:
+  a disconnecting endpoint may no longer be readable. Pure form factor → kind mapping, unit-tested.
+  Log the kind in the `show` line.
+- OSD: the row icon becomes the device type (Segoe Fluent: speakers E7F5, headphone E7F6, headset E95B,
+  monitor E7F4, mic E720; check each in a screenshot). It replaces today's volume-level glyph — the
+  value and bar already show the level. Muted keeps Mute E74F / MicOff EC54 (the state matters more
+  than the type). Same glyph table for the device event line (D-014) instead of speaker/mic.
+- Record a decision (glyph replaces level glyph; why not a second glyph: row width). Verify with the
+  Technics headset, the laptop speakers and the Dell monitor (HDMI/DP).
+
+**Plan B — quick device switching** (M, 1–2 days; tray + hotkey + OSD-click spike: user, 2026-10-23)
+- Core: `IAudioService.Endpoints(flow)` (active only: id, name, kind) and `SetDefault(id, flow)`. Setting
+  the default needs the undocumented `IPolicyConfig` COM interface (no documented API: `MediaDevice`
+  only reads, `AudioRoutingManager` is phone-only). No admin, no injection; EarTrumpet and SoundSwitch
+  ship it. Set roles eConsole + eMultimedia, as Settings does; leave eCommunications. A failure only
+  logs. Short spike first: confirm the interface and IID on 26300, record the result as D-xxx/X-xxx.
+- Surface 1: tray menu gets "Output" and "Input" submenus with a check on the
+  current default (native menu, D-009; the tray may take focus). The OSD shows the switch through the
+  existing `OutputDeviceChanged` path.
+- Surface 2: a global hotkey cycles the default output (`RegisterHotKey`, no hook, no
+  admin); the OSD shows the new default. Configurable in Settings, default to agree with the user (avoid
+  Win+Ctrl+V: Windows 11's own output picker). A failed registration shows in Settings. Pure
+  `DeviceCycle.Next(endpoints, currentId)` (sorted by name), unit-tested. Same plumbing later gives
+  the survey's "show OSD on demand" hotkey for free.
+- Surface 3, spike first (user asked, 2026-10-23): click a device row in the OSD to pick another
+  device. Conflicts with D-008 (click-through) and must keep the hard rule (never take focus or
+  activation). Questions: can a `WS_EX_NOACTIVATE` window without `WS_EX_TRANSPARENT` take XAML clicks
+  without activating (foreground window unchanged)? Hover keeps the OSD open, leave hides it; only the
+  rows are hit-testable, the rest stays click-through (`WM_NCHITTEST` → `HTTRANSPARENT`?). How does
+  the list open — a non-activating popup inside the OSD, not a `Flyout` that grabs focus. Result goes
+  in DECISIONS (superseding D-008) or DEADENDS; drop the surface if it can't keep the rule.
+- Risks: Bluetooth hands-free outputs ("Headset (…)") may show up as a separate output on some
+  machines; consider hiding them from the cycle.
 
 When convenient: autostart at sign-in (log `launcher: started app` right after one), a USB audio
 device (one show per connect/disconnect, D-013/D-014/D-016), OSD + settings window in light theme,
