@@ -81,9 +81,21 @@ public sealed class AudioChangedEventArgs(
     public DeviceEvent? Device { get; } = device;
 }
 
+/// <summary>An active endpoint one can switch to. <paramref name="Bluetooth"/> as in <see cref="DeviceEvent"/>.</summary>
+public sealed record AudioEndpoint(string Id, string Name, DeviceKind Kind, bool Bluetooth = false);
+
 public interface IAudioService : IDisposable
 {
     AudioSnapshot Current { get; }
+
+    /// <summary>The active endpoints of <paramref name="flow"/>, read now; empty if Core Audio doesn't answer.</summary>
+    IReadOnlyList<AudioEndpoint> Endpoints(EndpointFlow flow);
+
+    /// <summary>
+    /// Makes <paramref name="id"/> the default <paramref name="flow"/> endpoint (D-019). Returns at once; a
+    /// failure only logs, success shows up as a <see cref="AudioChangeKind.DefaultDevice"/> change.
+    /// </summary>
+    void SetDefault(string id, EndpointFlow flow);
 
     /// <summary>Raised on the service's own thread; handlers must marshal before touching UI.</summary>
     event EventHandler<AudioChangedEventArgs>? Changed;

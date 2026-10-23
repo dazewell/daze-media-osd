@@ -91,7 +91,7 @@ public sealed partial class App : Application, IDisposable
         try
         {
             var assets = Path.Combine(AppContext.BaseDirectory, "Assets");
-            _tray = new TrayIcon("Daze Media OSD", Path.Combine(assets, "tray-dark.ico"), Path.Combine(assets, "tray-light.ico"));
+            _tray = new TrayIcon("Daze Media OSD", Path.Combine(assets, "tray-dark.ico"), Path.Combine(assets, "tray-light.ico"), _audio);
             _tray.SettingsRequested += (_, _) => ui.TryEnqueue(OpenSettings);
             _tray.ExitRequested += (_, _) => ui.TryEnqueue(() =>
             {

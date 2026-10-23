@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Runtime.InteropServices;
 using DazeMediaOsd.Core.Diagnostics;
+using DazeMediaOsd.Core.Interop;
 using Windows.Win32;
 using Windows.Win32.Foundation;
 using Windows.Win32.Media.Audio;
@@ -66,6 +67,82 @@ public sealed class CoreAudioService : IAudioService
     public AudioSnapshot Current => _current;
 
     public event EventHandler<AudioChangedEventArgs>? Changed;
+
+    public IReadOnlyList<AudioEndpoint> Endpoints(EndpointFlow flow)
+    {
+        if (Thread.CurrentThread == _worker)
+            return ReadEndpoints(flow); // from a Changed handler: waiting on ourselves would deadlock
+        var result = new TaskCompletionSource<IReadOnlyList<AudioEndpoint>>();
+        Post(() =>
+        {
+            try
+            {
+                result.SetResult(ReadEndpoints(flow));
+            }
+            catch (Exception e) when (e is not OutOfMemoryException)
+            {
+                Log.Error($"listing {flow} endpoints", e);
+                result.SetResult([]);
+            }
+        });
+        // A menu must not hang on a stuck audio service (or one already disposed): show no devices instead.
+        if (result.Task.Wait(TimeSpan.FromSeconds(2)))
+            return result.Task.Result;
+        Log.Info($"listing {flow} endpoints timed out");
+        return [];
+    }
+
+    public void SetDefault(string id, EndpointFlow flow)
+    {
+        ArgumentNullException.ThrowIfNull(id);
+        Post(() =>
+        {
+            // eConsole + eMultimedia, as Sound settings does; eCommunications stays the user's choice (D-019).
+            var policy = (IPolicyConfig)new PolicyConfigClient();
+            try
+            {
+                foreach (var role in (ReadOnlySpan<ERole>)[ERole.eConsole, ERole.eMultimedia])
+                {
+                    var hr = policy.SetDefaultEndpoint(id, (int)role);
+                    if (hr < 0)
+                        Log.Info($"setting default {flow} ({role}) to {id} failed: 0x{hr:X8}");
+                }
+            }
+            finally
+            {
+                Marshal.ReleaseComObject(policy);
+            }
+        });
+    }
+
+    private List<AudioEndpoint> ReadEndpoints(EndpointFlow flow)
+    {
+        var dataFlow = flow == EndpointFlow.Output ? EDataFlow.eRender : EDataFlow.eCapture;
+        _enumerator!.EnumAudioEndpoints(dataFlow, DEVICE_STATE.DEVICE_STATE_ACTIVE, out var devices);
+        try
+        {
+            devices.GetCount(out var count);
+            var result = new List<AudioEndpoint>((int)count);
+            for (uint i = 0; i < count; i++)
+            {
+                devices.Item(i, out var device);
+                try
+                {
+                    var (_, name, bluetooth, kind) = Describe(device);
+                    result.Add(new AudioEndpoint(DeviceId(device), name, kind, bluetooth));
+                }
+                finally
+                {
+                    Marshal.ReleaseComObject(device);
+                }
+            }
+            return result;
+        }
+        finally
+        {
+            Marshal.ReleaseComObject(devices);
+        }
+    }
 
     private void Initialize()
     {

@@ -87,7 +87,10 @@ can't verify visually, say so explicitly instead of claiming it works.
   script, or the OSD has hidden by the time it captures.
 - Tray: the icon window is class `DazeMediaOsd.Tray` (uID 1). `Shell_NotifyIconGetRect` gives its
   screen rect (or the overflow chevron's while it sits in the closed overflow — click that first);
-  right-click there for the menu (Settings, separator, Exit): Down Down Enter picks Exit. A clean stop
+  right-click there for the menu (Output ▸, Input ▸, separator, Settings, separator, Exit). Posting
+  `WM_APP+1` with lParam `0x7B | (1 << 16)` (WM_CONTEXTMENU, icon 1) and wParam `x | y << 16` opens it
+  from a script, but then its `SetForegroundWindow` fails (foreground lock) and keys go elsewhere:
+  pick items with the mouse (`SetCursorPos` + `mouse_event`, physical pixels after the DPI call). A clean stop
   for testing: tray → Exit. Left-click opens the settings window (also `WinUIDesktopWin32WindowClass`,
   title `Daze Media OSD`).
 - Settings live in `%LOCALAPPDATA%\DazeMediaOsd\settings.json` and hold the user's real settings: copy

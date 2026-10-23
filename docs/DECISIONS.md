@@ -283,3 +283,19 @@ Supersedes: D-008 (only "why not `IsAlwaysOnTop`"; the window design stands)
   in a screen capture, foreground unchanged, `WindowFromPoint` still hits the window below.
 - Revisit if: a WinAppSDK update changes presenter z-order handling, or a topmost app (e.g. a video
   player in always-on-top) still covers the OSD — then the native flyout's band is the only way up.
+
+## D-019 · 2026-10-23 · Set the default endpoint through undocumented `IPolicyConfig`
+Status: accepted
+- Decision: `CoreAudioService.SetDefault` calls `IPolicyConfig.SetDefaultEndpoint` (client CLSID
+  `870AF99C-…`, IID `F8679F50-…`, slot 11) on its MTA worker for eConsole + eMultimedia; eCommunications
+  stays. A failed HRESULT only logs; success comes back as the usual default-device notification, so
+  the OSD shows it like any other switch. Tray offers `DeviceChoices.For` (sorted by name; a Bluetooth
+  hands-free "Headset (X Hands-Free)" output is hidden next to "Headphones (X)" unless it is the default).
+- Why: quick switching is a picked feature (GOALS, 2026-10-23) and Windows has no documented setter:
+  `Windows.Media.Devices.MediaDevice` only reads, `AudioRoutingManager` is phone-only. No admin, no
+  injection; EarTrumpet and SoundSwitch ship the same interface. Console + multimedia is what Sound
+  settings and the quick-settings picker change; communications is the call device users set apart.
+- Verified on 26300: tray Input → Stereo Mix set roles 0 and 1, role 2 unchanged, OSD showed the new
+  mic 13 ms later; switching back the same way restored it.
+- Revisit if: a Windows update moves the vtable (then the HRESULT logs and nothing switches — check
+  `scripts/audio-device.ps1` first) or a documented API appears.

@@ -77,9 +77,14 @@ this file and know what to build next. History of *why* lives in [DECISIONS.md](
   line `connected bt Headphones`, one show) (2026-10-23)
 - [x] Daily-driver test: no native flyout flashes (user, 2026-10-23). Autostart at sign-in and a USB
   device deferred by the user (2026-10-23) — see "When convenient"
+- [x] Plan B core + tray: `Endpoints`/`SetDefault` via `IPolicyConfig` (D-019), tray Output / Input
+  submenus, hands-free outputs hidden (`DeviceChoices`); seen: input switched to Stereo Mix and back from
+  the menu, OSD showed it (2026-10-23). Not seen yet: an output switch (only the speakers were active)
 
-**Next step:** Plan B below. When convenient: the headset glyph (Technics hands-free as default mic)
-and the monitor glyph (Dell over DisplayPort).
+**Next step:** Plan B surface 2 (hotkey). First agree the default chord with the user. Then surface 3
+(spike). When convenient: switch outputs from the tray with the Technics connected (the hands-free
+"Headset (… Hands-Free)" output must not be listed), the headset glyph (Technics hands-free as default
+mic) and the monitor glyph (Dell over DisplayPort).
 
 **Plan B — quick device switching** (M, 1–2 days; tray + hotkey + OSD-click spike: user, 2026-10-23)
 - Core: `IAudioService.Endpoints(flow)` (active only: id, name, kind) and `SetDefault(id, flow)`. Setting
@@ -103,9 +108,8 @@ and the monitor glyph (Dell over DisplayPort).
   rows are hit-testable, the rest stays click-through (`WM_NCHITTEST` → `HTTRANSPARENT`?). How does
   the list open — a non-activating popup inside the OSD, not a `Flyout` that grabs focus. Result goes
   in DECISIONS (superseding D-008) or DEADENDS; drop the surface if it can't keep the rule.
-- Risks: Bluetooth hands-free outputs exist here too: "Headset" render endpoints, form factor 5,
-  next to "Headphones" (registry, 2026-10-23). Likely hide Kind Headset outputs of a Bluetooth product
-  that also has a Headphones output from the cycle and the menu.
+- Hands-free outputs ("Headset (Technics EAH-AZ80 Hands-Free)", form factor 5): `DeviceChoices.For`
+  already hides them for the menu; the cycle must use it too.
 
 When convenient: autostart at sign-in (log `launcher: started app` right after one), a USB audio
 device (one show per connect/disconnect, D-013/D-014/D-016), OSD + settings window in light theme,
