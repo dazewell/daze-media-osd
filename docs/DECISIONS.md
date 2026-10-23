@@ -301,7 +301,7 @@ Status: accepted
   `scripts/audio-device.ps1` first) or a documented API appears.
 
 ## D-020 · 2026-10-23 · Cycle-output hotkey through `RegisterHotKey`, default Win+Alt+A, typed in Settings
-Status: accepted; the typed box superseded by D-021
+Status: accepted; the typed box superseded by D-021, one chord per `GlobalHotkey` by D-022
 - Decision: `GlobalHotkey` registers one chord (`MOD_NOREPEAT`) on its own message-only window. A press
   switches to `DeviceCycle.Next` (the `DeviceChoices` list by name, wrapping around). With no other
   output, the OSD shows the current one (`OsdReason.Hotkey`), so the press always gets an answer.
@@ -334,3 +334,28 @@ Supersedes: D-020 (only the typed text box and its "why not a key-capture box")
 - Verified on 26300 (UIA focus + `keybd_event`): from off, Win+Alt+A recorded and saved; the same chord
   pressed in the box didn't switch the output; Ctrl+Alt+F11 recorded; Shift+A rejected with the note and
   not saved; Reset restored Win+Alt+A and registered it once focus left.
+
+## D-022 · 2026-10-23 · A hotkey per device: one `GlobalHotkey` with an id per chord, rows on a Shortcuts page
+Status: accepted
+Supersedes: D-020 (only "one chord": `GlobalHotkey` now takes ids, its revisit-if)
+- Decision: `deviceHotkeys: [{ id, flow, name, hotkey }]` in `settings.json`; `name` is the last-known
+  friendly name (refreshed when Settings opens), so an unplugged device still reads right. `Normalize`
+  turns a bad chord into "" (row kept) and drops a chord the cycle shortcut or an earlier row already has.
+  `Shortcuts.From` maps settings to ids (1 = cycle, 2 + row index); `GlobalHotkey.Set` registers all,
+  `Errors` per id, `Pressed(id)`. A press calls `SetDefault` (eConsole + eMultimedia, D-019); already
+  default → OSD (`OsdReason.Hotkey`); not active → no switch, OSD with the event line "<name> · Not
+  connected" (`DeviceNotice.Absent`, shown even with "When a device connects" off; user, 2026-10-23).
+  Settings: a Shortcuts page holds the cycle card and one row per device (picker through `DeviceChoices`,
+  `HotkeyRecorder` extracted from D-021's box, remove), "Add shortcut" last. A chord already used is
+  refused in place with a note; any focused recorder pauses every registration.
+- Why: the user wants one press per device (GOALS, 2026-10-23). One window and one id space keep a single
+  place for "one chord does one thing". The full name, not D-014's product, on the line: it is what the
+  row shows and tells "Headphones (Technics…)" from "Headset (Technics…)".
+- Why not one `GlobalHotkey` per chord: a thread and window each, and duplicates across instances can't
+  be checked. Why not try `SetDefault` anyway when inactive: an unplugged endpoint can't play, and
+  the press would get no answer. Why not a toast: D-014's reasons.
+- Verified on 26300: Speakers ↔ Technics Headphones and Microphone Array ↔ Stereo Mix by chord (OSD,
+  foreground unchanged, eCommunications untouched); again on Technics → OSD only; Stereo Mix disabled →
+  "Not connected", no switch; Ctrl+Alt+F9 recorded in a second row and in the cycle box refused with
+  the note; remove re-registered the rest; closing Settings with a box focused resumed the shortcuts.
+- Revisit if: users want shortcuts for other actions (input cycle, mute mic): add kinds to `Shortcut`.

@@ -22,7 +22,10 @@ public enum OsdReason
     MediaChanged,
     /// <summary>A setting changed: show the OSD so its effect is visible.</summary>
     SettingsPreview,
-    /// <summary>The cycle-output hotkey found no other output: show the current one as the answer (D-020).</summary>
+    /// <summary>
+    /// A shortcut found nothing to switch: no other output to cycle to (D-020), or its device is already the
+    /// default or isn't connected (D-022). Show the current devices as the answer.
+    /// </summary>
     Hotkey,
 }
 
@@ -42,7 +45,7 @@ public sealed record OsdState(
     /// <summary>One line for the log.</summary>
     public string Describe() =>
         $"{Reason}: {Describe(new AudioSnapshot(Output, Input))}{(Media is null ? "" : $" media=\"{Media.Title}\"{(Media.IsPlaying ? " playing" : "")}")}"
-        + (Device is null ? "" : $" device=\"{Device.Name}\" {(Device.Connected ? "connected" : "disconnected")}"
+        + (Device is null ? "" : $" device=\"{Device.Name}\" {(Device.Absent ? "not connected" : Device.Connected ? "connected" : "disconnected")}"
             + $"{(Device.Bluetooth ? " bt" : "")}{(Device.Kind == DeviceKind.Other ? "" : " " + Device.Kind)}{(Device.Others > 0 ? " +" + Device.Others.ToString(CultureInfo.InvariantCulture) : "")}");
 
     public static string Describe(AudioSnapshot audio)

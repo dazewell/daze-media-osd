@@ -141,7 +141,7 @@ public sealed partial class OsdWindow : Window
         };
         EventIcon.Style = (Style)Root.Resources[device.Connected ? "OsdEventIcon" : "OsdEventIconGone"];
         EventStatus.Style = (Style)Root.Resources[device.Connected ? "OsdEventStatus" : "OsdEventStatusGone"];
-        EventStatus.Text = device.Connected ? "Connected" : "Disconnected";
+        EventStatus.Text = device.Absent ? "Not connected" : device.Connected ? "Connected" : "Disconnected";
         if (OverlayWindow.AnimationsEnabled())
             AnimateEventEntrance();
     }
