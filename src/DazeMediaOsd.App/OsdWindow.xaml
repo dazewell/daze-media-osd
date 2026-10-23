@@ -6,11 +6,12 @@
     Title="DazeMediaOsd">
 
     <!-- 4-px grid: both rows share one column layout (icon 20 / name+bar * / value 44) and a 28 row height,
-         so names, bar and values line up by construction. StackPanel: a collapsed mic row adds no spacing. -->
+         so names, bar and values line up. Minimums, not fixed sizes: rows and columns grow with the Windows
+         text-size setting instead of clipping. StackPanel: a collapsed mic row adds no spacing. -->
     <StackPanel x:Name="Root" Width="340" Padding="16" Spacing="12">
         <StackPanel.Resources>
             <Style x:Key="OsdRow" TargetType="Grid">
-                <Setter Property="Height" Value="28" />
+                <Setter Property="MinHeight" Value="28" />
                 <Setter Property="ColumnSpacing" Value="12" />
             </Style>
             <Style x:Key="OsdIcon" TargetType="FontIcon">
@@ -18,21 +19,18 @@
                 <Setter Property="HorizontalAlignment" Value="Center" />
                 <Setter Property="VerticalAlignment" Value="Center" />
                 <Setter Property="Foreground" Value="{ThemeResource TextFillColorPrimaryBrush}" />
-                <Setter Property="IsTextScaleFactorEnabled" Value="False" />
             </Style>
             <Style x:Key="OsdName" TargetType="TextBlock" BasedOn="{StaticResource CaptionTextBlockStyle}">
                 <Setter Property="Foreground" Value="{ThemeResource TextFillColorSecondaryBrush}" />
                 <Setter Property="TextTrimming" Value="CharacterEllipsis" />
                 <Setter Property="TextWrapping" Value="NoWrap" />
                 <Setter Property="MaxLines" Value="1" />
-                <Setter Property="IsTextScaleFactorEnabled" Value="False" />
             </Style>
             <Style x:Key="OsdValue" TargetType="TextBlock" BasedOn="{StaticResource BodyTextBlockStyle}">
                 <Setter Property="TextAlignment" Value="Right" />
                 <Setter Property="TextWrapping" Value="NoWrap" />
                 <Setter Property="VerticalAlignment" Value="Center" />
                 <Setter Property="Foreground" Value="{ThemeResource TextFillColorPrimaryBrush}" />
-                <Setter Property="IsTextScaleFactorEnabled" Value="False" />
             </Style>
             <!-- Mute swaps styles, not brushes, so ThemeResource values still follow the theme. -->
             <Style x:Key="OsdValueMuted" TargetType="TextBlock" BasedOn="{StaticResource OsdValue}">
@@ -50,9 +48,9 @@
 
         <Grid Style="{StaticResource OsdRow}">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="20" />
+                <ColumnDefinition Width="Auto" MinWidth="20" />
                 <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="44" />
+                <ColumnDefinition Width="Auto" MinWidth="44" />
             </Grid.ColumnDefinitions>
             <FontIcon x:Name="OutputIcon" Style="{StaticResource OsdIcon}" />
             <StackPanel Grid.Column="1" Spacing="8" VerticalAlignment="Center">
@@ -69,9 +67,9 @@
 
         <Grid x:Name="InputRow" Style="{StaticResource OsdRow}">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="20" />
+                <ColumnDefinition Width="Auto" MinWidth="20" />
                 <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="44" />
+                <ColumnDefinition Width="Auto" MinWidth="44" />
             </Grid.ColumnDefinitions>
             <FontIcon x:Name="InputIcon" Style="{StaticResource OsdIcon}" />
             <TextBlock x:Name="InputName" Grid.Column="1" VerticalAlignment="Center" Style="{StaticResource OsdName}" />

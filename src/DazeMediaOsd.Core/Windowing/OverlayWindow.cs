@@ -28,9 +28,12 @@ public static class OverlayWindow
         _ = PInvoke.DwmSetWindowAttribute(h, DWMWINDOWATTRIBUTE.DWMWA_WINDOW_CORNER_PREFERENCE, &corners, sizeof(DWM_WINDOW_CORNER_PREFERENCE));
     }
 
-    /// <summary>Shows at the given physical-pixel bounds without activating (the OSD must never take focus).</summary>
-    public static void ShowAt(nint hwnd, int x, int y, int width, int height) =>
-        _ = PInvoke.SetWindowPos((HWND)hwnd, HWND.HWND_TOPMOST, x, y, width, height,
+    /// <summary>
+    /// Shows at the given physical-pixel bounds without activating (the OSD must never take focus).
+    /// False if Windows refused, i.e. no OSD is visible.
+    /// </summary>
+    public static bool ShowAt(nint hwnd, int x, int y, int width, int height) =>
+        PInvoke.SetWindowPos((HWND)hwnd, HWND.HWND_TOPMOST, x, y, width, height,
             SET_WINDOW_POS_FLAGS.SWP_NOACTIVATE | SET_WINDOW_POS_FLAGS.SWP_SHOWWINDOW);
 
     /// <summary>Window size minus client size, in physical pixels: what the non-client frame takes.</summary>

@@ -1,5 +1,7 @@
+using System.ComponentModel;
 using System.Globalization;
 using DazeMediaOsd.Core.Audio;
+using DazeMediaOsd.Core.Diagnostics;
 using DazeMediaOsd.Core.Osd;
 using DazeMediaOsd.Core.Windowing;
 using Microsoft.UI;
@@ -105,9 +107,9 @@ public sealed partial class OsdWindow : Window
         var width = (int)Math.Ceiling(Root.Width * scale) + frameWidth;
         var height = (int)Math.Ceiling(Root.DesiredSize.Height * scale) + frameHeight;
         var area = DisplayArea.Primary.WorkArea;
-        OverlayWindow.ShowAt(_hwnd,
-            area.X + (area.Width - width) / 2,
-            area.Y + area.Height - height - (int)Math.Round(BottomMarginDip * scale),
-            width, height);
+        var x = area.X + (area.Width - width) / 2;
+        var y = area.Y + area.Height - height - (int)Math.Round(BottomMarginDip * scale);
+        if (!OverlayWindow.ShowAt(_hwnd, x, y, width, height))
+            Log.Error($"OSD not shown at {x},{y} {width}x{height}", new Win32Exception());
     }
 }
