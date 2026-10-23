@@ -95,9 +95,29 @@ public sealed partial class SettingsViewModel : ObservableObject
 
     partial void OnShowOnDeviceConnectChanged(bool value) => Update(s => s with { ShowOnDeviceConnect = value });
 
-    /// <summary>The cycle-output shortcut as typed; committed when the box loses focus or on Enter. "" is off.</summary>
+    /// <summary>The cycle-output shortcut, recorded from the keys pressed in its box. "" is off.</summary>
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CanResetHotkey), nameof(CanClearHotkey))]
     public partial string CycleOutputHotkey { get; set; }
+
+    public bool CanResetHotkey => CycleOutputHotkey != AppSettings.DefaultCycleOutputHotkey;
+
+    public bool CanClearHotkey => CycleOutputHotkey.Length > 0;
+
+    public static string ResetHotkeyTip => "Reset to " + AppSettings.DefaultCycleOutputHotkey;
+
+    public void ResetHotkey() => CycleOutputHotkey = AppSettings.DefaultCycleOutputHotkey;
+
+    public void ClearHotkey() => CycleOutputHotkey = "";
+
+    /// <summary>While the box records, the current shortcut must not fire (D-021).</summary>
+    public void PauseHotkey(bool paused) => _hotkey?.Pause(paused);
+
+    /// <summary>Keys were pressed that make no shortcut: say what would.</summary>
+    public void RejectHotkey() => HotkeyNote = InvalidHotkeyNote;
+
+    private const string InvalidHotkeyNote =
+        "Not a shortcut. Use Win, Ctrl or Alt with a letter, digit or F1–F24, like Win+Alt+A.";
 
     /// <summary>Why the shortcut isn't active: not a valid shortcut, or Windows refused it.</summary>
     [ObservableProperty]
@@ -111,7 +131,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         var text = value.Trim();
         if (text.Length > 0 && !Hotkey.TryParse(text, out _))
         {
-            HotkeyNote = "Not a shortcut. Use Win, Ctrl or Alt with a letter, digit or F1–F24, like Win+Alt+A.";
+            HotkeyNote = InvalidHotkeyNote;
             return;
         }
         Update(s => s with { CycleOutputHotkey = text });

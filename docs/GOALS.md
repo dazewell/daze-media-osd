@@ -80,12 +80,13 @@ this file and know what to build next. History of *why* lives in [DECISIONS.md](
 - [x] Plan B core + tray: `Endpoints`/`SetDefault` via `IPolicyConfig` (D-019), tray Output / Input
   submenus, hands-free outputs hidden (`DeviceChoices`); seen: input switched to Stereo Mix and back from
   the menu, OSD showed it (2026-10-23). Not seen yet: an output switch (only the speakers were active)
-- [x] Plan B hotkey: Win+Alt+A cycles the default output (D-020), editable in Settings with the refusal
-  reason shown; seen: registered, OSD on press with one output, taken/invalid/off states (2026-10-23)
+- [x] Plan B hotkey: Win+Alt+A cycles the default output (D-020); Settings records the chord pressed, with
+  reset / turn-off in the box (D-021). Seen by the user: cycles Speakers ↔ Technics Headphones, never the
+  hands-free output (2026-10-23)
 
 **Next step:** Plan B surface 3, the clickable-OSD-row spike (below). When convenient: with the Technics
-connected, switch outputs from the tray and with Win+Alt+A (the hands-free "Headset (… Hands-Free)"
-output must not be listed or cycled to), the headset glyph (Technics hands-free as default mic) and the
+connected, switch outputs from the tray (the hands-free "Headset (… Hands-Free)" output must not be
+listed), the headset glyph (Technics hands-free as default mic) and the
 monitor glyph (Dell over DisplayPort).
 
 **Plan B — quick device switching** (M, 1–2 days; tray + hotkey + OSD-click spike: user, 2026-10-23)

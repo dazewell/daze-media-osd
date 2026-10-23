@@ -22,7 +22,8 @@ public sealed class GlobalHotkey : IDisposable
     private readonly Thread _thread;
     private readonly WNDPROC _wndProc; // the window class holds only a native pointer: keep the delegate alive
     private HWND _window;
-    private Hotkey? _pending; // handed to the window thread by Set's SendMessage
+    private Hotkey? _desired; // handed to the window thread by SendMessage, like _paused
+    private bool _paused;
     private bool _registered;
 
     public GlobalHotkey()
@@ -66,10 +67,24 @@ public sealed class GlobalHotkey : IDisposable
     /// <summary>Replaces the shortcut (null: none) and returns <see cref="Error"/>. Blocks until done.</summary>
     public string? Set(Hotkey? hotkey)
     {
-        if (_window == HWND.Null)
-            return Error;
-        _pending = hotkey;
-        PInvoke.SendMessage(_window, SetMessage, default, default);
+        _desired = hotkey;
+        return Apply();
+    }
+
+    /// <summary>
+    /// While Settings records a new shortcut the current one must not fire, or pressing it there would switch
+    /// the output instead of reaching the box. <see cref="Set"/> still reports errors while paused.
+    /// </summary>
+    public void Pause(bool paused)
+    {
+        _paused = paused;
+        Apply();
+    }
+
+    private string? Apply()
+    {
+        if (_window != HWND.Null)
+            PInvoke.SendMessage(_window, SetMessage, default, default);
         return Error;
     }
 
@@ -107,10 +122,10 @@ public sealed class GlobalHotkey : IDisposable
                 Raise();
                 return (LRESULT)0;
             case SetMessage:
-                Register(hwnd, _pending);
+                Register(hwnd, _desired, _paused);
                 return (LRESULT)0;
             case PInvoke.WM_CLOSE:
-                Register(hwnd, null);
+                Register(hwnd, null, false);
                 PInvoke.DestroyWindow(hwnd);
                 return (LRESULT)0;
             case PInvoke.WM_DESTROY:
@@ -120,7 +135,8 @@ public sealed class GlobalHotkey : IDisposable
         return PInvoke.DefWindowProc(hwnd, message, wParam, lParam);
     }
 
-    private void Register(HWND hwnd, Hotkey? hotkey)
+    // Paused: register only to learn whether Windows accepts it, then let go.
+    private void Register(HWND hwnd, Hotkey? hotkey, bool paused)
     {
         if (_registered)
         {
@@ -134,7 +150,12 @@ public sealed class GlobalHotkey : IDisposable
         _registered = PInvoke.RegisterHotKey(hwnd, HotkeyId, modifiers, hotkey.Key);
         if (_registered)
         {
-            Log.Info($"hotkey {hotkey} registered");
+            if (paused)
+            {
+                PInvoke.UnregisterHotKey(hwnd, HotkeyId);
+                _registered = false;
+            }
+            Log.Info($"hotkey {hotkey} registered{(paused ? " (paused while Settings records one)" : "")}");
             return;
         }
         var error = Marshal.GetLastPInvokeError();

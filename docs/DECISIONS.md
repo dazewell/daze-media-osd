@@ -301,7 +301,7 @@ Status: accepted
   `scripts/audio-device.ps1` first) or a documented API appears.
 
 ## D-020 · 2026-10-23 · Cycle-output hotkey through `RegisterHotKey`, default Win+Alt+A, typed in Settings
-Status: accepted
+Status: accepted; the typed box superseded by D-021
 - Decision: `GlobalHotkey` registers one chord (`MOD_NOREPEAT`) on its own message-only window. A press
   switches to `DeviceCycle.Next` (the `DeviceChoices` list by name, wrapping around). With no other
   output, the OSD shows the current one (`OsdReason.Hotkey`), so the press always gets an answer.
@@ -317,3 +317,20 @@ Status: accepted
   foreground unchanged, still click-through. Win+Ctrl+V showed "already used"; "Alt+Banana" was refused
   and not saved; "ctrl+alt+f11" was stored as "Ctrl+Alt+F11" and registered; empty turned it off.
 - Revisit if: users want more shortcuts (input cycle, show OSD): `GlobalHotkey` would then take ids.
+
+## D-021 · 2026-10-23 · Settings records the shortcut from pressed keys; reset and turn-off inside the box
+Status: accepted
+Supersedes: D-020 (only the typed text box and its "why not a key-capture box")
+- Decision: the box is read-only and records the chord pressed while it has focus: Win/Ctrl/Alt
+  (+ Shift) + A–Z, 0–9 or F1–F24 (`Hotkey.TryCreate`). While keys are held it shows them ("Win+Alt+"),
+  Backspace/Delete turns the shortcut off, Esc shows the stored one again, Tab leaves. Inside the box: a
+  reset button (back to Win+Alt+A, shown only when different) and a turn-off ✕. While the box has focus,
+  `GlobalHotkey.Pause` lets go of the registration, so pressing the current chord there records it
+  instead of switching the output; refusals are still reported (register, then release).
+- Why: the user (2026-10-23) could not set a shortcut after clearing it — typing produced letters, not a
+  chord — and expects a reset inside the input, as elsewhere in Windows. D-020's objection doesn't hold:
+  a chord the shell eats before XAML sees it is also one `RegisterHotKey` refuses, so capturing loses
+  nothing that could have worked.
+- Verified on 26300 (UIA focus + `keybd_event`): from off, Win+Alt+A recorded and saved; the same chord
+  pressed in the box didn't switch the output; Ctrl+Alt+F11 recorded; Shift+A rejected with the note and
+  not saved; Reset restored Win+Alt+A and registered it once focus left.

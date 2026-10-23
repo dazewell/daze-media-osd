@@ -32,6 +32,22 @@ public class HotkeyTests
     public void Rejects(string? text) => Assert.False(Hotkey.TryParse(text, out _));
 
     [Theory]
+    [InlineData(HotkeyModifiers.Win | HotkeyModifiers.Alt, 0x41u, true)]
+    [InlineData(HotkeyModifiers.Ctrl, 0x7Au, true)]          // F11
+    [InlineData(HotkeyModifiers.Alt, 0x39u, true)]           // 9
+    [InlineData(HotkeyModifiers.Shift, 0x41u, false)]        // only Shift
+    [InlineData(HotkeyModifiers.None, 0x41u, false)]
+    [InlineData(HotkeyModifiers.Win, 0x20u, false)]          // Space
+    [InlineData(HotkeyModifiers.Win, 0x12u, false)]          // a modifier as the key
+    [InlineData(HotkeyModifiers.Win, 0x88u, false)]          // past F24
+    public void CreatesFromPressedKeys(HotkeyModifiers modifiers, uint key, bool valid) =>
+        Assert.Equal(valid, Hotkey.TryCreate(modifiers, key, out _));
+
+    [Fact]
+    public void PrefixListsHeldModifiersInOrder() =>
+        Assert.Equal("Win+Alt+Shift+", Hotkey.Prefix(HotkeyModifiers.Shift | HotkeyModifiers.Alt | HotkeyModifiers.Win));
+
+    [Theory]
     [InlineData("alt+win+a", "Win+Alt+A")]
     [InlineData("Shift+Alt+Ctrl+Win+F1", "Win+Ctrl+Alt+Shift+F1")]
     [InlineData("Ctrl+Alt+f11", "Ctrl+Alt+F11")]
