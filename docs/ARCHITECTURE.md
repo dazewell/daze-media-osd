@@ -24,19 +24,22 @@ core that builds an `OsdState`; the OSD window renders it.
                                                                     TrayIcon
 ```
 
-## Layout _(planned)_
+## Layout
 
 ```
 DazeMediaOsd.slnx
-global.json                      pins .NET 10 SDK
-Directory.Build.props            shared props (nullable, TFM, warnings as errors)
+global.json                      pins .NET 10 SDK; opts `dotnet test` into Microsoft.Testing.Platform
+Directory.Build.props            shared props: TFM net10.0-windows10.0.26100.0, nullable, warnings as errors
 Directory.Packages.props         central package versions
-src/DazeMediaOsd.Core/           net10.0-windows…: no UI. Audio, media, native flyout, settings. Testable.
-src/DazeMediaOsd.App/            WinUI 3 exe `DazeMediaOsd.exe`: custom Main → launcher or `--app` mode;
-                                 App, TrayIcon, OsdWindow, SettingsWindow, ViewModels
-tests/DazeMediaOsd.Core.Tests/   xUnit; logic only (state building, settings migration)
-scripts/                         dev helper scripts
-spikes/FlyoutProbe/              (exists) console probe: logs/suppresses the native flyout — re-run after Windows updates
+src/DazeMediaOsd.Core/           no UI; Win32 via CsWin32 (NativeMethods.txt). Lifecycle/ (LaunchArgs,
+                                 Launcher), NativeFlyout/ (FlyoutHost, FlyoutSuppressor). Later: audio,
+                                 media, settings.
+src/DazeMediaOsd.App/            WinUI 3 exe `DazeMediaOsd.exe`: Program.Main → launcher or `--app` mode;
+                                 App. Later: TrayIcon, OsdWindow, SettingsWindow, ViewModels
+tests/DazeMediaOsd.Core.Tests/   xUnit v3; logic only (args, host matching; later state, settings)
+scripts/stop.ps1                 stop the app without leaving the native flyout minimized
+spikes/FlyoutProbe/              console probe for the native flyout — re-run after Windows updates.
+                                 Own Directory.*.props opt out of the repo-wide ones.
 ```
 
 Rule: Win32/COM/WinRT calls live in Core behind small interfaces so view models and state logic can be
@@ -48,7 +51,7 @@ unit-tested with fakes. App never P/Invokes directly except window styling.
 |---|---|---|
 | `AudioService` | Default render + capture endpoint: name, volume, mute; raise on change | `IMMDeviceEnumerator`, `IMMNotificationClient` (`OnDefaultDeviceChanged`), `IAudioEndpointVolume` + `IAudioEndpointVolumeCallback`, `PKEY_Device_FriendlyName` |
 | `NativeFlyout` | Minimize the native flyout host while the app runs, re-minimize a re-created host, restore on exit | `SetWinEventHook` (out-of-context, `EVENT_OBJECT_CREATE`) on explorer.exe, `ShowWindowAsync` |
-| `KeySource` | Trigger: volume/mute key presses, incl. at 0 %/100 % where the volume doesn't change | `RegisterRawInputDevices` + `RIDEV_INPUTSINK` (passive, no input latency) |
+| `KeySource` _(planned)_ | Trigger: volume/mute key presses, incl. at 0 %/100 % where the volume doesn't change | `RegisterRawInputDevices` + `RIDEV_INPUTSINK` (passive, no input latency) |
 | `Launcher` | Start `--app`, wait on its handle, restore the native flyout when it exits (D-006) | `Process`, `WaitForSingleObject` |
 | `MediaService` | Current media session: title, artist, thumbnail, playback state, controls | `GlobalSystemMediaTransportControlsSessionManager` |
 | `SettingsStore` | Load/save JSON, versioned schema, change notifications | `System.Text.Json` source-gen (AOT-safe) |
@@ -71,8 +74,9 @@ unit-tested with fakes. App never P/Invokes directly except window styling.
   exits the next press shows the native flyout as stock (fail-open). But the native flyout visibly
   flashes now and then before the hide lands (user, real keys, 2026-10-22).
 - Minimized host (Flylet's "permanent hide": child `SW_MINIMIZE`, host `SW_MINIMIZE` + `SW_FORCEMINIMIZE`):
-  no native flyout at all. Host stays iconic and "visible" at a tiny rect; explorer then raises SHOW
-  only sometimes (LOCATIONCHANGE on every press), so it can't be our trigger. State **survives our
+  no native flyout at all. Host stays iconic and "visible" as a 276×45 rect at the bottom-left of the
+  screen, but draws nothing and isn't hit (`WindowFromPoint` returns the window below). Explorer then
+  raises SHOW only sometimes (LOCATIONCHANGE on every press), so it can't be our trigger. State **survives our
   process being killed**: no native OSD until child+host `SW_RESTORE` then host `SW_HIDE` (probe
   `restore` mode), or an explorer restart.
 
@@ -80,7 +84,9 @@ unit-tested with fakes. App never P/Invokes directly except window styling.
 
 - COM callbacks (Core Audio) arrive on arbitrary MTA threads: never touch UI there. Marshal to the UI via
   `DispatcherQueue.TryEnqueue`. Keep callbacks tiny — Core Audio docs warn against blocking in them.
-- WinEvent hooks need a thread with a message loop: install them on the UI thread.
+- WinEvent hooks need a thread with a message loop: `FlyoutSuppressor` is created on the UI thread.
+- `Process.Exited` (launcher watch) fires on a pool thread: marshal to the UI thread before touching
+  the suppressor.
 - `OsdState` is an immutable record; services publish a new instance, the window diffs nothing — it
   just rebinds.
 
@@ -92,7 +98,18 @@ unit-tested with fakes. App never P/Invokes directly except window styling.
   clean exit. Watches the launcher's handle: if the launcher dies, restore and fall back to per-show
   `SW_HIDE` (D-005) for the rest of the session.
 - Only killing both at once (e.g. "End process tree") leaves the host minimized → fixed by the next
-  app start, explorer restart, sign-out, or `FlyoutProbe restore`.
+  app start, `DazeMediaOsd.exe --restore`, explorer restart or sign-out.
+- The app watches the launcher **before** choosing a mode: Minimize only with a live, watched
+  launcher; `--app` without `--launcher-pid`, a dead/recycled pid, or any process-query race starts
+  in per-show mode.
+- Single instance: a `Local\DazeMediaOsd.Launcher` mutex; a second launcher exits at once. The app
+  holds `Local\DazeMediaOsd.App` too, so an app orphaned by a killed launcher blocks a second app
+  (the new launcher's app exits, the launcher restores and exits).
+- Per-show mode starts by restoring the host, clearing a minimized state left by an earlier double kill.
+- Launcher identity: same process name as us and started before us, else it's a recycled pid.
+- Launcher mode costs ~9 MB private / ~34 MB working set (2026-10-22), so it stays the same exe.
+- Verified 2026-10-22 on 26300: running → no native flyout; kill `--app` → launcher restores, exits;
+  kill launcher → app restores, hides per show. Clean exit untested until the tray has an Exit item.
 
 ## Invariants
 
@@ -110,5 +127,3 @@ unit-tested with fakes. App never P/Invokes directly except window styling.
   flyouts, so minimizing it probably hides those too. Not tested: brightness keys aren't scriptable on
   the dev machine. If confirmed, ask the user: accept, or show those in our OSD (brightness is already
   "Later" in GOALS). UIA can't read the island content (X-001).
-- **Q5:** working set of the launcher-mode process (same exe, WinUI never started). If it's heavy, split
-  the launcher into a tiny Native AOT console exe (D-006 "Revisit if").
