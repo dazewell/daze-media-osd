@@ -121,6 +121,9 @@ public sealed partial class App : Application, IDisposable
         // With the media row off a media key has nothing to show (D-011).
         if (state.Reason == OsdReason.MediaKey && _settings?.Current.ShowMedia == false)
             return;
+        if (state.Reason is OsdReason.DeviceConnected or OsdReason.DeviceDisconnected
+            && _settings?.Current.ShowOnDeviceConnect == false)
+            return;
         Log.Info($"show {state.Describe()}");
         _window?.Show(state);
     }

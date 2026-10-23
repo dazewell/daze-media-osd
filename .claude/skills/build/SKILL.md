@@ -58,7 +58,9 @@ Driving it without touching hardware:
   the scratchpad (`python -I -m http.server 8765 --bind 127.0.0.1`), open it in the browser pane, click
   Play. It becomes a GSMTC session (log `media: …`); media keys drive it. Close the tab afterwards.
 - `pwsh scripts/audio-device.ps1` lists render endpoints; `-SetDefault "<id>"` switches the default
-  output. Switch back to the original afterwards — it's the user's machine.
+  output. Switch back to the original afterwards — it's the user's machine. `-All` lists every endpoint
+  with its state (1 active, 2 disabled); `-Enable "<id>"` / `-Disable "<id>"` is a real device
+  connect/disconnect — use a disabled, non-default one (e.g. Stereo Mix) and disable it again after.
 - `dotnet run --project spikes/FlyoutProbe -- watch` presses Mute twice (net zero) and logs the native
   flyout host. Minimized = tiny rect, no SHOW/HIDE ~2.5 s apart.
 

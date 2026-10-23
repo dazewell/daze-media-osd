@@ -141,7 +141,7 @@ Status: accepted
 - Revisit if: pages grow past ~4 or need deep links (→ `Frame`), or cards need expanders (→ `SettingsCard`).
 
 ## D-011 · 2026-10-22 · Media keys pop the OSD; media session changes only refresh it
-Status: accepted
+Status: superseded by D-013 (adds device connect/disconnect; the key and media rules stand)
 Supersedes: D-007
 - Decision: D-007's audio rules, plus Play/Pause, Next and Previous (keyboard `VK_MEDIA_*`, Consumer
   Control 0xCD/0xB0/0xB1/0xB5/0xB6) pop the OSD — only while a GSMTC session exists and the Media
@@ -169,3 +169,23 @@ Status: accepted
   tried). Why not `DispatcherQueueTimer`: ~15 ms granularity, not frame-synced.
 - Revisit if: the per-frame `SetWindowPos` stutters under load, or a WinAppSDK update stops honouring
   layered alpha (then: fade content only, or drop the animation).
+
+## D-013 · 2026-10-22 · Any audio device connect/disconnect pops the OSD, once per burst
+Status: accepted
+Supersedes: D-011 (adds device connect/disconnect; its key and media rules stand)
+- Decision: an endpoint of either flow becoming active or inactive pops the OSD, default or not
+  (`AudioChangeKind.DeviceConnected/Disconnected`). `CoreAudioService` keeps the set of active endpoint
+  ids and raises only on a real transition; added/removed/state-change notifications all just re-read
+  the device's state. `OsdController` shows 500 ms after the last such event (`DeviceSettle`), reading
+  the state then; a default-device switch in that window shows at once and cancels the pending show.
+  The OSD content is unchanged: current default output/input. Setting `showOnDeviceConnect`, on by
+  default.
+- Why: the user wants confirmation that a headset/USB device came or went (2026-10-22); before, only a
+  default switch showed. A Bluetooth headset is 2+ endpoints and the default switch often follows the
+  state change, so an immediate show would pop twice and could show the old default.
+- Why not trust `OnDeviceStateChanged`'s new state alone: Windows repeats states and added/removed
+  arrive separately. Why not widen the 100 ms identical-request window: the burst's states differ.
+- Verified on 26300 with Stereo Mix enabled/disabled (`scripts/audio-device.ps1`): one show each,
+  ~510 ms after the event. Not verified: a real Bluetooth/USB connect (burst timing).
+- Revisit if: a Bluetooth connect shows twice or noticeably late in daily use (tune `DeviceSettle`), or
+  apps that create virtual endpoints on the fly (e.g. voice chat) cause popups.

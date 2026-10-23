@@ -13,6 +13,9 @@ public enum OsdReason
     OutputDeviceChanged,
     InputDeviceChanged,
     InputMuteChanged,
+    /// <summary>An audio endpoint connected or disconnected, default or not (D-013).</summary>
+    DeviceConnected,
+    DeviceDisconnected,
     /// <summary>Play/pause, next or previous (D-011).</summary>
     MediaKey,
     /// <summary>The media session changed. Only refreshes a visible OSD, never pops it.</summary>

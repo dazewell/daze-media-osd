@@ -47,6 +47,12 @@ public class OsdRulesTests
     public void LosingTheLastMicShows() =>
         Assert.Equal(OsdReason.InputDeviceChanged, Reason(Before with { Input = null }, EndpointFlow.Input, AudioChangeKind.DefaultDevice));
 
+    [Theory]
+    [InlineData(AudioChangeKind.DeviceConnected, OsdReason.DeviceConnected)]
+    [InlineData(AudioChangeKind.DeviceDisconnected, OsdReason.DeviceDisconnected)]
+    public void NonDefaultDeviceConnectShows(AudioChangeKind kind, OsdReason expected) =>
+        Assert.Equal(expected, Reason(Before, EndpointFlow.Input, kind));
+
     [Fact]
     public void RenameDoesNotShow() =>
         Assert.Null(Reason(Before with { Output = Speakers with { Name = "Desk speakers" } }, EndpointFlow.Output, AudioChangeKind.DeviceRenamed));

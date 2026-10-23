@@ -141,6 +141,23 @@
                                           AutomationProperties.Name="Show media"
                                           IsOn="{x:Bind ViewModel.ShowMedia, Mode=TwoWay}" />
                         </Grid>
+
+                        <TextBlock Text="Show the OSD" Style="{StaticResource SettingsSection}" />
+                        <Grid Style="{StaticResource SettingsCard}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <FontIcon Glyph="&#xE703;" Style="{StaticResource SettingsCardIcon}" />
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock Text="When a device connects" />
+                                <TextBlock Text="Any audio device, Bluetooth or wired, connecting or disconnecting" Style="{StaticResource SettingsCardDescription}" />
+                            </StackPanel>
+                            <ToggleSwitch Grid.Column="2" VerticalAlignment="Center" MinWidth="0"
+                                          AutomationProperties.Name="Show when a device connects"
+                                          IsOn="{x:Bind ViewModel.ShowOnDeviceConnect, Mode=TwoWay}" />
+                        </Grid>
                     </StackPanel>
 
                     <StackPanel x:Name="AboutPage" Spacing="4" Visibility="Collapsed">

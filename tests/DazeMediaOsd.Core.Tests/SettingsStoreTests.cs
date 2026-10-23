@@ -80,6 +80,15 @@ public sealed class SettingsStoreTests : IDisposable
     }
 
     [Fact]
+    public void FileFromBeforeShowOnDeviceConnectGetsItOn()
+    {
+        Directory.CreateDirectory(_directory);
+        File.WriteAllText(SettingsFile, """{ "version": 1, "showInput": true, "showMedia": false }""");
+
+        Assert.True(new SettingsStore(_directory).Current.ShowOnDeviceConnect);
+    }
+
+    [Fact]
     public void FailedSaveKeepsTheChangeAndReportsIt()
     {
         var store = new SettingsStore(_directory);

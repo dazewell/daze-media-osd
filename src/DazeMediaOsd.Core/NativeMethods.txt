@@ -14,6 +14,9 @@ MMDeviceEnumerator
 IMMDeviceEnumerator
 IMMNotificationClient
 IMMDevice
+IMMDeviceCollection
+IMMEndpoint
+DEVICE_STATE
 IAudioEndpointVolume
 IAudioEndpointVolumeCallback
 PKEY_Device_FriendlyName

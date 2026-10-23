@@ -19,6 +19,7 @@ core that builds an `OsdState`; the OSD window renders it.
  volume keys ───────raw input───► KeySource ──────┐
  endpoint volume/mute ─COM cb───► AudioService ───┼─► OsdController ─► OsdState ─► OsdWindow (topmost,
  default device change ─COM cb──► AudioService ───┤   (OsdRules)      (immutable)  no-activate, click-
+ device (dis)connect ───COM cb──► AudioService ───┤
  media session (GSMTC) ─WinRT───► MediaService ───┘                                 through, Mica/Acrylic)
                                   SettingsStore ◄────────────────── SettingsWindow (MVVM)
                                                                     TrayIcon
@@ -56,13 +57,13 @@ unit-tested with fakes. App never P/Invokes directly; window styling goes throug
 
 | Component | Responsibility | Key APIs |
 |---|---|---|
-| `CoreAudioService` (`IAudioService`) | Default render + capture endpoint (role eConsole): name, volume, mute; raise on change, rename, default switch | `IMMDeviceEnumerator`, `IMMNotificationClient`, `IAudioEndpointVolume` + `IAudioEndpointVolumeCallback`, `PKEY_Device_FriendlyName` |
-| `OsdController` + `OsdRules` | Audio changes + keys → `ShowRequested(OsdState)`; media session changes → `RefreshRequested` (re-render a visible OSD, never pop); the rules decide what pops the OSD (D-011) | — (pure, unit-tested) |
+| `CoreAudioService` (`IAudioService`) | Default render + capture endpoint (role eConsole): name, volume, mute; raise on change, rename, default switch; set of active endpoints (any flow) → raise on connect/disconnect | `IMMDeviceEnumerator`, `IMMNotificationClient`, `IAudioEndpointVolume` + `IAudioEndpointVolumeCallback`, `PKEY_Device_FriendlyName`, `EnumAudioEndpoints`, `IMMDevice.GetState`, `IMMEndpoint` |
+| `OsdController` + `OsdRules` | Audio changes + keys → `ShowRequested(OsdState)`; media session changes → `RefreshRequested` (re-render a visible OSD, never pop); the rules decide what pops the OSD (D-011); device connect/disconnect shows once, 500 ms after a burst (D-013) | — (pure, unit-tested) |
 | `NativeFlyout` | Minimize the native flyout host while the app runs, re-minimize a re-created host, restore on exit | `SetWinEventHook` (out-of-context, `EVENT_OBJECT_CREATE`) on explorer.exe, `ShowWindowAsync` |
 | `RawInputKeySource` (`IKeySource`) | Trigger: volume/mute and play-pause/next/previous key downs (`MediaKey`), incl. at 0 %/100 % where the volume doesn't change. Keyboard VKs + Consumer Control HID reports (`ConsumerKeyTracker`: usages 0xE9/0xEA/0xE2, 0xCD/0xB0/0xB1 → PlayPause, 0xB5/0xB6; raise on newly held) | Message-only window, `RegisterRawInputDevices` (0x01/0x06 and 0x0C/0x01) + `RIDEV_INPUTSINK` (passive, no input latency), `HidP_GetUsagesEx` |
 | `Launcher` | Start `--app`, wait on its handle, restore the native flyout when it exits (D-006) | `Process`, `WaitForSingleObject` |
 | `GsmtcMediaService` (`IMediaService`) | Current session → `MediaState` (app id, title, artist, playing, thumbnail bytes) or null when none / no title. Starts in the background; a GSMTC failure only logs (media is optional). Every event marks dirty; one refresh loop re-reads; a failed read keeps the last state and retries (5 × 200 ms) | `GlobalSystemMediaTransportControlsSessionManager` (CsWinRT via the TFM), `TryGetMediaPropertiesAsync`, `GetPlaybackInfo`, thumbnail via `DataReader` (≤ 4 MB) |
-| `SettingsStore` + `AppSettings` | `%LOCALAPPDATA%\DazeMediaOsd\settings.json` (`version` 1): position, hide-after seconds (1–10), mic row on/off, media row on/off (`showMedia`, added without a version bump: missing → constructor default, X-003). Saves on every change (temp file + move); missing → defaults, unparsable → defaults + copy to `settings.invalid.json`; out-of-range values clamped (`Normalize`). A failed save keeps the change for the session and sets `SaveError`; the settings window shows it in an InfoBar | `System.Text.Json` source-gen (AOT-safe), enums as names (`"TopRight"`) |
+| `SettingsStore` + `AppSettings` | `%LOCALAPPDATA%\DazeMediaOsd\settings.json` (`version` 1): position, hide-after seconds (1–10), mic row on/off, media row on/off (`showMedia`), pop on device connect (`showOnDeviceConnect`, D-013); both added without a version bump: missing → constructor default, X-003. Saves on every change (temp file + move); missing → defaults, unparsable → defaults + copy to `settings.invalid.json`; out-of-range values clamped (`Normalize`). A failed save keeps the change for the session and sets `SaveError`; the settings window shows it in an InfoBar | `System.Text.Json` source-gen (AOT-safe), enums as names (`"TopRight"`) |
 | `OsdWindow` + `OverlayWindow` | Render `OsdState` (media cover/title/artist/play state, output name/level/mute, mic name/level/mute), fade/slide in and out (`OsdAnimation`, D-012), auto-hide after the configured time, at the configured position in the primary work area (`OsdPlacement`, 24 DIP margin) (D-008) | WinUI 3 `Window`, `OverlappedPresenter.SetBorderAndTitleBar(true,false)`, `DesktopAcrylicController`, `SetWindowPos(SWP_NOACTIVATE)` |
 | `SettingsWindow` | Fluent settings UI, created on open, destroyed on close; one at a time (D-010) | WinUI 3 `NavigationView` + `TitleBar`, Mica, CommunityToolkit.Mvvm partial `[ObservableProperty]` |
 | `TrayIcon` | Notification-area icon + menu: Settings (default, bold), Exit (D-009) | `Shell_NotifyIcon` v4, `TrackPopupMenuEx`, uxtheme #135/#136 for the dark menu, `TaskbarCreated` |
@@ -124,6 +125,11 @@ unit-tested with fakes. App never P/Invokes directly; window styling goes throug
   could still return the old one).
 - Default-device switch: `OnDefaultDeviceChanged` fires per role; we act on eConsole only and re-attach
   the volume callback; a late notification from the old endpoint is dropped by endpoint id.
+- Device connect/disconnect (D-013): `OnDeviceStateChanged` / `OnDeviceAdded` / `OnDeviceRemoved` only
+  make the worker re-read that device's state against the active set. Enabling/disabling an endpoint
+  (Sound settings, `scripts/audio-device.ps1 -Enable/-Disable`) is a real state change: one
+  `audio device connected/disconnected` log line each (Stereo Mix, 2026-10-22). Bluetooth/USB bursts
+  not observed yet.
 - Raw input registration is per process and per device class. WinUI doesn't register keyboard raw
   input: with the settings window focused, typing in its NumberBox works and volume keys still reach
   `RawInputKeySource` (2026-10-22). Re-check if anything else registers 0x01/0x06 in this process.

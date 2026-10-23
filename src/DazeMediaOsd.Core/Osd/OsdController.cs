@@ -13,6 +13,12 @@ public sealed class OsdController : IDisposable
     /// </summary>
     internal static readonly TimeSpan CoalesceWindow = TimeSpan.FromMilliseconds(100);
 
+    /// <summary>
+    /// A device connect/disconnect shows once this long after the last one (D-013): one Bluetooth headset is
+    /// several endpoints, and the default switch that often follows must land first so the OSD shows it.
+    /// </summary>
+    internal static readonly TimeSpan DeviceSettle = TimeSpan.FromMilliseconds(500);
+
     private readonly IAudioService _audio;
     private readonly IKeySource _keys;
     private readonly IMediaService _media;
@@ -20,6 +26,8 @@ public sealed class OsdController : IDisposable
     private readonly Lock _gate = new();
     private OsdState? _lastRequested;
     private long _lastRequestedAt;
+    private ITimer? _deviceTimer;
+    private OsdReason _deviceReason;
 
     public OsdController(IAudioService audio, IKeySource keys, IMediaService media, TimeProvider? time = null)
     {
@@ -47,8 +55,49 @@ public sealed class OsdController : IDisposable
 
     private void OnAudioChanged(object? sender, AudioChangedEventArgs e)
     {
-        if (OsdRules.ReasonToShow(e) is { } reason)
-            Request(OsdState.From(e.Current, _media.Current, reason));
+        switch (OsdRules.ReasonToShow(e))
+        {
+            case (OsdReason.DeviceConnected or OsdReason.DeviceDisconnected) and var reason:
+                DeferDeviceShow(reason);
+                break;
+            case (OsdReason.OutputDeviceChanged or OsdReason.InputDeviceChanged) and var reason:
+                // It shows the new default right away; a pending device show would only repeat it.
+                CancelDeviceShow();
+                Request(OsdState.From(e.Current, _media.Current, reason));
+                break;
+            case { } reason:
+                Request(OsdState.From(e.Current, _media.Current, reason));
+                break;
+        }
+    }
+
+    private void DeferDeviceShow(OsdReason reason)
+    {
+        lock (_gate)
+        {
+            _deviceReason = reason; // the last one of a burst names it
+            _deviceTimer ??= _time.CreateTimer(_ => OnDeviceSettled(), null, Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
+            _deviceTimer.Change(DeviceSettle, Timeout.InfiniteTimeSpan);
+        }
+    }
+
+    private void CancelDeviceShow()
+    {
+        lock (_gate)
+            _deviceTimer?.Change(Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
+    }
+
+    // Reads the state now, after the burst: the current defaults, not the device that came or went.
+    private void OnDeviceSettled()
+    {
+        OsdReason reason;
+        lock (_gate)
+        {
+            if (_deviceTimer is null)
+                return; // disposed while the callback was in flight
+            reason = _deviceReason;
+        }
+        Request(Snapshot(reason));
     }
 
     // The key arrives before Windows applies it, so this state may still show the old level; the
@@ -81,5 +130,10 @@ public sealed class OsdController : IDisposable
         _audio.Changed -= OnAudioChanged;
         _keys.KeyPressed -= OnKeyPressed;
         _media.Changed -= OnMediaChanged;
+        lock (_gate)
+        {
+            _deviceTimer?.Dispose();
+            _deviceTimer = null;
+        }
     }
 }
