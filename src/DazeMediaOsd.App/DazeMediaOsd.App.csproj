@@ -20,6 +20,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Content Include="Assets\tray-*.ico" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\DazeMediaOsd.Core\DazeMediaOsd.Core.csproj" />
   </ItemGroup>
 

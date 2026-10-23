@@ -5,6 +5,7 @@ using DazeMediaOsd.Core.Input;
 using DazeMediaOsd.Core.Lifecycle;
 using DazeMediaOsd.Core.NativeFlyout;
 using DazeMediaOsd.Core.Osd;
+using DazeMediaOsd.Core.Tray;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
 
@@ -19,6 +20,7 @@ public sealed partial class App : Application, IDisposable
     private RawInputKeySource? _keys;
     private OsdController? _osd;
     private OsdWindow? _window;
+    private TrayIcon? _tray;
 
     public App(LaunchArgs args)
     {
@@ -66,6 +68,22 @@ public sealed partial class App : Application, IDisposable
         }));
         _suppressor = new FlyoutSuppressor(_launcher is null ? SuppressionMode.HidePerShow : SuppressionMode.Minimize);
         Log.Info($"app started, suppression={_suppressor.Mode}, {OsdState.Describe(_audio.Current)}");
+
+        // Without a tray icon the OSD still works; only exiting needs scripts/stop.ps1.
+        try
+        {
+            var assets = Path.Combine(AppContext.BaseDirectory, "Assets");
+            _tray = new TrayIcon("Daze Media OSD", Path.Combine(assets, "tray-dark.ico"), Path.Combine(assets, "tray-light.ico"));
+            _tray.ExitRequested += (_, _) => ui.TryEnqueue(() =>
+            {
+                Log.Info("exit requested from the tray");
+                Exit(); // Program's finally disposes us and restores the native flyout (D-006)
+            });
+        }
+        catch (InvalidOperationException e)
+        {
+            Log.Error("tray icon failed to start; running without it", e);
+        }
     }
 
     private void Show(OsdState state)
@@ -77,6 +95,7 @@ public sealed partial class App : Application, IDisposable
     /// <summary>Unhooks and restores the native flyout. Called by Program after the dispatcher stops.</summary>
     public void Dispose()
     {
+        _tray?.Dispose();
         _osd?.Dispose();
         _keys?.Dispose();
         _audio?.Dispose();

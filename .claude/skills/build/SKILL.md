@@ -55,6 +55,9 @@ can't verify visually, say so explicitly instead of claiming it works.
   (`FindWindow` by title alone misses it — enumerate by pid + class). It hides 2.5 s after a show.
 - Screen captures from PowerShell need `SetProcessDpiAwarenessContext(-4)` first, else they get the
   scaled-down top-left part of the screen.
+- Tray: the icon window is class `DazeMediaOsd.Tray` (uID 1). `Shell_NotifyIconGetRect` gives its
+  screen rect (or the overflow chevron's while it sits in the closed overflow — click that first);
+  right-click there, then Down+Enter picks Exit. A clean stop for testing: tray → Exit.
 - Also check: foreground window unchanged by a show (`GetForegroundWindow`), and `WindowFromPoint`
   over the OSD returns the window below (click-through).
 

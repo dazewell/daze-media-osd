@@ -47,11 +47,14 @@ this file and know what to build next. History of *why* lives in [DECISIONS.md](
   (2026-10-22)
 - [x] OSD window: output/input names, volume, mute; acrylic, no-activate, click-through, auto-hide
   (D-008) (2026-10-22)
-- [ ] Tray icon + settings window + persisted settings
+- [x] Tray icon with Exit (own `Shell_NotifyIcon`, D-009); clean exit restores the native flyout
+  (2026-10-22)
+- [ ] Settings window + persisted settings
 - [ ] Media session info in OSD
 - [ ] Autostart, publish to a local folder, daily-driver test
 
-**Next step:** tray icon (Q3 first: H.NotifyIcon.WinUI vs. own `Shell_NotifyIcon`, AOT-safe) with
-Exit — a clean exit is still untested (ARCHITECTURE → Process lifecycle) — then the settings window and
-`SettingsStore` (position, timeout, sections; today hard-coded in `OsdWindow`). Also eyeball the OSD in
-light theme and on a second monitor when convenient (ARCHITECTURE → OSD window).
+**Next step:** settings window (`SettingsWindow`, NavigationView + CommunityToolkit.Mvvm, D-001) and
+`SettingsStore` (position, timeout, sections; today hard-coded in `OsdWindow`), opened from a new
+"Settings" tray item (and left-click on the icon). Check that WinUI text input in it still works with
+our keyboard raw-input registration (ARCHITECTURE → Audio and keys). When convenient: OSD in light
+theme / second monitor, tray icon on a light taskbar and after an explorer restart (ARCHITECTURE).
