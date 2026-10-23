@@ -34,12 +34,13 @@ Directory.Packages.props         central package versions
 src/DazeMediaOsd.Core/           no UI; Win32/COM via CsWin32 (NativeMethods.txt). Lifecycle/ (LaunchArgs,
                                  Launcher), NativeFlyout/ (FlyoutHost, FlyoutSuppressor), Audio/
                                  (CoreAudioService), Input/ (RawInputKeySource), Osd/ (OsdState, OsdRules,
-                                 OsdController), Windowing/ (OverlayWindow styles), Tray/ (TrayIcon),
-                                 Diagnostics/Log. Later: media, settings.
+                                 OsdController, OsdPlacement), Windowing/ (OverlayWindow styles), Tray/
+                                 (TrayIcon), Settings/ (AppSettings, SettingsStore), Diagnostics/Log.
+                                 Later: media.
 src/DazeMediaOsd.App/            WinUI 3 exe `DazeMediaOsd.exe`: Program.Main → launcher or `--app` mode;
-                                 App wires services; OsdWindow (+ AlwaysActiveAcrylicBackdrop); Assets/
-                                 tray-dark/light.ico (from scripts/make-icon.ps1). Later: SettingsWindow,
-                                 ViewModels
+                                 App wires services; OsdWindow (+ AlwaysActiveAcrylicBackdrop);
+                                 SettingsWindow + ViewModels/SettingsViewModel; Assets/ tray-dark/light.ico
+                                 (from scripts/make-icon.ps1)
 tests/DazeMediaOsd.Core.Tests/   xUnit v3; logic only, fakes for IAudioService / IKeySource
 scripts/                         stop.ps1 (safe stop), press-key.ps1 (SendInput volume keys),
                                  audio-device.ps1 (list / set default output, dev only)
@@ -60,10 +61,10 @@ unit-tested with fakes. App never P/Invokes directly; window styling goes throug
 | `RawInputKeySource` (`IKeySource`) | Trigger: volume/mute key downs, incl. at 0 %/100 % where the volume doesn't change. Keyboard VKs + Consumer Control HID reports (`ConsumerKeyTracker`: usages 0xE9/0xEA/0xE2, raise on newly held) | Message-only window, `RegisterRawInputDevices` (0x01/0x06 and 0x0C/0x01) + `RIDEV_INPUTSINK` (passive, no input latency), `HidP_GetUsagesEx` |
 | `Launcher` | Start `--app`, wait on its handle, restore the native flyout when it exits (D-006) | `Process`, `WaitForSingleObject` |
 | `MediaService` | Current media session: title, artist, thumbnail, playback state, controls | `GlobalSystemMediaTransportControlsSessionManager` |
-| `SettingsStore` | Load/save JSON, versioned schema, change notifications | `System.Text.Json` source-gen (AOT-safe) |
-| `OsdWindow` + `OverlayWindow` | Render `OsdState` (output name/level/mute, mic name/level/mute), auto-hide 2.5 s after the last show, bottom-centre of the primary work area (D-008) | WinUI 3 `Window`, `OverlappedPresenter.SetBorderAndTitleBar(true,false)`, `DesktopAcrylicController`, `SetWindowPos(SWP_NOACTIVATE)` |
-| `SettingsWindow` | Fluent settings UI | WinUI 3 `NavigationView`, CommunityToolkit.Mvvm |
-| `TrayIcon` | Notification-area icon + menu (Exit today; settings, pause later) (D-009) | `Shell_NotifyIcon` v4, `TrackPopupMenuEx`, uxtheme #135/#136 for the dark menu, `TaskbarCreated` |
+| `SettingsStore` + `AppSettings` | `%LOCALAPPDATA%\DazeMediaOsd\settings.json` (`version` 1): position, hide-after seconds (1–10), mic row on/off. Saves on every change (temp file + move); missing → defaults, unparsable → defaults + copy to `settings.invalid.json`; out-of-range values clamped (`Normalize`) | `System.Text.Json` source-gen (AOT-safe), enums as names (`"TopRight"`) |
+| `OsdWindow` + `OverlayWindow` | Render `OsdState` (output name/level/mute, mic name/level/mute), auto-hide after the configured time, at the configured position in the primary work area (`OsdPlacement`, 24 DIP margin) (D-008) | WinUI 3 `Window`, `OverlappedPresenter.SetBorderAndTitleBar(true,false)`, `DesktopAcrylicController`, `SetWindowPos(SWP_NOACTIVATE)` |
+| `SettingsWindow` | Fluent settings UI, created on open, destroyed on close; one at a time (D-010) | WinUI 3 `NavigationView` + `TitleBar`, Mica, CommunityToolkit.Mvvm partial `[ObservableProperty]` |
+| `TrayIcon` | Notification-area icon + menu: Settings (default, bold), Exit (D-009) | `Shell_NotifyIcon` v4, `TrackPopupMenuEx`, uxtheme #135/#136 for the dark menu, `TaskbarCreated` |
 
 ## Native flyout (verified on build 26300; strategy D-006)
 
@@ -97,7 +98,9 @@ unit-tested with fakes. App never P/Invokes directly; window styling goes throug
 - `TrayIcon` runs its own thread + hidden **top-level** window (a message-only window misses the
   `TaskbarCreated` and `WM_SETTINGCHANGE` broadcasts); `ExitRequested` is raised there.
 - `OsdController.ShowRequested` therefore arrives on either thread: App marshals with
-  `DispatcherQueue.TryEnqueue`.
+  `DispatcherQueue.TryEnqueue`. So do the tray's `SettingsRequested` / `ExitRequested`.
+- `SettingsStore.Update` is only called from the settings window (UI thread), so `Changed` arrives
+  there: App applies it to `OsdWindow` and shows a `SettingsPreview` OSD so the change is visible.
 - WinEvent hooks need a thread with a message loop: `FlyoutSuppressor` is created on the UI thread.
 - `Process.Exited` (launcher watch) fires on a pool thread: marshal to the UI thread before touching
   the suppressor.
@@ -117,9 +120,9 @@ unit-tested with fakes. App never P/Invokes directly; window styling goes throug
   could still return the old one).
 - Default-device switch: `OnDefaultDeviceChanged` fires per role; we act on eConsole only and re-attach
   the volume callback; a late notification from the old endpoint is dropped by endpoint id.
-- Raw input registration is per process and per device class: if a future window (settings) or WinUI
-  itself registers keyboard raw input, one overrides the other — check text input when SettingsWindow
-  lands.
+- Raw input registration is per process and per device class. WinUI doesn't register keyboard raw
+  input: with the settings window focused, typing in its NumberBox works and volume keys still reach
+  `RawInputKeySource` (2026-10-22). Re-check if anything else registers 0x01/0x06 in this process.
 - Log: `%LOCALAPPDATA%\DazeMediaOsd\logs\app.log`, both processes (pid per line). Until OsdWindow
   exists every would-be show is a `show <reason>: out=… in=…` line.
 
@@ -137,7 +140,8 @@ unit-tested with fakes. App never P/Invokes directly; window styling goes throug
 - Layout: 4-px grid, padding 16, rows min 28 high with shared min columns 20 / * / 44 so names, bar and
   values align; text honours the Windows text-size setting (rows/columns grow, never clip). Level bar
   is our own track + fill (X-002), set without animation; nothing drawn at 0 %.
-- `--app` with the window: ~176 MB working set / 86 MB private (launcher 36 / 9 MB). Watch against D-001.
+- `--app` with the window: ~176 MB working set / 86 MB private (launcher 36 / 9 MB); after opening the
+  settings window once ~239 / 122 MB. Watch against D-001.
 - Not verified yet: light theme, multi-monitor/DPI change, show latency.
 
 ## Tray icon (verified on build 26300, 2026-10-22; D-009)
@@ -145,8 +149,10 @@ unit-tested with fakes. App never P/Invokes directly; window styling goes throug
 - Win11 puts a new icon in the overflow flyout; the user pins it. `Shell_NotifyIconGetRect` then returns
   the chevron's rect until the overflow is open.
 - Icon by `uID` + hwnd, not a GUID (a GUID binds to the exe path and breaks across Debug/publish folders).
-- Right-click, left-click and keyboard select all open the menu (nothing else to do on click yet).
+- Left-click and keyboard select (Enter/Space) open Settings; right-click / Shift+F10 open the menu.
   `SetForegroundWindow` before `TrackPopupMenuEx` is required for the menu to close on an outside click.
+- The settings window comes to the foreground from both paths (the shell lets the icon's process take
+  focus after a click). The overflow flyout stays open behind it — explorer's behaviour.
 - Theme: icon + menu follow `SystemUsesLightTheme` (taskbar), re-read on `WM_SETTINGCHANGE`
   "ImmersiveColorSet". Seen: dark taskbar → white glyph, dark rounded menu. Not verified yet: light
   taskbar swap, re-add after explorer restart (`TaskbarCreated`), runtime DPI change (icon size is

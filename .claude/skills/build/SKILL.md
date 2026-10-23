@@ -57,7 +57,11 @@ can't verify visually, say so explicitly instead of claiming it works.
   scaled-down top-left part of the screen.
 - Tray: the icon window is class `DazeMediaOsd.Tray` (uID 1). `Shell_NotifyIconGetRect` gives its
   screen rect (or the overflow chevron's while it sits in the closed overflow — click that first);
-  right-click there, then Down+Enter picks Exit. A clean stop for testing: tray → Exit.
+  right-click there for the menu (Settings, separator, Exit): Down Down Enter picks Exit. A clean stop
+  for testing: tray → Exit. Left-click opens the settings window (also `WinUIDesktopWin32WindowClass`,
+  title `Daze Media OSD`).
+- Settings live in `%LOCALAPPDATA%\DazeMediaOsd\settings.json`; delete it after a test that changed
+  settings — it's the user's machine. Every change shows a preview OSD (log `show SettingsPreview`).
 - Also check: foreground window unchanged by a show (`GetForegroundWindow`), and `WindowFromPoint`
   over the OSD returns the window below (click-through).
 

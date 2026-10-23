@@ -3,6 +3,7 @@ using System.Globalization;
 using DazeMediaOsd.Core.Audio;
 using DazeMediaOsd.Core.Diagnostics;
 using DazeMediaOsd.Core.Osd;
+using DazeMediaOsd.Core.Settings;
 using DazeMediaOsd.Core.Windowing;
 using Microsoft.UI;
 using Microsoft.UI.Dispatching;
@@ -15,15 +16,14 @@ namespace DazeMediaOsd.App;
 /// <summary>The OSD: created once, hidden between shows, never activated.</summary>
 public sealed partial class OsdWindow : Window
 {
-    // The native flyout hides ~2.5 s after the last key (ARCHITECTURE → Native flyout). Settings later.
-    private static readonly TimeSpan HideAfter = TimeSpan.FromSeconds(2.5);
-    private const double BottomMarginDip = 24;
+    private const double MarginDip = 24;
 
     private readonly nint _hwnd;
     private readonly DispatcherQueueTimer _hideTimer;
+    private AppSettings _settings = AppSettings.Default;
     private int _outputPercent;
 
-    public OsdWindow()
+    public OsdWindow(AppSettings settings)
     {
         InitializeComponent();
         SystemBackdrop = new AlwaysActiveAcrylicBackdrop();
@@ -40,11 +40,19 @@ public sealed partial class OsdWindow : Window
         OverlayWindow.Apply(_hwnd);
 
         _hideTimer = DispatcherQueue.CreateTimer();
-        _hideTimer.Interval = HideAfter;
         _hideTimer.IsRepeating = false;
+        Apply(settings);
         _hideTimer.Tick += (_, _) => OverlayWindow.Hide(_hwnd);
         // Before the first layout the track has no width yet.
         OutputTrack.SizeChanged += (_, _) => SizeFill();
+    }
+
+    /// <summary>Takes effect from the next <see cref="Show"/>. UI thread only.</summary>
+    public void Apply(AppSettings settings)
+    {
+        ArgumentNullException.ThrowIfNull(settings);
+        _settings = settings;
+        _hideTimer.Interval = TimeSpan.FromSeconds(settings.HideAfterSeconds);
     }
 
     /// <summary>Renders <paramref name="state"/> and (re)starts the auto-hide countdown. UI thread only.</summary>
@@ -88,17 +96,20 @@ public sealed partial class OsdWindow : Window
 
     private void RenderInput(EndpointState? input)
     {
-        InputRow.Visibility = input is null ? Visibility.Collapsed : Visibility.Visible;
-        if (input is null)
+        if (input is null || !_settings.ShowInput)
+        {
+            InputRow.Visibility = Visibility.Collapsed;
             return;
+        }
+        InputRow.Visibility = Visibility.Visible;
         InputName.Text = input.Name;
         InputIcon.Glyph = input.Muted ? "\uEC54" : "\uE720"; // MicOff / Microphone
         InputStatus.Style = (Style)Root.Resources[input.Muted ? "OsdValueMuted" : "OsdValue"];
         InputStatus.Text = input.Muted ? "Muted" : input.Percent.ToString(CultureInfo.CurrentCulture);
     }
 
-    // Bottom centre of the primary work area, like the native flyout. Root sizes the client area; the
-    // native border sits outside it, else it clips Root's right and bottom edge.
+    // In the primary work area at the chosen position (default bottom centre, like the native flyout). Root
+    // sizes the client area; the native border sits outside it, else it clips Root's right and bottom edge.
     private void Place()
     {
         var scale = OverlayWindow.Scale(_hwnd);
@@ -107,8 +118,8 @@ public sealed partial class OsdWindow : Window
         var width = (int)Math.Ceiling(Root.Width * scale) + frameWidth;
         var height = (int)Math.Ceiling(Root.DesiredSize.Height * scale) + frameHeight;
         var area = DisplayArea.Primary.WorkArea;
-        var x = area.X + (area.Width - width) / 2;
-        var y = area.Y + area.Height - height - (int)Math.Round(BottomMarginDip * scale);
+        var (x, y) = OsdPlacement.Place(new PixelRect(area.X, area.Y, area.Width, area.Height), width, height,
+            _settings.Position, (int)Math.Round(MarginDip * scale));
         if (!OverlayWindow.ShowAt(_hwnd, x, y, width, height))
             Log.Error($"OSD not shown at {x},{y} {width}x{height}", new Win32Exception());
     }

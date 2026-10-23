@@ -20,6 +20,7 @@ public sealed class TrayIcon : IDisposable
     private const uint IconId = 1;
     private const uint CallbackMessage = PInvoke.WM_APP + 1;
     private const uint ExitCommand = 1;
+    private const uint SettingsCommand = 2;
     private const uint NinKeySelect = PInvoke.NIN_SELECT | 0x1; // NINF_KEY; not in the Win32 metadata
 
     private readonly string _tooltip;
@@ -82,6 +83,9 @@ public sealed class TrayIcon : IDisposable
 
     /// <summary>Exit chosen in the menu. Raised on the tray thread.</summary>
     public event EventHandler? ExitRequested;
+
+    /// <summary>Settings chosen in the menu, or the icon clicked / selected with the keyboard. Raised on the tray thread.</summary>
+    public event EventHandler? SettingsRequested;
 
     private unsafe void CreateWindow()
     {
@@ -166,8 +170,10 @@ public sealed class TrayIcon : IDisposable
             case CallbackMessage:
                 // Version 4: LOWORD(lParam) is the event, wParam the anchor in screen coordinates.
                 var notification = (uint)(lParam.Value & 0xFFFF);
-                if (notification is PInvoke.WM_CONTEXTMENU or PInvoke.NIN_SELECT or NinKeySelect)
+                if (notification == PInvoke.WM_CONTEXTMENU)
                     ShowMenu((short)(wParam.Value & 0xFFFF), (short)((wParam.Value >> 16) & 0xFFFF));
+                else if (notification is PInvoke.NIN_SELECT or NinKeySelect)
+                    Raise(SettingsRequested);
                 return (LRESULT)0;
             case PInvoke.WM_SETTINGCHANGE when ImmersiveColorSetChanged(lParam):
                 UpdateIconHandle();
@@ -204,8 +210,13 @@ public sealed class TrayIcon : IDisposable
         var menu = PInvoke.CreatePopupMenu();
         try
         {
+            fixed (char* settings = "Settings")
+                PInvoke.AppendMenu(menu, MENU_ITEM_FLAGS.MF_STRING, SettingsCommand, settings);
+            PInvoke.AppendMenu(menu, MENU_ITEM_FLAGS.MF_SEPARATOR, 0, (PCWSTR)null);
             fixed (char* exit = "Exit")
                 PInvoke.AppendMenu(menu, MENU_ITEM_FLAGS.MF_STRING, ExitCommand, exit);
+            // Bold = what a left-click does, as in other tray menus.
+            PInvoke.SetMenuDefaultItem(menu, SettingsCommand, 0);
             // Required for the menu to close when the user clicks elsewhere (KB135788).
             PInvoke.SetForegroundWindow(_window);
             var command = PInvoke.TrackPopupMenuEx(menu,
@@ -215,6 +226,8 @@ public sealed class TrayIcon : IDisposable
             PInvoke.PostMessage(_window, PInvoke.WM_NULL, default, default);
             if (command.Value == ExitCommand)
                 Raise(ExitRequested);
+            else if (command.Value == SettingsCommand)
+                Raise(SettingsRequested);
         }
         finally
         {

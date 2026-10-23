@@ -1,10 +1,12 @@
 using System.Diagnostics;
+using DazeMediaOsd.App.ViewModels;
 using DazeMediaOsd.Core.Audio;
 using DazeMediaOsd.Core.Diagnostics;
 using DazeMediaOsd.Core.Input;
 using DazeMediaOsd.Core.Lifecycle;
 using DazeMediaOsd.Core.NativeFlyout;
 using DazeMediaOsd.Core.Osd;
+using DazeMediaOsd.Core.Settings;
 using DazeMediaOsd.Core.Tray;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
@@ -21,6 +23,8 @@ public sealed partial class App : Application, IDisposable
     private OsdController? _osd;
     private OsdWindow? _window;
     private TrayIcon? _tray;
+    private SettingsStore? _settings;
+    private SettingsWindow? _settingsWindow;
 
     public App(LaunchArgs args)
     {
@@ -33,6 +37,7 @@ public sealed partial class App : Application, IDisposable
     protected override void OnLaunched(LaunchActivatedEventArgs args)
     {
         var ui = DispatcherQueue.GetForCurrentThread();
+        _settings = new SettingsStore(SettingsStore.DefaultDirectory);
         // Services first: suppressing the native flyout is only right once ours can take over. If they
         // can't start, exit with Windows untouched (fail-open); the launcher then exits too.
         try
@@ -48,7 +53,7 @@ public sealed partial class App : Application, IDisposable
         }
         try
         {
-            _window = new OsdWindow();
+            _window = new OsdWindow(_settings.Current);
         }
         catch (InvalidOperationException e)
         {
@@ -58,6 +63,13 @@ public sealed partial class App : Application, IDisposable
         }
         _osd = new OsdController(_audio, _keys);
         _osd.ShowRequested += (_, state) => ui.TryEnqueue(() => Show(state));
+        // Raised on the UI thread (the settings window edits it). Show the result right away.
+        _settings.Changed += (_, settings) =>
+        {
+            Log.Info($"settings changed: {settings}");
+            _window.Apply(settings);
+            Show(OsdState.From(_audio.Current, OsdReason.SettingsPreview));
+        };
 
         // Watch the launcher before choosing a mode: minimizing is only safe while a live launcher will
         // restore the host if we die (D-006). If it dies right after, the queued fallback restores.
@@ -74,6 +86,7 @@ public sealed partial class App : Application, IDisposable
         {
             var assets = Path.Combine(AppContext.BaseDirectory, "Assets");
             _tray = new TrayIcon("Daze Media OSD", Path.Combine(assets, "tray-dark.ico"), Path.Combine(assets, "tray-light.ico"));
+            _tray.SettingsRequested += (_, _) => ui.TryEnqueue(OpenSettings);
             _tray.ExitRequested += (_, _) => ui.TryEnqueue(() =>
             {
                 Log.Info("exit requested from the tray");
@@ -86,6 +99,16 @@ public sealed partial class App : Application, IDisposable
         }
     }
 
+    private void OpenSettings()
+    {
+        if (_settingsWindow is null)
+        {
+            _settingsWindow = new SettingsWindow(new SettingsViewModel(_settings!));
+            _settingsWindow.Closed += (_, _) => _settingsWindow = null;
+        }
+        _settingsWindow.Activate();
+    }
+
     private void Show(OsdState state)
     {
         Log.Info($"show {state.Describe()}");
@@ -95,6 +118,7 @@ public sealed partial class App : Application, IDisposable
     /// <summary>Unhooks and restores the native flyout. Called by Program after the dispatcher stops.</summary>
     public void Dispose()
     {
+        _settingsWindow?.Close();
         _tray?.Dispose();
         _osd?.Dispose();
         _keys?.Dispose();

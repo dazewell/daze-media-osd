@@ -49,12 +49,15 @@ this file and know what to build next. History of *why* lives in [DECISIONS.md](
   (D-008) (2026-10-22)
 - [x] Tray icon with Exit (own `Shell_NotifyIcon`, D-009); clean exit restores the native flyout
   (2026-10-22)
-- [ ] Settings window + persisted settings
+- [x] Settings window (tray left-click / menu) + `settings.json`: position, hide-after, mic row; live
+  preview (D-010) (2026-10-22)
 - [ ] Media session info in OSD
 - [ ] Autostart, publish to a local folder, daily-driver test
 
-**Next step:** settings window (`SettingsWindow`, NavigationView + CommunityToolkit.Mvvm, D-001) and
-`SettingsStore` (position, timeout, sections; today hard-coded in `OsdWindow`), opened from a new
-"Settings" tray item (and left-click on the icon). Check that WinUI text input in it still works with
-our keyboard raw-input registration (ARCHITECTURE → Audio and keys). When convenient: OSD in light
-theme / second monitor, tray icon on a light taskbar and after an explorer restart (ARCHITECTURE).
+**Next step:** media session info in the OSD — `MediaService` over GSMTC
+(`GlobalSystemMediaTransportControlsSessionManager`, CsWinRT, D-001): title, artist, thumbnail,
+playback state of the current session, a media row in `OsdWindow`, a "Media" toggle in settings
+(`AppSettings.ShowMedia` — no version bump: a missing property gets its default). Decide with the user whether media keys
+(play/pause/next) should pop the OSD (D-007 doesn't cover them yet). When convenient: OSD + settings
+window in light theme, OSD on a second monitor, tray icon on a light taskbar and after an explorer
+restart, an app/window icon (the exe and settings window have none yet).
