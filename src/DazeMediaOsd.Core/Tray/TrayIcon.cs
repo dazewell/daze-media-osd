@@ -52,6 +52,13 @@ public sealed class TrayIcon : IDisposable
             catch (InvalidOperationException e)
             {
                 failure = e;
+                // No message loop will run to handle Dispose's WM_CLOSE: clean up on this thread.
+                if (_window != HWND.Null)
+                {
+                    _ = PInvoke.Shell_NotifyIcon(NOTIFY_ICON_MESSAGE.NIM_DELETE, Data(0)); // no-op if NIM_ADD failed
+                    PInvoke.DestroyWindow(_window);
+                    _window = HWND.Null;
+                }
             }
             finally
             {
@@ -68,7 +75,7 @@ public sealed class TrayIcon : IDisposable
         ready.Wait();
         if (failure is not null)
         {
-            Dispose();
+            Dispose(); // window already gone; frees the icon handle
             throw failure;
         }
     }
