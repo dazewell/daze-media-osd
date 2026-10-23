@@ -212,6 +212,10 @@ Supersedes: D-013 (adds what the show says and drops repeated bursts; when it po
   `PKEY_Device_EnumeratorName` = INTELAUDIO; the BTHENUM instance id is in undocumented
   `{b3f8fa53-0004-438e-9003-51a46e139bfc}` pid 2 (native) or 39 (offloaded). Checked all three; a miss
   only costs the glyph.
+- Verified on 26300: Stereo Mix enable/disable (screenshots), and the user's Technics EAH-AZ80 — both
+  endpoints flagged Bluetooth (the hands-free one via pid 39), one "Technics EAH-AZ80" show per
+  connect and per disconnect, "works well" (user, 2026-10-22). Not seen: a default-switch connect
+  with the new line, a USB device.
 - Why not a toast / separate card / per-endpoint rows: toasts go to the notification centre and can
   take focus; a card or rows double the OSD for one fact. Why not a different window or badge on the
   device row: the device that came may not be the default, so it has no row. Why not

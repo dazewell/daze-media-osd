@@ -133,7 +133,8 @@ unit-tested with fakes. App never P/Invokes directly; window styling goes throug
   and "Headset (…)" hands-free input. Connect: headphones, default switch ~40 ms later, headset ~35–80 ms
   after that. Disconnect: headphones, headset 0.2–0.9 s later. Hence D-014's repeat drop. On this Intel
   Smart Sound machine offloaded BT endpoints report enumerator INTELAUDIO; see D-014 for the BT test.
-  USB bursts not observed yet.
+  Without a default switch (23:27): headphones + headset 80 ms apart → one burst, one show. USB bursts
+  not observed yet.
 - Raw input registration is per process and per device class. WinUI doesn't register keyboard raw
   input: with the settings window focused, typing in its NumberBox works and volume keys still reach
   `RawInputKeySource` (2026-10-22). Re-check if anything else registers 0x01/0x06 in this process.

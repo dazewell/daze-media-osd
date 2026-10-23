@@ -70,10 +70,9 @@ this file and know what to build next. History of *why* lives in [DECISIONS.md](
 Windows" in settings (reflect the registry, don't store a copy in `settings.json`). Then publish to a
 local folder (`build` skill → publish) and point autostart there, and start the daily-driver test.
 
-**Daily-driver checks** for D-013/D-014: connect/disconnect a real Bluetooth headset and a USB device —
-one OSD each, its event line naming the product ("Technics EAH-AZ80 · Connected", Bluetooth glyph) plus
-the new default if it switched (log: `audio device connected: … bluetooth`, then one `show … device=…`).
-Only an endpoint enable/disable has been seen with the event line; the BT timing comes from the log.
+**Daily-driver checks** for D-013/D-014: one Bluetooth headset is verified (user, 2026-10-22: one
+named show per connect/disconnect). Still to see: a BT connect that switches the default (one show
+with the line and the new default, log `show OutputDeviceChanged … device=…`), and a USB device.
 
 When convenient: OSD + settings window in light theme, OSD on a second monitor, tray icon on a light
 taskbar and after an explorer restart, an app/window icon (the exe and settings window have none yet),
