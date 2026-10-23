@@ -22,8 +22,9 @@ public sealed class CoreAudioService : IAudioService
     private readonly NotificationClient _notifications;
     private readonly Endpoint _output = new(EndpointFlow.Output);
     private readonly Endpoint _input = new(EndpointFlow.Input);
-    // Active endpoints of either flow, kept to tell a real connect/disconnect from a repeated state.
-    private readonly Dictionary<string, EndpointFlow> _active = [];
+    // Active endpoints of either flow, kept to tell a real connect/disconnect from a repeated state, and to
+    // name one whose device is already gone (or refuses reads) when it disconnects.
+    private readonly Dictionary<string, ActiveEndpoint> _active = [];
     private IMMDeviceEnumerator? _enumerator;
     private volatile AudioSnapshot _current = AudioSnapshot.Empty;
 
@@ -79,7 +80,7 @@ public sealed class CoreAudioService : IAudioService
                 devices.Item(i, out var device);
                 try
                 {
-                    _active[DeviceId(device)] = Flow(device);
+                    _active[DeviceId(device)] = Describe(device);
                 }
                 finally
                 {
@@ -267,22 +268,26 @@ public sealed class CoreAudioService : IAudioService
         var device = DeviceById(id);
         try
         {
-            var wasActive = _active.TryGetValue(id, out var flow);
+            var wasActive = _active.TryGetValue(id, out var known);
             var isActive = false;
             if (device is not null)
             {
                 device.GetState(out var state);
                 isActive = state == DEVICE_STATE.DEVICE_STATE_ACTIVE;
-                if (isActive)
-                    flow = Flow(device);
             }
             if (isActive == wasActive)
                 return;
-            // Before touching the set: a failed property read must not swallow the transition.
-            var name = device is null ? "" : TryProperty(device, PInvoke.PKEY_Device_FriendlyName);
-            var bluetooth = device is not null && IsBluetooth(device);
+            // Before touching the set: a failed property read must not swallow the transition. A removed
+            // device can't be read at all: what we knew while it was active names it.
+            var (flow, name, bluetooth) = isActive ? Describe(device!) : known!;
+            if (!isActive && device is not null)
+            {
+                var current = TryProperty(device, PInvoke.PKEY_Device_FriendlyName);
+                name = current.Length == 0 ? name : current;
+                bluetooth = bluetooth || IsBluetooth(device);
+            }
             if (isActive)
-                _active[id] = flow;
+                _active[id] = new ActiveEndpoint(flow, name, bluetooth);
             else
                 _active.Remove(id);
             Log.Info($"audio device {(isActive ? "connected" : "disconnected")}: {flow} \"{name}\"{(bluetooth ? " bluetooth" : "")}");
@@ -295,6 +300,11 @@ public sealed class CoreAudioService : IAudioService
                 Marshal.ReleaseComObject(device);
         }
     }
+
+    private static ActiveEndpoint Describe(IMMDevice device) =>
+        new(Flow(device), TryProperty(device, PInvoke.PKEY_Device_FriendlyName), IsBluetooth(device));
+
+    private sealed record ActiveEndpoint(EndpointFlow Flow, string Name, bool Bluetooth);
 
     // Undocumented endpoint keys holding the underlying device's instance id: native Bluetooth endpoints
     // have "{1}.BTHENUM\…" in pid 2; endpoints offloaded to the audio DSP (Intel Smart Sound) have the audio

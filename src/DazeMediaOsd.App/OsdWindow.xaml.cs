@@ -115,7 +115,10 @@ public sealed partial class OsdWindow : Window
     // Only the show that announces a device has one; every other show clears the line (D-014).
     private void RenderDevice(DeviceNotice? device)
     {
+        // Explicitly fully visible: with "Animation effects" now off, no entrance runs to set it.
         _eventEntrance?.Stop();
+        EventRow.Opacity = 1;
+        EventIconScale.ScaleX = EventIconScale.ScaleY = 1;
         if (device is null)
         {
             EventRow.Visibility = Visibility.Collapsed;
