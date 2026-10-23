@@ -13,6 +13,11 @@ public static class Program
         var launch = LaunchArgs.Parse(args);
         if (launch.Mode == LaunchMode.Launcher)
             return Launcher.Run();
+        if (launch.Mode == LaunchMode.Restore)
+        {
+            FlyoutHost.RestoreAll();
+            return 0;
+        }
 
         App? app = null;
         try

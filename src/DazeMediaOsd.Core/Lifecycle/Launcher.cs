@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using System.Diagnostics;
 using DazeMediaOsd.Core.NativeFlyout;
 
@@ -34,37 +35,59 @@ public static class Launcher
     }
 
     /// <summary>
-    /// Calls <paramref name="onLost"/> (on a pool thread) once the launcher is gone, immediately if it
-    /// already is. Returns the handle to keep alive, or null.
+    /// Watches the launcher. Returns its handle (keep it alive) when it is alive and watched; then
+    /// <paramref name="onLost"/> runs once, on a pool thread, when it exits. Returns null when there is
+    /// no live launcher to watch: then <paramref name="onLost"/> has already run, and the caller must not
+    /// minimize the host (nothing would restore it after a crash).
     /// </summary>
     public static Process? WatchLauncher(int? launcherPid, Action onLost)
     {
         ArgumentNullException.ThrowIfNull(onLost);
+        var fired = 0;
+        void LostOnce()
+        {
+            if (Interlocked.Exchange(ref fired, 1) == 0)
+                onLost();
+        }
+
+        var launcher = TryWatch(launcherPid, LostOnce);
+        if (launcher is null)
+            LostOnce();
+        return launcher;
+    }
+
+    private static Process? TryWatch(int? launcherPid, Action onLost)
+    {
+        if (launcherPid is not int pid)
+            return null;
         Process? launcher = null;
         try
         {
-            if (launcherPid is int pid)
+            launcher = Process.GetProcessById(pid);
+            using (var self = Process.GetCurrentProcess())
             {
-                launcher = Process.GetProcessById(pid);
                 // A recycled pid would be a process started after us.
-                if (launcher.StartTime > Process.GetCurrentProcess().StartTime)
-                    launcher = null;
+                if (launcher.StartTime > self.StartTime)
+                {
+                    launcher.Dispose();
+                    return null;
+                }
             }
+            // Subscribe before enabling, then re-check: an exit in between still reaches onLost.
+            launcher.Exited += (_, _) => onLost();
+            launcher.EnableRaisingEvents = true;
+            if (launcher.HasExited)
+            {
+                launcher.Dispose();
+                return null;
+            }
+            return launcher;
         }
-        catch (ArgumentException)
+        catch (Exception e) when (e is ArgumentException or InvalidOperationException or Win32Exception)
         {
-            launcher = null;
-        }
-
-        if (launcher is null)
-        {
-            onLost();
+            // Exited or recycled while we were querying it: same as no launcher.
+            launcher?.Dispose();
             return null;
         }
-        launcher.EnableRaisingEvents = true;
-        launcher.Exited += (_, _) => onLost();
-        if (launcher.HasExited) // exited between GetProcessById and subscribing
-            onLost();
-        return launcher;
     }
 }

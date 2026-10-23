@@ -98,8 +98,10 @@ unit-tested with fakes. App never P/Invokes directly except window styling.
   clean exit. Watches the launcher's handle: if the launcher dies, restore and fall back to per-show
   `SW_HIDE` (D-005) for the rest of the session.
 - Only killing both at once (e.g. "End process tree") leaves the host minimized → fixed by the next
-  app start, explorer restart, sign-out, or `FlyoutProbe restore`.
-- `--app` without `--launcher-pid` (or a dead/recycled pid) starts straight in per-show mode.
+  app start, `DazeMediaOsd.exe --restore`, explorer restart or sign-out.
+- The app watches the launcher **before** choosing a mode: Minimize only with a live, watched
+  launcher; `--app` without `--launcher-pid`, a dead/recycled pid, or any process-query race starts
+  in per-show mode.
 - Single instance: a `Local\DazeMediaOsd.Launcher` mutex; a second launcher exits at once.
 - Launcher mode costs ~9 MB private / ~34 MB working set (2026-10-22), so it stays the same exe.
 - Verified 2026-10-22 on 26300: running → no native flyout; kill `--app` → launcher restores, exits;

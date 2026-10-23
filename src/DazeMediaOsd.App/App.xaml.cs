@@ -23,10 +23,11 @@ public sealed partial class App : Application, IDisposable
     protected override void OnLaunched(LaunchActivatedEventArgs args)
     {
         var ui = DispatcherQueue.GetForCurrentThread();
-        // Minimizing is only safe while a launcher will restore the host if we die (D-006).
-        _suppressor = new FlyoutSuppressor(_args.LauncherPid is null ? SuppressionMode.HidePerShow : SuppressionMode.Minimize);
+        // Watch first: minimizing is only safe while a live launcher will restore the host if we die
+        // (D-006). If it dies right after, the queued fallback runs after this method and restores.
         _launcher = Launcher.WatchLauncher(_args.LauncherPid,
             () => ui.TryEnqueue(() => _suppressor?.FallBackToHidePerShow()));
+        _suppressor = new FlyoutSuppressor(_launcher is null ? SuppressionMode.HidePerShow : SuppressionMode.Minimize);
     }
 
     /// <summary>Unhooks and restores the native flyout. Called by Program after the dispatcher stops.</summary>

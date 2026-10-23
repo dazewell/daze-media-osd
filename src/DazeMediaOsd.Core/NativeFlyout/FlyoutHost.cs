@@ -78,8 +78,9 @@ public static class FlyoutHost
                 using var process = Process.GetProcessById((int)pid);
                 return process.ProcessName;
             }
-            catch (ArgumentException)
+            catch (Exception e) when (e is ArgumentException or InvalidOperationException)
             {
+                // Process gone (normal during an explorer restart): a stale window is no match.
                 return "";
             }
         }

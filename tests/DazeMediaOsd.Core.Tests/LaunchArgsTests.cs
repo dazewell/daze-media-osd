@@ -19,6 +19,10 @@ public class LaunchArgsTests
     public void AppWithoutLauncherPidHasNoGuard() =>
         Assert.Equal(new LaunchArgs(LaunchMode.App, null), LaunchArgs.Parse(["--app"]));
 
+    [Fact]
+    public void RestoreSwitchSelectsRestore() =>
+        Assert.Equal(LaunchMode.Restore, LaunchArgs.Parse(["--restore"]).Mode);
+
     [Theory]
     [InlineData("--launcher-pid")]
     [InlineData("--launcher-pid", "abc")]
