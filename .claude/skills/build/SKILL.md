@@ -102,7 +102,8 @@ can't verify visually, say so explicitly instead of claiming it works.
   `Get-FileHash`), with the app stopped. Never delete it. Every change shows a preview OSD (log
   `show SettingsPreview`). UI Automation drives the window: post `WM_APP+1` with lParam
   `0x400 | (1 << 16)` (NIN_SELECT, icon 1) to the `DazeMediaOsd.Tray` window to open it (title
-  `Daze Media OSD`); toggles are found by their `AutomationProperties.Name` (e.g. "Show media").
+  `Daze Media OSD`); toggles are found by their `AutomationProperties.Name` (e.g. "Show now playing"); the nav items are
+  "Pop-up", "Shortcuts", "About".
 - Also check: foreground window unchanged by a show (`GetForegroundWindow`), and `WindowFromPoint`
   over the OSD returns the window below (click-through).
 

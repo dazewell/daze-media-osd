@@ -8,7 +8,8 @@ this file and know what to build next. History of *why* lives in [DECISIONS.md](
 - Extend the Windows 11 media OSD (the flyout shown on volume/media keys) with extra information. The
   first concrete ask: **show the current output and input device when changing volume.**
 - Windows 11 only. No cross-platform concerns, ever.
-- A configuration UI with a modern design (should feel like a native Windows 11 app).
+- A configuration UI with a modern design (should feel like a native Windows 11 app). Its wording is
+  plain and friendly, not geeky (user, 2026-10-23; D-026).
 - The repo is driven purely by AI agents. Decisions, reasons, rejected options and dead ends are written
   down so the next agent understands *why* the code is the way it is — but kept lean, no bloat.
 - v1 builds on the local machine. GitHub CI comes in v2.
@@ -25,6 +26,7 @@ this file and know what to build next. History of *why* lives in [DECISIONS.md](
   settings. It still shows the current default output/input as always (user, 2026-10-22), and also
   which device came or went, in a compact, modern way that doesn't clutter the OSD (user, 2026-10-22).
 - Settings window: enable/disable sections, position, timeout, theme follows system, start with Windows.
+- Logs keep at most the last 7 days, older ones are deleted automatically (user, 2026-10-23).
 - Only our OSD is ever visible — the native flyout must not flash (user, 2026-10-22; D-006).
 - Fail-open: if the app is closed or crashes, the native OSD keeps working.
 - Next features, picked from the PR #8 survey (user, 2026-10-23): **device-type icons** on the output
@@ -98,8 +100,20 @@ this file and know what to build next. History of *why* lives in [DECISIONS.md](
   Technics after a probe disconnect (2.9 s) and after a Windows "Disconnect" (9 s), made default
   (2026-10-23). Not seen: the OSD lines on screen (log only), a non-Intel-offload Bluetooth adapter
 
-**Next step:** the user tries Plan C and Bluetooth connect (D-023) on the daily driver (real device
-shortcuts, presses while the headphones are off or disconnected, live with them a day). Then pick the next feature from the PR #8 survey with the user. When convenient: the headset glyph
+- [x] App identity: own mark for exe, settings window, title bar and tray (D-025); version 0.1.0 + commit in
+  About and the launcher log (D-024); About page with Copy details, folders, log, GitHub. Seen: About,
+  title bar and taskbar icons, copied details (2026-10-23)
+- [x] Settings wording rewritten by a UX-writer pass (D-026): "pop-up" for the OSD, "What to show",
+  positions in screen order, plain notes. Seen: all three pages (2026-10-23)
+- [x] README as a showcase: hero banner, pop-up and settings shots in docs/images (user, 2026-10-23)
+
+**Next step:** log rotation (user, 2026-10-23): `app.log` grows forever today (one file, both
+processes append, `Core.Diagnostics.Log`). Keep at most the last 7 days and delete older logs
+automatically; both processes share the file, so only one of them may rotate. Record the choice
+(per-day files vs. trimming one file) as a decision.
+
+Then the user lives with the finished Plan C and Bluetooth connect (D-023) on the daily driver for a
+day (real device shortcuts, presses while the headphones are off or disconnected) and reports back. Then pick the next feature from the PR #8 survey with the user. When convenient: the headset glyph
 (Technics hands-free as default mic) and the monitor glyph (Dell over DisplayPort).
 
 Plan B (quick switching) is done: tray menu (D-019), cycle-output hotkey (D-020, D-021). Its third
@@ -112,6 +126,7 @@ connect (only shortcuts do); the user left that for now (2026-10-23).
 
 When convenient: autostart at sign-in (log `launcher: started app` right after one), a USB audio
 device (one show per connect/disconnect, D-013/D-014/D-016), OSD + settings window in light theme,
-OSD on a second monitor, tray icon on a light taskbar and after an explorer restart, an app/window icon (the exe and settings window have none yet),
+OSD on a second monitor, tray icon on a light taskbar and after an explorer restart (the new mark: also
+how its 16/20 px frames read at 100 %/125 %),
 media keys from a physical Consumer Control device (only the keyboard path is verified), media info
 with Spotify/Media Player (Chromium and Telegram verified).

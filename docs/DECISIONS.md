@@ -115,7 +115,7 @@ Status: superseded by D-018 (topmost needs `IsAlwaysOnTop`; the rest stands)
   no click-through), or show latency/memory is a problem (D-001 revisit trigger).
 
 ## D-009 · 2026-10-22 · Tray icon: own `Shell_NotifyIcon` via CsWin32, native popup menu
-Status: accepted
+Status: accepted; tray glyph superseded by D-025
 - Decision: `Core.Tray.TrayIcon` calls `Shell_NotifyIcon` (NOTIFYICON_VERSION_4) from a hidden top-level
   window on its own thread; the menu is `TrackPopupMenuEx`, dark/light via uxtheme ordinals 135/136
   (`SetPreferredAppMode`, `FlushMenuThemes`) following the taskbar theme. Monochrome glyph icons, one per
@@ -381,3 +381,43 @@ Supersedes: D-022 (only "not active → no switch", for devices that take the re
   (SOUNDPEATS H3, WF-C710N, AZ40M2) have no reachable filter (0x80070002/3) → "Not connected".
 - Revisit if: a driver update stops the hands-free endpoint connecting (`spikes/BtProbe list` / `connect`),
   or a connect regularly takes > 15 s.
+
+## D-024 · 2026-10-23 · Version: one `<Version>` in Directory.Build.props, SemVer 0.x, bumped by the PR
+Status: accepted
+- Decision: `Directory.Build.props` holds `<Version>` (started at 0.1.0) with Product/Company/Copyright; the
+  SDK appends `+<commit sha>` to the informational version. `Core.Lifecycle.AppVersion` parses it: About shows
+  "0.1.0 (abc1234)", the launcher logs `version 0.1.0+abc1234` and the exe path. A `feat` PR bumps minor, a
+  `fix` PR bumps patch, docs/chore don't; 1.0.0 when the user calls v1 done. `AssemblyTitle` "Daze Media
+  OSD" is the exe's FileDescription: the name Task Manager and Startup apps show.
+- Why: the user asked for versioning (2026-10-23); with Debug and installed copies side by side, the log
+  and About must say which build runs. One number, no tooling; the commit pins the exact build.
+- Why not Nerdbank.GitVersioning or MinVer: a package plus git-height or tag rules for a local-only build
+  with squash merges and no tags or releases yet.
+- Revisit if: v2 CI publishes releases — then derive the version from a release tag.
+
+## D-025 · 2026-10-23 · Own mark for every icon: a flyout card with an output row and an input row
+Status: accepted
+Supersedes: D-009 (only the tray glyph: Segoe "Volume3" → our mark)
+- Decision: `scripts/make-icon.ps1` draws one mark with GDI+: a rounded card with a speaker + level bar
+  above a microphone + shorter bar, geometry on a 16-unit grid snapped per size. Colour tile (violet → blue,
+  amber input level) for `app.ico` (exe `ApplicationIcon`, settings window via `AppWindow.SetIcon`) and
+  `app.png` (About, title bar); the same mark outlined in white / black for the tray (`tray-dark/light.ico`).
+- Why: the user wants a unique icon (2026-10-23). The old tray glyph was the Windows volume icon itself, so
+  ours sat beside the system one looking identical. The mark is what the app adds: output and input.
+- Why not an SVG + rasterizer: a new tool on the dev machine; GDI+ is already what the script used.
+- Revisit if: the 16/20 px frames read badly on a real 100 %/125 % display (only seen in a 4× preview).
+
+## D-026 · 2026-10-23 · Settings wording: plain Windows voice, "pop-up" for the OSD
+Status: accepted
+- Decision: every string in the settings window follows the Windows 11 Settings voice: sentence case,
+  "you", contractions, short descriptions, no jargon ("default device", "register", "entry", "OSD").
+  The OSD is "pop-up" everywhere the user reads (nav, page, descriptions); "Daze Media OSD" stays as the
+  name. Notes say what happened and what to do next ("Try another one."); raw exception text goes to the
+  log only, and the UI says "see the log". Position items are in screen order (`PositionOrder` maps to the
+  stored `OsdPosition`), with the default marked. About has no "Built with" card: the versions that
+  matter are in Copy details.
+- Why: the user asked for simpler, nicer, less geeky text (2026-10-23); a UX-writer agent rewrote it.
+  "Pop-up" rather than "volume pop-up": it also shows devices, media and connect messages.
+- Why not keep "OSD" or "flyout": jargon a regular user doesn't know. Why the App folder card stays
+  (the writer suggested dropping it): it's how the user tells a Debug copy from the installed one.
+- Revisit if: the OSD itself or the tray menu gets user-facing text — use the same terms there.

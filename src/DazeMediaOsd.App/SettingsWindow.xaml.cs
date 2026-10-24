@@ -1,12 +1,17 @@
 using System.Diagnostics;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using DazeMediaOsd.App.ViewModels;
+using DazeMediaOsd.Core.Diagnostics;
+using DazeMediaOsd.Core.Lifecycle;
 using DazeMediaOsd.Core.Settings;
 using DazeMediaOsd.Core.Windowing;
 using Microsoft.UI;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
+using Microsoft.UI.Xaml.Media.Imaging;
+using Windows.ApplicationModel.DataTransfer;
 using Windows.Graphics;
 
 namespace DazeMediaOsd.App;
@@ -26,7 +31,15 @@ public sealed partial class SettingsWindow : Window
         SetTitleBar(AppTitleBar);
         HideAfterBox.Minimum = AppSettings.MinHideAfterSeconds;
         HideAfterBox.Maximum = AppSettings.MaxHideAfterSeconds;
-        VersionText.Text = "Version " + ShortVersion();
+        AppWindow.SetIcon(Path.Combine(AppContext.BaseDirectory, "Assets", "app.ico")); // taskbar, Alt+Tab
+        // From code with a file path: an ms-appx IconSource in XAML blanks the whole window (X-006).
+        AppTitleBar.IconSource = new ImageIconSource
+        {
+            ImageSource = new BitmapImage(new Uri(Path.Combine(AppContext.BaseDirectory, "Assets", "app.png"))),
+        };
+        VersionText.Text = "Version " + AppVersion.Current.Display;
+        AppFolderText.Text = AppContext.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar);
+        DataFolderText.Text = SettingsStore.DefaultDirectory;
 
         Handle = Win32Interop.GetWindowFromWindowId(AppWindow.Id);
         var scale = OverlayWindow.Scale(Handle);
@@ -38,13 +51,54 @@ public sealed partial class SettingsWindow : Window
 
     public nint Handle { get; }
 
-    // The SDK appends "+<full commit sha>"; seven characters identify the build.
-    private static string ShortVersion()
+    private static string WindowsAppSdkVersion() => typeof(SettingsWindow).Assembly
+        .GetCustomAttributes<AssemblyMetadataAttribute>()
+        .FirstOrDefault(a => a.Key == "WindowsAppSdkVersion")?.Value ?? "(unknown)";
+
+    private static string Details() => string.Join(Environment.NewLine,
+        $"Daze Media OSD {AppVersion.Current}",
+        $"Windows {Environment.OSVersion.Version} {RuntimeInformation.OSArchitecture}",
+        $"{RuntimeInformation.FrameworkDescription}, Windows App SDK {WindowsAppSdkVersion()}",
+        Environment.ProcessPath);
+
+    private void OnCopyDetails(object sender, RoutedEventArgs e)
     {
-        var version = typeof(SettingsWindow).Assembly
-            .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "unknown";
-        var plus = version.IndexOf('+', StringComparison.Ordinal);
-        return plus >= 0 && version.Length > plus + 8 ? version[..(plus + 8)] : version;
+        var package = new DataPackage();
+        package.SetText(Details());
+        try
+        {
+            Clipboard.SetContent(package);
+            CopyDetailsIcon.Glyph = "\uE73E"; // CheckMark
+            CopyDetailsText.Text = "Copied";
+        }
+        catch (COMException ex) // another app holds the clipboard open (CLIPBRD_E_CANT_OPEN)
+        {
+            Log.Error("copy details failed", ex);
+            CopyDetailsIcon.Glyph = "\uE783"; // Error
+            CopyDetailsText.Text = "Couldn't copy";
+        }
+        var timer = DispatcherQueue.CreateTimer();
+        timer.Interval = TimeSpan.FromSeconds(2);
+        timer.IsRepeating = false;
+        timer.Tick += (_, _) =>
+        {
+            CopyDetailsIcon.Glyph = "\uE8C8"; // Copy
+            CopyDetailsText.Text = "Copy details";
+        };
+        timer.Start();
+    }
+
+    private void OnOpenAppFolder(object sender, RoutedEventArgs e) => OpenInExplorer(AppContext.BaseDirectory);
+
+    private void OnOpenLog(object sender, RoutedEventArgs e)
+    {
+        var log = Path.Combine(Log.DefaultDirectory, "app.log");
+        if (!File.Exists(log))
+        {
+            OpenInExplorer(Log.DefaultDirectory);
+            return;
+        }
+        using var _ = Process.Start(new ProcessStartInfo(log) { UseShellExecute = true }); // default .log editor
     }
 
     private void OnNavigationSelectionChanged(NavigationView sender, NavigationViewSelectionChangedEventArgs args)
@@ -55,9 +109,11 @@ public sealed partial class SettingsWindow : Window
         AboutPage.Visibility = tag == "About" ? Visibility.Visible : Visibility.Collapsed;
     }
 
-    private void OnOpenDataFolder(object sender, RoutedEventArgs e)
+    private void OnOpenDataFolder(object sender, RoutedEventArgs e) => OpenInExplorer(SettingsStore.DefaultDirectory);
+
+    private static void OpenInExplorer(string folder)
     {
-        Directory.CreateDirectory(SettingsStore.DefaultDirectory);
-        using var _ = Process.Start(new ProcessStartInfo("explorer.exe", $"\"{SettingsStore.DefaultDirectory}\""));
+        Directory.CreateDirectory(folder);
+        using var _ = Process.Start(new ProcessStartInfo("explorer.exe", $"\"{folder.TrimEnd(Path.DirectorySeparatorChar)}\""));
     }
 }

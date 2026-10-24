@@ -30,10 +30,11 @@ core that builds an `OsdState`; the OSD window renders it.
 ```
 DazeMediaOsd.slnx
 global.json                      pins .NET 10 SDK; opts `dotnet test` into Microsoft.Testing.Platform
-Directory.Build.props            shared props: TFM net10.0-windows10.0.26100.0, nullable, warnings as errors
+Directory.Build.props            shared props: TFM net10.0-windows10.0.26100.0, nullable, warnings as errors;
+                                 `<Version>` + product metadata (D-024)
 Directory.Packages.props         central package versions
 src/DazeMediaOsd.Core/           no UI; Win32/COM via CsWin32 (NativeMethods.txt). Lifecycle/ (LaunchArgs,
-                                 Launcher), NativeFlyout/ (FlyoutHost, FlyoutSuppressor), Audio/
+                                 Launcher, AppVersion), NativeFlyout/ (FlyoutHost, FlyoutSuppressor), Audio/
                                  (CoreAudioService, DeviceChoices, DeviceCycle, DeviceConnector), Input/ (RawInputKeySource, GlobalHotkey, Hotkey, Shortcuts), Osd/ (OsdState, OsdRules,
                                  OsdController, DeviceNotice, OsdPlacement, OsdAnimation), Windowing/ (OverlayWindow styles), Tray/
                                  (TrayIcon), Settings/ (AppSettings, DeviceHotkey, SettingsStore), Media/
@@ -41,12 +42,15 @@ src/DazeMediaOsd.Core/           no UI; Win32/COM via CsWin32 (NativeMethods.txt
 src/DazeMediaOsd.App/            WinUI 3 exe `DazeMediaOsd.exe`: Program.Main → launcher or `--app` mode;
                                  App wires services; OsdWindow (+ AlwaysActiveAcrylicBackdrop);
                                  SettingsWindow + HotkeyRecorder (D-021 box as a control) + ViewModels/ (SettingsViewModel,
-                                 DeviceHotkeyRowViewModel); Assets/ tray-dark/light.ico
-                                 (from scripts/make-icon.ps1)
+                                 DeviceHotkeyRowViewModel); Assets/ app.ico (exe + window),
+                                 app.png (About, title bar), tray-dark/light.ico — all from scripts/make-icon.ps1
+                                 (D-025; `-PreviewDir` writes a sheet of every frame)
 tests/DazeMediaOsd.Core.Tests/   xUnit v3; logic only, fakes for IAudioService / IKeySource / IMediaService
 scripts/                         run.ps1 (stop + build + start), stop.ps1 (safe stop), press-key.ps1
                                  (SendInput volume/media keys), audio-device.ps1 (list / set default output,
                                  dev only)
+docs/images/                     README art: hero.png and framed shots, captured from the running app (demo
+                                 media page, Stereo Mix as the connected device). Re-shoot after UI changes.
 spikes/FlyoutProbe/              console probe for the native flyout — re-run after Windows updates.
 spikes/BtProbe/                  every endpoint's state, container, KS filter and BtAudio support; connect /
                                  disconnect one (D-023). Re-run after Windows or audio driver updates.
@@ -68,9 +72,9 @@ unit-tested with fakes. App never P/Invokes directly; window styling goes throug
 | `Launcher` | Start `--app`, wait on its handle, restore the native flyout when it exits (D-006) | `Process`, `WaitForSingleObject` |
 | `GsmtcMediaService` (`IMediaService`) | Current session → `MediaState` (app id, title, artist, playing, thumbnail bytes) or null when none / no title. Starts in the background; a GSMTC failure only logs (media is optional). Every event marks dirty; one refresh loop re-reads; a failed read keeps the last state and retries (5 × 200 ms) | `GlobalSystemMediaTransportControlsSessionManager` (CsWinRT via the TFM), `TryGetMediaPropertiesAsync`, `GetPlaybackInfo`, thumbnail via `DataReader` (≤ 4 MB) |
 | `GlobalHotkey` + `Hotkey` + `Shortcuts` | Every global shortcut (D-022): `Shortcuts.From(settings)` gives id 1 = cycle output (default Win+Alt+A, D-020), 2 + row = device row; `Set(id → chord)` re-registers all and returns `Errors` by id; `Pause` while any Settings recorder has focus (D-021); `Pressed(id)` → App: cycle picks `DeviceCycle.Next`, a device row `Shortcuts.Press` → `SetDefault`, or the OSD (`OsdReason.Hotkey`) when already default / nothing to cycle to. An inactive device goes to `DeviceConnector`; the event line answers with `DeviceNotice.Answer` (`PressAnswer`): "Connecting…", "Couldn't connect" (timeout) or "Not connected" (nothing took the request) | Message-only window, `RegisterHotKey` + `MOD_NOREPEAT`, `SendMessage` to hand over a new chord |
-| `SettingsStore` + `AppSettings` | `%LOCALAPPDATA%\DazeMediaOsd\settings.json` (`version` 1): position, hide-after seconds (1–10), mic row on/off, media row on/off (`showMedia`), pop on device connect (`showOnDeviceConnect`, D-013), cycle-output shortcut (`cycleOutputHotkey`, canonical "Win+Alt+A", "" = off, a typo → default; D-020), device shortcuts (`deviceHotkeys`: id, flow, last-known name, chord; bad or already-used chord → "", D-022); all four added without a version bump: missing → constructor default, X-003. Saves on every change (temp file + move); missing → defaults, unparsable → defaults + copy to `settings.invalid.json`; out-of-range values clamped (`Normalize`). A failed save keeps the change for the session and sets `SaveError`; the settings window shows it in an InfoBar | `System.Text.Json` source-gen (AOT-safe), enums as names (`"TopRight"`), relaxed escaping so `+` stays readable |
+| `SettingsStore` + `AppSettings` | `%LOCALAPPDATA%\DazeMediaOsd\settings.json` (`version` 1): position, hide-after seconds (1–10), mic row on/off, media row on/off (`showMedia`), pop on device connect (`showOnDeviceConnect`, D-013), cycle-output shortcut (`cycleOutputHotkey`, canonical "Win+Alt+A", "" = off, a typo → default; D-020), device shortcuts (`deviceHotkeys`: id, flow, last-known name, chord; bad or already-used chord → "", D-022); all four added without a version bump: missing → constructor default, X-003. Saves on every change (temp file + move); missing → defaults, unparsable → defaults + copy to `settings.invalid.json`; out-of-range values clamped (`Normalize`). A failed save keeps the change for the session, logs the exception and sets `SaveError` ("Couldn't write to <path>."); the settings window shows it in an InfoBar | `System.Text.Json` source-gen (AOT-safe), enums as names (`"TopRight"`), relaxed escaping so `+` stays readable |
 | `OsdWindow` + `OverlayWindow` | Render `OsdState` (device event line, media cover/title/artist/play state, output name/level/mute, mic name/level/mute; row glyph by device kind, D-017), fade/slide in and out (`OsdAnimation`, D-012), auto-hide after the configured time, at the configured position in the primary work area (`OsdPlacement`, 24 DIP margin) (D-008) | WinUI 3 `Window`, `OverlappedPresenter.SetBorderAndTitleBar(true,false)`, `DesktopAcrylicController`, `SetWindowPos(SWP_NOACTIVATE)` |
-| `SettingsWindow` | Fluent settings UI, created on open, destroyed on close; one at a time (D-010). Pages OSD, Shortcuts (cycle card, device rows: picker from `Endpoints` through `DeviceChoices` plus the row's own device as "Not connected", `HotkeyRecorder`, remove; a chord in use is refused with a note, D-022), About. `AppSettings` compares `deviceHotkeys` by value (custom `Equals`) | WinUI 3 `NavigationView` + `TitleBar`, Mica, CommunityToolkit.Mvvm partial `[ObservableProperty]` |
+| `SettingsWindow` | Fluent settings UI, created on open, destroyed on close; one at a time (D-010). Pages Pop-up, Shortcuts (cycle card, device rows: picker from `Endpoints` through `DeviceChoices` plus the row's own device as "Not connected", `HotkeyRecorder`, remove; a chord in use is refused with a note, D-022), About (mark, `AppVersion`, Copy details → clipboard: version, Windows build, .NET + Windows App SDK versions, exe path; app and data folders, open log, report a problem, source code). Icon: `AppWindow.SetIcon(app.ico)` + `AppTitleBar.IconSource` set from code (X-006). The Windows App SDK version comes from an `AssemblyMetadata` stamped from `Directory.Packages.props` (`ReleaseInfo` throws self-contained). `AppSettings` compares `deviceHotkeys` by value (custom `Equals`) | WinUI 3 `NavigationView` + `TitleBar`, Mica, CommunityToolkit.Mvvm partial `[ObservableProperty]` |
 | `TrayIcon` | Notification-area icon + menu: Output / Input submenus (`DeviceChoices`, default checked; pick → `SetDefault`, D-019), Settings (default, bold), Exit (D-009) | `Shell_NotifyIcon` v4, `TrackPopupMenuEx`, uxtheme #135/#136 for the dark menu, `TaskbarCreated` |
 
 ## Native flyout (verified on build 26300; strategy D-006)
@@ -228,7 +232,8 @@ unit-tested with fakes. App never P/Invokes directly; window styling goes throug
 
 ## Process lifecycle (D-006)
 
-- Launcher mode (no args): start self with `--app`, wait. On child exit (clean, crash, killed): restore
+- Launcher mode (no args): start self with `--app`, wait (log `launcher: started app <pid>, version
+  0.1.0+abc1234, <exe path>`). On child exit (clean, crash, killed): restore
   the host, exit. Autostart points at the launcher.
 - App mode: minimize the host at start (also fixes stale state from an earlier double kill), restore on
   clean exit. Watches the launcher's handle: if the launcher dies, restore and fall back to per-show

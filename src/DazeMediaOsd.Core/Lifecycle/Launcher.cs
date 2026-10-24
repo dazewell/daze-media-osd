@@ -30,7 +30,7 @@ public static class Launcher
         try
         {
             using var app = Process.Start(start)!;
-            Log.Info($"launcher: started app {app.Id}");
+            Log.Info($"launcher: started app {app.Id}, version {AppVersion.Current}, {Environment.ProcessPath}");
             app.WaitForExit();
             Log.Info($"launcher: app exited with {app.ExitCode}, restoring native flyout");
             return app.ExitCode;

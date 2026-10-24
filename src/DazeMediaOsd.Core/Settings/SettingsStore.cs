@@ -106,7 +106,7 @@ public sealed class SettingsStore
         catch (Exception e) when (e is IOException or UnauthorizedAccessException)
         {
             Log.Error($"settings {_path} not saved", e);
-            SaveError = e.Message;
+            SaveError = $"Couldn't write to {_path}."; // the exception is in the log
             try
             {
                 File.Delete(temp);

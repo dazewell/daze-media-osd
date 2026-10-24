@@ -5,6 +5,9 @@
     <AssemblyName>DazeMediaOsd</AssemblyName>
     <RootNamespace>DazeMediaOsd.App</RootNamespace>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>Assets\app.ico</ApplicationIcon>
+    <!-- FileDescription: the name Task Manager and Startup apps show. -->
+    <AssemblyTitle>Daze Media OSD</AssemblyTitle>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <UseWinUI>true</UseWinUI>
     <!-- Unpackaged, self-contained Windows App SDK (D-003). -->
@@ -20,10 +23,13 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.WindowsAppSDK" />
     <PackageReference Include="CommunityToolkit.Mvvm" />
+    <!-- For About: ReleaseInfo throws in a self-contained app and the runtime DLLs only say "2.0". -->
+    <AssemblyMetadata Include="WindowsAppSdkVersion"
+                      Value="@(PackageVersion->WithMetadataValue('Identity', 'Microsoft.WindowsAppSDK')->'%(Version)')" />
   </ItemGroup>
 
   <ItemGroup>
-    <Content Include="Assets\tray-*.ico" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="Assets\*.ico;Assets\*.png" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>

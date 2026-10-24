@@ -56,6 +56,9 @@ Refs: D-001
 
 Never commit `bin/`, `obj/`, publish output, local settings, or anything with secrets.
 
+Version (D-024): a PR with a `feat` commit bumps the minor `<Version>` in `Directory.Build.props`, a `fix`-only
+PR the patch; docs/chore/spike PRs don't. Bump once per PR, against `main`'s number.
+
 ## 5. Definition of done
 
 - [ ] `build` skill: build + tests green; for UI changes, the app was actually run and the change seen.

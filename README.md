@@ -1,15 +1,90 @@
-# daze-media-osd
+<p align="center">
+  <img src="docs/images/hero.png" alt="Daze Media OSD: the volume pop-up with your speakers, microphone, what's playing and a device alert, in front of its settings window" width="100%">
+</p>
 
-A Windows 11 replacement for the volume/media on-screen display that shows extra information — starting
-with the current output and input audio device — plus a Fluent-styled settings app.
+<p align="center">
+  <img src="https://img.shields.io/badge/Windows%2011-24H2%2B-0078D4?logo=windows11&logoColor=white" alt="Windows 11 24H2+">
+  <img src="https://img.shields.io/badge/.NET-10-512BD4?logo=dotnet&logoColor=white" alt=".NET 10">
+  <img src="https://img.shields.io/badge/WinUI-3-6B4FBB" alt="WinUI 3">
+  <img src="https://img.shields.io/badge/version-0.1.0-F5B83D" alt="Version 0.1.0">
+  <img src="https://img.shields.io/badge/no%20admin-fail--open-2EA043" alt="No admin, fail-open">
+</p>
 
-Status: early — tray app with its own OSD (output + input device, volume, mute) and a settings window;
-media info and autostart are next. See [docs/GOALS.md](docs/GOALS.md) for scope and progress.
+<h3 align="center">Press a volume key. See everything.</h3>
 
-Build and start (stops a running instance first): `pwsh scripts/run.ps1` (`-Test` also runs the tests).
+<p align="center">
+Windows tells you the volume and nothing else. <b>Daze Media OSD</b> replaces that pop-up with one that also
+shows <b>which speaker or headphones</b> you're on, <b>whether your mic is muted</b>, <b>what's playing</b>,
+and <b>which device just connected</b>. It looks like part of Windows 11, and it never gets in your way.
+</p>
 
-- Stack: C# / .NET 10, WinUI 3 (Windows App SDK 2.x), unpackaged — why: [docs/DECISIONS.md](docs/DECISIONS.md)
+---
+
+## The pop-up
+
+<table>
+  <tr>
+    <td width="50%" align="center"><img src="docs/images/popup-media.png" alt="Pop-up with the song, speakers at 48 and a muted microphone"></td>
+    <td width="50%" align="center"><img src="docs/images/popup-device.png" alt="Pop-up announcing a device that just connected"></td>
+  </tr>
+  <tr>
+    <td align="center"><b>Every press, the full picture</b><br>Track and cover art, your output with its level, your mic and its mute state.</td>
+    <td align="center"><b>Devices announce themselves</b><br>Plug in, pair or switch on, and the pop-up tells you what came and went.</td>
+  </tr>
+</table>
+
+## Why you'll keep it
+
+|  |  |
+|---|---|
+| 🎧 **Know where the sound goes** | Speakers, headphones or headset: the pop-up names the device and shows its type. |
+| 🎙️ **No more talking on mute** | Your microphone and its mute state are right under the volume. |
+| 🎵 **Now playing** | Song, artist and cover from players that share them with Windows, such as your browser or Telegram. Media keys bring it up too. |
+| 🔔 **Device alerts** | Bluetooth, USB or wired: see what connected or disconnected, once, with no noise. |
+| ⌨️ **A shortcut for every device** | `Win+Alt+A` steps through your outputs. Give each device its own keys: one press switches to it, and if it's Bluetooth headphones that are off, it connects them first. |
+| 🖱️ **Switch from the tray** | Right-click the tray icon to pick your output or input. |
+| ✨ **Feels native** | Acrylic glass, rounded corners, smooth fade and slide, and it follows your theme and "Animation effects". |
+| 🛡️ **Safe by design** | It never steals focus from your game or call, needs no admin rights and doesn't inject into Windows. If it quits or crashes, Windows' own pop-up comes straight back. |
+
+## Settings that stay out of your way
+
+<table>
+  <tr>
+    <td width="50%" align="center"><img src="docs/images/settings-popup.png" alt="Pop-up settings: position, hide after, what to show, start with Windows"></td>
+    <td width="50%" align="center"><img src="docs/images/settings-shortcuts.png" alt="Shortcut settings: next output and one shortcut per device"></td>
+  </tr>
+  <tr>
+    <td align="center"><b>Pick where it shows and what's on it</b><br>Every change previews live and saves instantly.</td>
+    <td align="center"><b>Record a shortcut by pressing it</b><br>Clashes are caught before they bite.</td>
+  </tr>
+</table>
+
+## Get it running
+
+You need Windows 11 24H2 or later and the [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0)
+(`winget install Microsoft.DotNet.SDK.10`).
+
+```powershell
+pwsh scripts/install.ps1   # build and install to %LOCALAPPDATA%\Programs\DazeMediaOsd, then start it
+```
+
+The icon appears in the tray (pin it from the `^` overflow). Click it for settings, and turn on
+**Start with Windows** there. For development, `pwsh scripts/run.ps1` builds and runs a Debug copy (`-Test`
+runs the tests too).
+
+## Status
+
+**0.1.0**, used every day on the author's machine. What's done and what's next:
+[docs/GOALS.md](docs/GOALS.md).
+
+## Under the hood
+
+C# / .NET 10, WinUI 3 (Windows App SDK 2.x), unpackaged and self-contained. Core Audio, raw input and
+Global System Media Transport Controls are reached through CsWin32 and CsWinRT.
+
 - Design: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
+- Why it's built this way: [docs/DECISIONS.md](docs/DECISIONS.md)
+- What didn't work: [docs/DEADENDS.md](docs/DEADENDS.md)
 - Building: [.claude/skills/build/SKILL.md](.claude/skills/build/SKILL.md)
 
-This repository is developed by AI agents; [CLAUDE.md](CLAUDE.md) is their entry point.
+<sub>Written entirely by AI agents. The repo is their memory, and [CLAUDE.md](CLAUDE.md) is where they start.</sub>

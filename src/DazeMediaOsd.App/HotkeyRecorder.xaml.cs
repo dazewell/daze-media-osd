@@ -16,7 +16,7 @@ namespace DazeMediaOsd.App;
 /// </summary>
 public sealed partial class HotkeyRecorder : UserControl
 {
-    private const string RecordingPrompt = "Press a shortcut";
+    private const string RecordingPrompt = "Press the keys";
 
     public static readonly DependencyProperty HotkeyProperty = DependencyProperty.Register(
         nameof(Hotkey), typeof(string), typeof(HotkeyRecorder), new PropertyMetadata("", (d, _) => ((HotkeyRecorder)d).OnStoredChanged()));
