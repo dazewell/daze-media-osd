@@ -49,6 +49,8 @@ tests/DazeMediaOsd.Core.Tests/   xUnit v3; logic only, fakes for IAudioService /
 scripts/                         run.ps1 (stop + build + start), stop.ps1 (safe stop), press-key.ps1
                                  (SendInput volume/media keys), audio-device.ps1 (list / set default output,
                                  dev only)
+docs/images/                     README art: hero.png and framed shots, captured from the running app (demo
+                                 media page, Stereo Mix as the connected device). Re-shoot after UI changes.
 spikes/FlyoutProbe/              console probe for the native flyout — re-run after Windows updates.
 spikes/BtProbe/                  every endpoint's state, container, KS filter and BtAudio support; connect /
                                  disconnect one (D-023). Re-run after Windows or audio driver updates.
