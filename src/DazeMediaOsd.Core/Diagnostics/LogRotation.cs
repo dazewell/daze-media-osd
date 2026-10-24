@@ -55,9 +55,12 @@ internal static class LogRotation
             File.Move(current, archive);
             return;
         }
-        // Same day archived before (clock turned back): keep both, in order.
-        File.AppendAllText(archive, File.ReadAllText(current));
-        File.Delete(current);
+        // Same day archived before (clock turned back): keep both, in order. Move first, so a locked
+        // app.log fails before anything is appended and a retry can't append it twice.
+        var moved = current + ".rotating";
+        File.Move(current, moved, overwrite: true);
+        File.AppendAllText(archive, File.ReadAllText(moved));
+        File.Delete(moved);
     }
 
     private static void TryDelete(string path)

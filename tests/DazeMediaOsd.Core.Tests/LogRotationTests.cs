@@ -96,13 +96,27 @@ public sealed class LogRotationTests : IDisposable
     }
 
     [Fact]
-    public void ALockedLogKeepsBeingAppendedTo()
+    public void ALockedLogIsLeftInPlace()
     {
         WriteCurrent("yesterday\n", new DateTime(2026, 10, 22, 23, 0, 0));
         using (new FileStream(Current, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
             LogRotation.Rotate(_directory, Now);
 
-        Assert.True(File.Exists(Current));
+        Assert.Equal("yesterday\n", File.ReadAllText(Current));
         Assert.False(File.Exists(Archive(10, 22)));
+    }
+
+    [Fact]
+    public void ALockedLogIsNotAppendedTwiceToAnExistingArchive()
+    {
+        File.WriteAllText(Archive(10, 22), "first\n");
+        WriteCurrent("second\n", new DateTime(2026, 10, 22, 20, 0, 0));
+        using (new FileStream(Current, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+            LogRotation.Rotate(_directory, Now);
+
+        LogRotation.Rotate(_directory, Now);
+
+        Assert.False(File.Exists(Current));
+        Assert.Equal("first\nsecond\n", File.ReadAllText(Archive(10, 22)));
     }
 }

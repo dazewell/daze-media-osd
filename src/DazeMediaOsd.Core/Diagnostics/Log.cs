@@ -60,10 +60,12 @@ public static class Log
             }
             if (!owned)
                 return; // another writer is stuck: drop the line rather than collide (debugger still has it)
-            if (_rotatedDay != now.Date)
+            // Read the clock again: the wait above may have crossed midnight.
+            var rotateNow = DateTime.Now;
+            if (_rotatedDay != rotateNow.Date)
             {
-                LogRotation.Rotate(_directory!, now);
-                _rotatedDay = now.Date;
+                LogRotation.Rotate(_directory!, rotateNow);
+                _rotatedDay = rotateNow.Date;
             }
             File.AppendAllText(_path, line + Environment.NewLine);
         }
