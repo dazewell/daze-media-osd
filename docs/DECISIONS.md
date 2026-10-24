@@ -436,3 +436,20 @@ Status: accepted
   CommunityToolkit.Mvvm: MIT; xunit: test-only) are GPL-3.0-compatible.
 - Revisit if: outside contributions start (consider a DCO sign-off), or a dependency with a
   GPL-incompatible license is added.
+
+## D-028 · 2026-10-23 · Log rotation: rename `app.log` on the first write of a new day, keep 7 days
+Status: accepted
+- Decision: `app.log` is always today's file. Under the existing cross-process log mutex, the first write
+  of a day (per process, `_rotatedDay`) calls `LogRotation.Rotate`: if `app.log` was last written on an
+  earlier day it becomes `app-yyyy-MM-dd.log` (that day), then archives ≥ 7 days old are deleted (today
+  + 6 archives kept). Whichever process writes first rotates; the other then sees a fresh `app.log`.
+- Why: the user wants at most the last 7 days, deleted automatically (2026-10-23). Keeping the name
+  `app.log` means `scripts/run.ps1`, the About page's "open log" and every agent's habit keep working.
+  The mutex already serializes both processes and every write opens/closes the file, so a rename between
+  writes is safe.
+- Why not per-day file names only (`app-<date>.log` written directly): everything that opens `app.log`
+  would need today's name. Why not trimming one file: rewriting it means parsing multi-line exception
+  entries and copying the whole log under the mutex on every trim. Why not launcher-only rotation: the
+  app outlives day changes too, and the mutex already makes either process safe.
+- Revisit if: someone tails `app.log` without delete sharing across midnight — the rename fails and that
+  day's lines stay in `app.log` until the next day's rotation (logged to the debugger only).

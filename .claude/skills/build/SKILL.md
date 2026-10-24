@@ -52,7 +52,8 @@ back from the installed copy afterwards.
 need to keep working, and stop it with `scripts/stop.ps1`. The Debug exe is
 `src/DazeMediaOsd.App/bin/Debug/net10.0-windows10.0.26100.0/win-x64/DazeMediaOsd.exe`.
 
-Seeing what the app did: `%LOCALAPPDATA%\DazeMediaOsd\logs\app.log` (both processes, pid per line).
+Seeing what the app did: `%LOCALAPPDATA%\DazeMediaOsd\logs\app.log` (both processes, pid per line; today
+only, earlier days in `app-yyyy-MM-dd.log`, 7 days kept, D-028).
 Read it (and `settings.json`) from PowerShell: the agent's Bash tool may run sandboxed with a stale copy
 of `%LOCALAPPDATA%` — it showed a log 25 minutes old while the real one was current (2026-10-22).
 
