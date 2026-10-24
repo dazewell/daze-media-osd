@@ -160,7 +160,8 @@ unit-tested with fakes. App never P/Invokes directly; window styling goes throug
 - Raw input registration is per process and per device class. WinUI doesn't register keyboard raw
   input: with the settings window focused, typing in its NumberBox works and volume keys still reach
   `RawInputKeySource` (2026-10-22). Re-check if anything else registers 0x01/0x06 in this process.
-- Log: `%LOCALAPPDATA%\DazeMediaOsd\logs\app.log`, both processes (pid per line). Every show is a
+- Log: `%LOCALAPPDATA%\DazeMediaOsd\logs\app.log`, both processes (pid per line). Today only: older days
+  are `app-yyyy-MM-dd.log`, 7 days kept (D-028). Every show is a
   `show <reason>: out=… in=… media=…` line; every media state change a `media: …` line.
   Read it with PowerShell: the Bash tool's sandbox served a stale copy (2026-10-23). `launcher: app
   exited with -1` is a kill (install script, Task Manager); a crash is an NTSTATUS like -1073741189.

@@ -108,13 +108,12 @@ this file and know what to build next. History of *why* lives in [DECISIONS.md](
 - [x] README as a showcase: hero banner, pop-up and settings shots in docs/images (user, 2026-10-23)
 - [x] License: GPL-3.0-or-later + Windows App SDK exception, picked by the user in a questionnaire (D-027)
   (2026-10-23)
+- [x] Log rotation (D-028): first write of a day renames `app.log` to `app-<date>.log`, archives ≥ 7 days
+  old deleted. Seen: `Log` on a temp folder with a stale `app.log` (archived) and 7/6-day-old archives
+  (deleted / kept) (2026-10-23). Not seen: a real midnight with both processes running
 
-**Next step:** log rotation (user, 2026-10-23): `app.log` grows forever today (one file, both
-processes append, `Core.Diagnostics.Log`). Keep at most the last 7 days and delete older logs
-automatically; both processes share the file, so only one of them may rotate. Record the choice
-(per-day files vs. trimming one file) as a decision.
-
-Then the user lives with the finished Plan C and Bluetooth connect (D-023) on the daily driver for a
+**Next step:** reinstall (`pwsh scripts/install.ps1`) so the daily driver rotates its log; after the
+next midnight check that `logs\` has `app-<yesterday>.log` and a fresh `app.log`. Then the user lives with the finished Plan C and Bluetooth connect (D-023) on the daily driver for a
 day (real device shortcuts, presses while the headphones are off or disconnected) and reports back. Then pick the next feature from the PR #8 survey with the user. When convenient: the headset glyph
 (Technics hands-free as default mic) and the monitor glyph (Dell over DisplayPort).
 
