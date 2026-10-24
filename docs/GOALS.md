@@ -112,8 +112,8 @@ processes append, `Core.Diagnostics.Log`). Keep at most the last 7 days and dele
 automatically; both processes share the file, so only one of them may rotate. Record the choice
 (per-day files vs. trimming one file) as a decision.
 
-Then the user tries Plan C and Bluetooth connect (D-023) on the daily driver (real device
-shortcuts, presses while the headphones are off or disconnected, live with them a day). Then pick the next feature from the PR #8 survey with the user. When convenient: the headset glyph
+Then the user lives with the finished Plan C and Bluetooth connect (D-023) on the daily driver for a
+day (real device shortcuts, presses while the headphones are off or disconnected) and reports back. Then pick the next feature from the PR #8 survey with the user. When convenient: the headset glyph
 (Technics hands-free as default mic) and the monitor glyph (Dell over DisplayPort).
 
 Plan B (quick switching) is done: tray menu (D-019), cycle-output hotkey (D-020, D-021). Its third

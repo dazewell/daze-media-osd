@@ -65,9 +65,18 @@ public sealed partial class SettingsWindow : Window
     {
         var package = new DataPackage();
         package.SetText(Details());
-        Clipboard.SetContent(package);
-        CopyDetailsIcon.Glyph = "\uE73E"; // CheckMark
-        CopyDetailsText.Text = "Copied";
+        try
+        {
+            Clipboard.SetContent(package);
+            CopyDetailsIcon.Glyph = "\uE73E"; // CheckMark
+            CopyDetailsText.Text = "Copied";
+        }
+        catch (COMException ex) // another app holds the clipboard open (CLIPBRD_E_CANT_OPEN)
+        {
+            Log.Error("copy details failed", ex);
+            CopyDetailsIcon.Glyph = "\uE783"; // Error
+            CopyDetailsText.Text = "Couldn't copy";
+        }
         var timer = DispatcherQueue.CreateTimer();
         timer.Interval = TimeSpan.FromSeconds(2);
         timer.IsRepeating = false;
@@ -86,7 +95,7 @@ public sealed partial class SettingsWindow : Window
         var log = Path.Combine(Log.DefaultDirectory, "app.log");
         if (!File.Exists(log))
         {
-            OpenInExplorer(SettingsStore.DefaultDirectory);
+            OpenInExplorer(Log.DefaultDirectory);
             return;
         }
         using var _ = Process.Start(new ProcessStartInfo(log) { UseShellExecute = true }); // default .log editor
