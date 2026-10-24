@@ -106,6 +106,8 @@ this file and know what to build next. History of *why* lives in [DECISIONS.md](
 - [x] Settings wording rewritten by a UX-writer pass (D-026): "pop-up" for the OSD, "What to show",
   positions in screen order, plain notes. Seen: all three pages (2026-10-23)
 - [x] README as a showcase: hero banner, pop-up and settings shots in docs/images (user, 2026-10-23)
+- [x] License: GPL-3.0-or-later + Windows App SDK exception, picked by the user in a questionnaire (D-027)
+  (2026-10-23)
 
 **Next step:** log rotation (user, 2026-10-23): `app.log` grows forever today (one file, both
 processes append, `Core.Diagnostics.Log`). Keep at most the last 7 days and delete older logs

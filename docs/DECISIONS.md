@@ -421,3 +421,18 @@ Status: accepted
 - Why not keep "OSD" or "flyout": jargon a regular user doesn't know. Why the App folder card stays
   (the writer suggested dropping it): it's how the user tells a Debug copy from the installed one.
 - Revisit if: the OSD itself or the tray menu gets user-facing text — use the same terms there.
+
+## D-027 · 2026-10-23 · License: GPL-3.0-or-later, with a Windows App SDK exception
+Status: accepted
+- Decision: `LICENSE` is the verbatim GPL-3.0 text (from GitHub's license API); the project is
+  GPL-3.0-or-later. README carries a section 7 additional permission to convey the program combined with
+  the Windows App SDK. Copyright holder: dazewell (matches `<Copyright>` in Directory.Build.props).
+- Why: the user chose, in a plain-language questionnaire (2026-10-23), that anyone handing out a changed
+  version must publish its source. The exception exists because the self-contained publish bundles the
+  Windows App SDK runtime, which is under Microsoft's proprietary terms, not a GPL "System Library".
+  "Or later" is the FSF default and lets a future GPL apply without re-licensing.
+- Why not MIT / Apache-2.0: let a closed fork ship without its source (what the user rejected). Why not
+  MPL-2.0: only changed files stay open. Why not AGPL: no network service to cover. Other deps (CsWin32,
+  CommunityToolkit.Mvvm: MIT; xunit: test-only) are GPL-3.0-compatible.
+- Revisit if: outside contributions start (consider a DCO sign-off), or a dependency with a
+  GPL-incompatible license is added.

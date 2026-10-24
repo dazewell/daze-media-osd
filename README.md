@@ -8,6 +8,7 @@
   <img src="https://img.shields.io/badge/WinUI-3-6B4FBB" alt="WinUI 3">
   <img src="https://img.shields.io/badge/version-0.1.0-F5B83D" alt="Version 0.1.0">
   <img src="https://img.shields.io/badge/no%20admin-fail--open-2EA043" alt="No admin, fail-open">
+  <img src="https://img.shields.io/badge/license-GPL--3.0-blue" alt="License: GPL-3.0-or-later">
 </p>
 
 <h3 align="center">Press a volume key. See everything.</h3>
@@ -86,5 +87,15 @@ Global System Media Transport Controls are reached through CsWin32 and CsWinRT.
 - Why it's built this way: [docs/DECISIONS.md](docs/DECISIONS.md)
 - What didn't work: [docs/DEADENDS.md](docs/DEADENDS.md)
 - Building: [.claude/skills/build/SKILL.md](.claude/skills/build/SKILL.md)
+
+## License
+
+[GPL-3.0-or-later](LICENSE). Use it, change it, share it, even sell it. If you hand out a changed version,
+you hand out its source code too, under the same license.
+
+Additional permission under GNU GPL version 3 section 7: if you modify this program, or any covered work,
+by linking or combining it with the Windows App SDK (or a modified version of it), containing parts covered
+by the terms of the Microsoft Software License Terms for the Windows App SDK, the licensors of this program
+grant you additional permission to convey the resulting work.
 
 <sub>Written entirely by AI agents. The repo is their memory, and [CLAUDE.md](CLAUDE.md) is where they start.</sub>
