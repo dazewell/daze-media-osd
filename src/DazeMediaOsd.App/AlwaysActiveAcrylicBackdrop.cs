@@ -42,6 +42,12 @@ internal sealed partial class AlwaysActiveAcrylicBackdrop : SystemBackdrop
         _configuration = null;
     }
 
+    // Raised on a system theme change. The base implementation throws E_INVALIDARG ("target") for a custom
+    // backdrop, which XAML turns into a fail-fast (X-007). Our configuration follows ActualThemeChanged instead.
+    protected override void OnDefaultSystemBackdropConfigurationChanged(ICompositionSupportsSystemBackdrop target, XamlRoot xamlRoot)
+    {
+    }
+
     private static SystemBackdropTheme ToBackdropTheme(ElementTheme theme) => theme switch
     {
         ElementTheme.Dark => SystemBackdropTheme.Dark,

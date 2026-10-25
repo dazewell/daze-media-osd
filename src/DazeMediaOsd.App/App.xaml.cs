@@ -38,6 +38,8 @@ public sealed partial class App : Application, IDisposable
         InitializeComponent();
         // Tray-resident: no window has to be open for the app to keep running.
         DispatcherShutdownMode = DispatcherShutdownMode.OnExplicitShutdown;
+        // Logged, not handled: XAML then fail-fasts and the launcher restores the native flyout (D-006).
+        UnhandledException += (_, e) => Log.Error($"unhandled exception: {e.Message}", e.Exception);
     }
 
     protected override void OnLaunched(LaunchActivatedEventArgs args)

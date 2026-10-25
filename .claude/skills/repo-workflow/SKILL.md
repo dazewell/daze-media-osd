@@ -57,7 +57,7 @@ Refs: D-001
 Never commit `bin/`, `obj/`, publish output, local settings, or anything with secrets.
 
 Version (D-024): a PR with a `feat` commit bumps the minor `<Version>` in `Directory.Build.props`, a `fix`-only
-PR the patch; docs/chore/spike PRs don't. Bump once per PR, against `main`'s number.
+PR the patch; docs/chore/spike PRs don't. Bump once per PR, against `main`'s number, and the README's version badge and Status line with it.
 
 ## 5. Definition of done
 

@@ -165,6 +165,8 @@ unit-tested with fakes. App never P/Invokes directly; window styling goes throug
   `show <reason>: out=… in=… media=…` line; every media state change a `media: …` line.
   Read it with PowerShell: the Bash tool's sandbox served a stale copy (2026-10-23). `launcher: app
   exited with -1` is a kill (install script, Task Manager); a crash is an NTSTATUS like -1073741189.
+  An exception escaping a XAML event handler is logged first (`ERROR unhandled exception: …` + stack),
+  then XAML fail-fasts; the minidump in `%LOCALAPPDATA%\CrashDumps` has no managed heap.
 
 ## Media sessions (verified on build 26300, 2026-10-22; D-011)
 
@@ -213,7 +215,9 @@ unit-tested with fakes. App never P/Invokes directly; window styling goes throug
   replaying. Measured 2026-10-22: content visible from the first frame after the key, settled ~180 ms.
   The first show after app start puts one frame darker than the background (the window's first
   composition) — not compared with the unanimated build.
-- Not verified yet: light theme, multi-monitor/DPI change, show latency, "Animation effects" off (needs
+- Theme: follows a live system light/dark switch (acrylic + ThemeResource brushes); seen 2026-10-24
+  switching 4× from Settings, no crash (X-007).
+- Not verified yet: multi-monitor/DPI change, show latency, "Animation effects" off (needs
   changing the user's setting).
 
 ## Tray icon (verified on build 26300, 2026-10-22; D-009)
