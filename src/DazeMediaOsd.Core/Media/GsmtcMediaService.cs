@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 using DazeMediaOsd.Core.Diagnostics;
 using Windows.Media.Control;
@@ -18,6 +19,7 @@ public sealed class GsmtcMediaService : IMediaService
     private const uint MaxThumbnailBytes = 4 * 1024 * 1024;
     private const int MaxRetries = 5;
     private static readonly TimeSpan RetryDelay = TimeSpan.FromMilliseconds(200);
+    private static readonly TimeSpan SlowThumbnail = TimeSpan.FromMilliseconds(50);
 
     private readonly Lock _gate = new();
     private SessionManager? _manager;
@@ -103,7 +105,7 @@ public sealed class GsmtcMediaService : IMediaService
         {
             var session = _manager?.GetCurrentSession();
             Follow(session);
-            next = session is null ? null : await ReadAsync(session, Current);
+            next = session is null ? null : await ReadAsync(session, Current, Publish);
         }
         // Seen on 26300: TryGetMediaPropertiesAsync fails with RPC_E_WRONG_THREAD (0x8001010E) right after
         // a Chromium player pauses, and no further event follows. Publishing "no session" then would hide
@@ -113,8 +115,14 @@ public sealed class GsmtcMediaService : IMediaService
             Log.Info($"reading the media session failed (0x{e.HResult:X8}), will retry");
             return false;
         }
+        Publish(next);
+        return true;
+    }
+
+    private void Publish(MediaState? next)
+    {
         if (_disposed || next == Current)
-            return true;
+            return;
         Current = next;
         Log.Info(next is null
             ? "media: no session"
@@ -127,7 +135,6 @@ public sealed class GsmtcMediaService : IMediaService
         {
             Log.Error("media change handler", e);
         }
-        return true;
     }
 
     // Under _gate, like Dispose: otherwise a refresh could subscribe after Dispose unsubscribed and leave
@@ -155,7 +162,9 @@ public sealed class GsmtcMediaService : IMediaService
         }
     }
 
-    private static async Task<MediaState?> ReadAsync(Session session, MediaState? previous)
+    // A new track goes out with the previous cover before the new one is read (`early`): reading the cover
+    // can take a while, and the OSD crossfades to it when it comes (D-033).
+    private static async Task<MediaState?> ReadAsync(Session session, MediaState? previous, Action<MediaState> early)
     {
         var properties = await session.TryGetMediaPropertiesAsync();
         var playback = session.GetPlaybackInfo();
@@ -163,16 +172,25 @@ public sealed class GsmtcMediaService : IMediaService
         // A session without a title (a player between tracks, a tab with no media) has nothing to show.
         if (title.Length == 0)
             return null;
-        var thumbnail = properties?.Thumbnail is { } reference ? await ReadThumbnailAsync(reference) : null;
-        // Same bytes → same array, so an unchanged session compares equal (no change event, OSD coalescing).
-        if (thumbnail is not null && previous?.Thumbnail is { } old && thumbnail.AsSpan().SequenceEqual(old))
-            thumbnail = old;
-        return new MediaState(
+        var text = new MediaState(
             session.SourceAppUserModelId ?? "",
             title,
             properties?.Artist ?? "",
             playback?.PlaybackStatus == GlobalSystemMediaTransportControlsSessionPlaybackStatus.Playing,
-            thumbnail);
+            previous?.Thumbnail);
+        if (properties?.Thumbnail is not { } reference)
+            return text with { Thumbnail = null };
+        if (previous is null || text with { Thumbnail = null } != previous with { Thumbnail = null })
+            early(text);
+        var started = Stopwatch.GetTimestamp();
+        var thumbnail = await ReadThumbnailAsync(reference);
+        var took = Stopwatch.GetElapsedTime(started);
+        if (took > SlowThumbnail)
+            Log.Info($"media thumbnail took {took.TotalMilliseconds:F0} ms");
+        // Same bytes → same array, so an unchanged session compares equal (no change event, OSD coalescing).
+        if (thumbnail is not null && previous?.Thumbnail is { } old && thumbnail.AsSpan().SequenceEqual(old))
+            thumbnail = old;
+        return text with { Thumbnail = thumbnail };
     }
 
     private static async Task<byte[]?> ReadThumbnailAsync(IRandomAccessStreamReference reference)

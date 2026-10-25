@@ -29,12 +29,16 @@ public sealed partial class OsdWindow : Window
     private static readonly TimeSpan HideDuration = TimeSpan.FromMilliseconds(150);
     // Shows start one frame in, so the first composed frame is already visible (no later than unanimated).
     private static readonly TimeSpan FirstFrameLead = TimeSpan.FromMilliseconds(16);
+    private static readonly TimeSpan CoverFade = TimeSpan.FromMilliseconds(250);
+    private const int CoverDip = 40;
 
     private readonly nint _hwnd;
     private readonly DispatcherQueueTimer _hideTimer;
     private AppSettings _settings = AppSettings.Default;
     private int _outputPercent;
     private byte[]? _thumbnail;
+    private Storyboard? _coverFade;
+    private Action? _coverFadeEnd;
     private Storyboard? _eventEntrance;
     private readonly OsdAnimation _animation = new(ShowDuration, HideDuration);
     private readonly Stopwatch _clock = Stopwatch.StartNew();
@@ -87,10 +91,11 @@ public sealed partial class OsdWindow : Window
         // Before Render, so the first frame is already the animation's first frame. A no-op while shown.
         // The lead only from hidden: a reversal mid-fade continues from the current value, without a jump.
         var now = _clock.Elapsed;
+        var wasHidden = _animation.IsHidden;
         _animation.Show(_animation.IsHidden ? now - FirstFrameLead : now, OverlayWindow.AnimationsEnabled());
         _animation.Tick(now);
         RenderDevice(state.Device);
-        Render(state);
+        Render(state, fadeCover: !wasHidden);
         Animate();
         _hideTimer.Stop();
         _hideTimer.Start();
@@ -104,12 +109,13 @@ public sealed partial class OsdWindow : Window
     {
         ArgumentNullException.ThrowIfNull(state);
         if (!_animation.IsHidden)
-            Render(state);
+            Render(state, fadeCover: true);
     }
 
-    private void Render(OsdState state)
+    // A cover fades only while the OSD is already on screen: a fresh show starts with the right one.
+    private void Render(OsdState state, bool fadeCover)
     {
-        RenderMedia(state.Media);
+        RenderMedia(state.Media, fadeCover);
         RenderOutput(state.Output);
         RenderInput(state.Input);
         Place();
@@ -182,7 +188,7 @@ public sealed partial class OsdWindow : Window
         _eventEntrance.Begin();
     }
 
-    private void RenderMedia(MediaState? media)
+    private void RenderMedia(MediaState? media, bool fadeCover)
     {
         if (media is null || !_settings.ShowMedia)
         {
@@ -194,39 +200,103 @@ public sealed partial class OsdWindow : Window
         MediaArtist.Text = media.Artist;
         MediaArtist.Visibility = media.Artist.Length == 0 ? Visibility.Collapsed : Visibility.Visible;
         MediaPlayback.Glyph = media.IsPlaying ? "" : ""; // Play / Pause
-        RenderThumbnail(media.Thumbnail);
+        RenderThumbnail(media.Thumbnail, fadeCover);
     }
 
-    // The service keeps the same array while the cover is unchanged, so this decodes once per cover.
-    private async void RenderThumbnail(byte[]? bytes)
+    // The service keeps the same array while the cover is unchanged, so this decodes once per cover. The old
+    // cover stays until the new one is decoded (no placeholder flash), then crossfades to it (D-033).
+    private async void RenderThumbnail(byte[]? bytes, bool fade)
     {
         if (ReferenceEquals(bytes, _thumbnail))
             return;
         _thumbnail = bytes;
-        MediaThumbnail.Source = null;
-        MediaPlaceholder.Visibility = Visibility.Visible;
-        if (bytes is null)
-            return;
-        try
+        BitmapImage? image = null;
+        if (bytes is not null)
         {
-            var image = new BitmapImage();
-            using (var stream = new MemoryStream(bytes).AsRandomAccessStream())
-                await image.SetSourceAsync(stream);
+            try
+            {
+                // Decoded at the size it's drawn, not the player's 300–640 px. By height: wide video
+                // thumbnails fill the square by height (UniformToFill).
+                image = new BitmapImage { DecodePixelType = DecodePixelType.Logical, DecodePixelHeight = CoverDip };
+                using (var stream = new MemoryStream(bytes).AsRandomAccessStream())
+                    await image.SetSourceAsync(stream);
+            }
+            catch (Exception e) when (e is COMException or ArgumentException)
+            {
+                Log.Error($"media thumbnail ({bytes.Length} B) could not be decoded", e);
+                image = null;
+            }
             if (!ReferenceEquals(bytes, _thumbnail))
                 return; // a newer cover arrived while this one decoded
-            MediaThumbnail.Source = image;
-            MediaPlaceholder.Visibility = Visibility.Collapsed;
         }
-        catch (Exception e) when (e is COMException or ArgumentException)
+        ShowCover(image, fade && OverlayWindow.AnimationsEnabled());
+    }
+
+    // MediaThumbnail holds the shown cover; MediaThumbnailNext, on top, fades a new one in and then hands it down.
+    private void ShowCover(BitmapImage? image, bool fade)
+    {
+        EndCoverFade();
+        if (!fade || (image is null && MediaThumbnail.Source is null))
         {
-            Log.Error($"media thumbnail ({bytes.Length} B) could not be decoded", e);
+            SetCover(image);
+            return;
         }
+        if (image is null)
+        {
+            // No cover: the old one fades out to the placeholder.
+            MediaPlaceholder.Visibility = Visibility.Visible;
+            FadeCover(MediaThumbnail, from: 1, to: 0, () => SetCover(null));
+            return;
+        }
+        MediaThumbnailNext.Source = image;
+        FadeCover(MediaThumbnailNext, from: 0, to: 1, () => SetCover(image));
+    }
+
+    private void SetCover(BitmapImage? image)
+    {
+        MediaThumbnail.Source = image;
+        MediaThumbnail.Opacity = 1;
+        MediaThumbnailNext.Source = null;
+        MediaThumbnailNext.Opacity = 0;
+        MediaPlaceholder.Visibility = image is null ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    // Opacity runs on the composition thread. Storyboard.Stop doesn't raise Completed, so the end is kept
+    // to run when a newer cover cuts the fade short.
+    private void FadeCover(UIElement target, double from, double to, Action end)
+    {
+        var animation = new DoubleAnimation
+        {
+            From = from,
+            To = to,
+            Duration = CoverFade,
+            EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut },
+        };
+        Storyboard.SetTarget(animation, target);
+        Storyboard.SetTargetProperty(animation, "Opacity");
+        var storyboard = new Storyboard();
+        storyboard.Children.Add(animation);
+        storyboard.Completed += (_, _) =>
+        {
+            if (ReferenceEquals(_coverFade, storyboard))
+                EndCoverFade();
+        };
+        (_coverFade, _coverFadeEnd) = (storyboard, end);
+        storyboard.Begin();
+    }
+
+    private void EndCoverFade()
+    {
+        var (storyboard, end) = (_coverFade, _coverFadeEnd);
+        (_coverFade, _coverFadeEnd) = (null, null);
+        storyboard?.Stop(); // drops the animated value; end sets the final one
+        end?.Invoke();
     }
 
     private void OnThumbnailFailed(object sender, ExceptionRoutedEventArgs e)
     {
-        MediaThumbnail.Source = null;
-        MediaPlaceholder.Visibility = Visibility.Visible;
+        EndCoverFade();
+        SetCover(null);
     }
 
     private void RenderOutput(EndpointState? output)

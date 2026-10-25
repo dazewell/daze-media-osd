@@ -125,6 +125,8 @@ this file and know what to build next. History of *why* lives in [DECISIONS.md](
   (2026-10-24). Not seen: the About card on screen, Restart now, the real GitHub feed
 - [x] Opt-in pop on track change / play-pause (D-032): "When the song changes or pauses" toggle under Now
   playing, off by default; unit-tested. Not seen yet: the toggle on screen, real players (log `show MediaPlayback`)
+- [x] Cover lag (user saw it, 2026-10-24; D-033): title first, cover crossfades in when read and decoded,
+  decoded at display size. Not seen yet: on screen; how long Spotify's cover read takes (log `media thumbnail took`)
 
 **Next step:** look at the new toggle in Settings and turn it on for a day: a track change in Spotify/Chromium
 pops once (log `show MediaPlayback`), a media key doesn't pop twice visibly, browser videos don't spam.

@@ -536,3 +536,17 @@ Supersedes: D-011 in part (its "a session change never pops" rule, now only the 
   Why not two toggles (track / play-pause): the user asked for one option.
 - Revisit if: daily use shows pops from videos/notifications in the browser, or play-state flicker between
   tracks pops twice.
+
+## D-033 · 2026-10-24 · Cover art: text first, crossfade to the new cover
+Status: accepted
+- Decision: `GsmtcMediaService` publishes a new track/play state with the previous cover, then again once the
+  new cover is read. `OsdWindow` keeps the shown cover until the new one is decoded, then fades it in (250 ms)
+  on a second `Image` on top; no cover → the old one fades out to the placeholder. Decoded at 40 logical px
+  (by height). Only while the OSD is already visible and "Animation effects" is on (D-012).
+- Why: the user saw the cover lag behind the title (2026-10-24). Before, the title waited for the whole cover
+  read, then the cover went to the placeholder icon while a 100–180 KB JPEG decoded at full size: a flash, then
+  a pop. Now the text is instant and the cover change reads as intended.
+- Why not cache covers by track: a player can reuse or change art per track; reads are once per change anyway.
+  Why not hide the old cover until the new one comes: the placeholder flash was the visible part of the lag.
+- Revisit if: the log shows `media thumbnail took` > ~300 ms often (then show the placeholder sooner), or the
+  old cover under a new title reads as wrong.
