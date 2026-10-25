@@ -306,6 +306,17 @@ public sealed partial class OsdWindow : Window
 
     private void OnThumbnailFailed(object sender, ExceptionRoutedEventArgs e)
     {
+        if (ReferenceEquals(sender, MediaThumbnailNext))
+        {
+            // The incoming cover failed: drop the fade and keep the one shown below.
+            _coverFade?.Stop();
+            (_coverFade, _coverFadeEnd) = (null, null);
+            MediaThumbnailNext.Source = null;
+            MediaThumbnailNext.Opacity = 0;
+            MediaThumbnail.Opacity = 1;
+            MediaPlaceholder.Visibility = MediaThumbnail.Source is null ? Visibility.Visible : Visibility.Collapsed;
+            return;
+        }
         EndCoverFade();
         SetCover(null);
     }

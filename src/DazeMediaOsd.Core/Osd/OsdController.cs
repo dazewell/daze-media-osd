@@ -52,19 +52,22 @@ public sealed class OsdController : IDisposable
         _keys = keys ?? throw new ArgumentNullException(nameof(keys));
         _media = media ?? throw new ArgumentNullException(nameof(media));
         _time = time ?? TimeProvider.System;
-        _lastMedia = _media.Current;
         _audio.Changed += OnAudioChanged;
         _keys.KeyPressed += OnKeyPressed;
         _media.Changed += OnMediaChanged;
+        // After subscribing: a change in between then lands in _lastMedia instead of being missed. Only if no
+        // event already set it, which would be newer than this read.
+        Interlocked.CompareExchange(ref _lastMedia, _media.Current, null);
     }
 
     /// <summary>Raised on the audio, key or media thread; marshal to the UI thread before rendering.</summary>
     public event EventHandler<OsdState>? ShowRequested;
 
     /// <summary>
-    /// The media session changed: re-render the OSD if it is visible, without popping it or extending its
-    /// time. A media key arrives before the player reacts, so this carries the new track or play state.
-    /// Raised on the media thread.
+    /// The media session changed in a way that never pops the OSD (a late cover, a session ending): re-render
+    /// it if visible, without extending its time. A new track or play state goes out as a
+    /// <see cref="ShowRequested"/> with <see cref="OsdReason.MediaPlayback"/> instead, which the app turns
+    /// back into a refresh unless the user opted in (D-032). Raised on the media thread.
     /// </summary>
     public event EventHandler<OsdState>? RefreshRequested;
 

@@ -172,12 +172,14 @@ public sealed class GsmtcMediaService : IMediaService
         // A session without a title (a player between tracks, a tab with no media) has nothing to show.
         if (title.Length == 0)
             return null;
+        var appId = session.SourceAppUserModelId ?? "";
         var text = new MediaState(
-            session.SourceAppUserModelId ?? "",
+            appId,
             title,
             properties?.Artist ?? "",
             playback?.PlaybackStatus == GlobalSystemMediaTransportControlsSessionPlaybackStatus.Playing,
-            previous?.Thumbnail);
+            // Another player's cover under this title would be wrong, not just late.
+            previous?.AppId == appId ? previous.Thumbnail : null);
         if (properties?.Thumbnail is not { } reference)
             return text with { Thumbnail = null };
         if (previous is null || text with { Thumbnail = null } != previous with { Thumbnail = null })

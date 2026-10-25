@@ -539,8 +539,8 @@ Supersedes: D-011 in part (its "a session change never pops" rule, now only the 
 
 ## D-033 · 2026-10-24 · Cover art: text first, crossfade to the new cover
 Status: accepted
-- Decision: `GsmtcMediaService` publishes a new track/play state with the previous cover, then again once the
-  new cover is read. `OsdWindow` keeps the shown cover until the new one is decoded, then fades it in (250 ms)
+- Decision: `GsmtcMediaService` publishes a new track/play state with the previous cover (same player only;
+  another player's starts with none), then again once the new cover is read. `OsdWindow` keeps the shown cover until the new one is decoded, then fades it in (250 ms)
   on a second `Image` on top; no cover → the old one fades out to the placeholder. Decoded at 40 logical px
   (by height). Only while the OSD is already visible and "Animation effects" is on (D-012).
 - Why: the user saw the cover lag behind the title (2026-10-24). Before, the title waited for the whole cover
