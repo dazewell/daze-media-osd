@@ -505,13 +505,17 @@ Status: accepted
 
 ## D-031 · 2026-10-24 · Release on merge: a push to main with an untagged `<Version>` publishes it
 Status: accepted
-- Decision: `release.yml` also runs on pushes to main. A `check` job reads `<Version>`; if tag `v<Version>`
-  exists it stops, else the `release` job tests, packs and `vpk upload --tag v<Version> --targetCommitish
+- Decision: `release.yml` also runs on pushes to main. A `check` job reads `<Version>` and asks the API for a
+  published release `v<Version>` (`releases/tags/`, which ignores drafts): 200 stops, 404 releases, anything
+  else fails the run. The `release` job tests, packs, deletes leftover drafts of that version (a failed upload
+  leaves one, and vpk refuses an existing release), then `vpk upload --tag v<Version> --targetCommitish
   <sha>`: publishing the draft creates the tag on that commit. A hand-pushed `v<Version>` tag still works
   (must match `<Version>`). `concurrency: release` keeps two quick merges from releasing one version twice.
 - Why: the user wants releases without tagging by hand (2026-10-24); D-024 already bumps the version in
   every feat/fix PR, so "untagged version on main" is exactly "something new to ship". Tag at upload, not up
   front: a failed run leaves no tag, so the next push to main retries instead of skipping that version.
+  Accepted: a version that never released before a higher one lands is skipped (installs update to the
+  newest anyway), and a queued run replaced by a newer push only drops an older version the same way.
 - Why not a separate auto-tag workflow: a tag pushed with `GITHUB_TOKEN` doesn't trigger other workflows,
   so the release would never run without a PAT or GitHub App secret. Why not `workflow_call` from an
   auto-tag workflow: two files and inputs for what one `check` job does.

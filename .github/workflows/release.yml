@@ -1,8 +1,8 @@
 # Publishes a GitHub Release with the Velopack Setup.exe, portable zip and update feed (D-029) for the
 # <Version> in Directory.Build.props (D-024), from either trigger (D-031):
-# - a push to main whose <Version> has no v<Version> tag yet: the upload creates the tag on that commit, so a
-#   failed run leaves no tag and the next push to main retries. (A tag pushed with GITHUB_TOKEN wouldn't start
-#   another workflow, which is why tagging and releasing are one run.)
+# - a push to main whose <Version> has no published release yet: publishing creates the tag on that commit,
+#   so a failed run leaves at most a draft (deleted on retry) and the next push to main retries. (A tag pushed
+#   with GITHUB_TOKEN wouldn't start another workflow, which is why tagging and releasing are one run.)
 # - a pushed tag v<Version>, by hand.
 name: Release
 
@@ -29,15 +29,21 @@ jobs:
       - uses: actions/checkout@v5
       - id: check
         shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           $version = ([xml](Get-Content Directory.Build.props)).Project.PropertyGroup.Version | Where-Object { $_ } | Select-Object -First 1
           if ($env:GITHUB_REF_TYPE -eq 'tag') {
               if ("v$version" -ne $env:GITHUB_REF_NAME) { throw "Tag $env:GITHUB_REF_NAME doesn't match <Version> $version in Directory.Build.props." }
               $release = 'true'
           } else {
-              $existing = git ls-remote --tags origin "refs/tags/v$version"
-              $release = if ($existing) { 'false' } else { 'true' }
-              Write-Host $(if ($existing) { "v$version is already released; nothing to do." } else { "v$version has no tag yet: releasing." })
+              # A published release is the proof, not the tag: a failed upload leaves only a draft (no tag), which
+              # the release job deletes before retrying. This endpoint ignores drafts. Anything but 200/404 stops
+              # the run rather than guessing.
+              $answer = gh api "repos/$env:GITHUB_REPOSITORY/releases/tags/v$version" --jq .html_url 2>&1
+              if ($LASTEXITCODE -eq 0) { $release = 'false'; Write-Host "v$version is already released: $answer" }
+              elseif ("$answer" -match 'HTTP 404') { $release = 'true'; Write-Host "v$version has no published release yet: releasing." }
+              else { throw "Couldn't look up release v${version}: $answer" }
           }
           "version=$version" >> $env:GITHUB_OUTPUT
           "release=$release" >> $env:GITHUB_OUTPUT
@@ -70,6 +76,23 @@ jobs:
       - name: Pack
         shell: pwsh
         run: ./scripts/pack.ps1
+
+      # A draft left by a failed run would make vpk refuse ("already an existing release tagged ...").
+      # Drafts have no tag yet, so deleting one loses nothing.
+      - name: Delete leftover drafts of this version
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Filtered here, not in jq: PowerShell mangles quotes inside a native argument.
+          $drafts = gh api "repos/$env:GITHUB_REPOSITORY/releases" --paginate --jq '.[] | select(.draft) | [.id, .tag_name] | @tsv'
+          if ($LASTEXITCODE -ne 0) { throw "Couldn't list releases." }
+          $ids = $drafts | ForEach-Object { $id, $tag = $_ -split "`t"; if ($tag -eq "v$env:VERSION") { $id } }
+          foreach ($id in $ids) {
+              gh api -X DELETE "repos/$env:GITHUB_REPOSITORY/releases/$id"
+              if ($LASTEXITCODE -ne 0) { throw "Couldn't delete draft release $id." }
+              Write-Host "Deleted leftover draft $id for v$env:VERSION"
+          }
 
       # Creates tag v<Version> on this commit when it doesn't exist yet (the push-to-main case).
       - name: Upload to GitHub Releases
