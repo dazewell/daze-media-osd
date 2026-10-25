@@ -35,7 +35,7 @@ Directory.Build.props            shared props: TFM net10.0-windows10.0.26100.0, 
 Directory.Packages.props         central package versions
 dotnet-tools.json                pins vpk (Velopack CLI) for scripts/pack.ps1 and CI (D-029)
 src/DazeMediaOsd.Core/           no UI; Win32/COM via CsWin32 (NativeMethods.txt). Lifecycle/ (LaunchArgs,
-                                 Launcher, AppVersion), NativeFlyout/ (FlyoutHost, FlyoutSuppressor), Audio/
+                                 Launcher, AppVersion, Autostart, ExitSignal), NativeFlyout/ (FlyoutHost, FlyoutSuppressor), Audio/
                                  (CoreAudioService, DeviceChoices, DeviceCycle, DeviceConnector), Input/ (RawInputKeySource, GlobalHotkey, Hotkey, Shortcuts), Osd/ (OsdState, OsdRules,
                                  OsdController, DeviceNotice, OsdPlacement, OsdAnimation), Windowing/ (OverlayWindow styles), Tray/
                                  (TrayIcon), Settings/ (AppSettings, DeviceHotkey, SettingsStore), Media/
@@ -271,6 +271,9 @@ unit-tested with fakes. App never P/Invokes directly; window styling goes throug
   `VelopackApp.Run()` at the top of `Program.Main` handles it and exits. Velopack force-kills every process
   in the install folder first (launcher + app together → host left minimized), so each hook calls
   `FlyoutHost.RestoreAll()`; uninstall also drops the Run value if it points into the install folder.
+  Updates run the old version's before-update hook first: it sets `ExitSignal`, the app exits like tray
+  Exit (launcher restores), the hook waits for both mutexes to go (≤ 10 s). Verified 2026-10-24 by running
+  the installed exe with `--veloapp-obsolete`: clean exit 0, flyout restored, 0.8 s.
   Verified 2026-10-24: install → run (host minimized) → uninstall → host restored, settings and the
   daily driver's Run value kept; `install.ps1` moved the old `Programs\DazeMediaOsd` copy (Run value
   re-pointed, folder deleted) and a second run reinstalled in place. Not verified: an update from one

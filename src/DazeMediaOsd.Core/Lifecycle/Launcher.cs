@@ -55,6 +55,27 @@ public static class Launcher
         return null;
     }
 
+    /// <summary>True once neither a launcher nor an app holds its mutex, or false after <paramref name="timeout"/>.</summary>
+    public static bool WaitUntilStopped(TimeSpan timeout)
+    {
+        var deadline = Environment.TickCount64 + (long)timeout.TotalMilliseconds;
+        while (IsHeld(SingleInstanceMutex) || IsHeld(AppInstanceMutex))
+        {
+            if (Environment.TickCount64 >= deadline)
+                return false;
+            Thread.Sleep(100);
+        }
+        return true;
+    }
+
+    private static bool IsHeld(string name)
+    {
+        if (!Mutex.TryOpenExisting(name, out var mutex))
+            return false;
+        mutex.Dispose();
+        return true;
+    }
+
     /// <summary>
     /// Watches the launcher. Returns its handle (keep it alive) when it is alive and watched; then
     /// <paramref name="onLost"/> runs once, on a pool thread, when it exits. Returns null when there is

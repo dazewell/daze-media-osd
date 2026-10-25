@@ -26,6 +26,7 @@ public sealed partial class App : Application, IDisposable
     private OsdController? _osd;
     private OsdWindow? _window;
     private TrayIcon? _tray;
+    private ExitSignal? _exitSignal;
     private SettingsStore? _settings;
     private SettingsWindow? _settingsWindow;
     private GlobalHotkey? _hotkey;
@@ -105,6 +106,13 @@ public sealed partial class App : Application, IDisposable
         }));
         _suppressor = new FlyoutSuppressor(_launcher is null ? SuppressionMode.HidePerShow : SuppressionMode.Minimize);
         Log.Info($"app started, suppression={_suppressor.Mode}, {OsdState.Describe(_audio.Current)}");
+
+        // The updater's before-update hook asks us to exit like tray Exit (D-029).
+        _exitSignal = ExitSignal.Listen(() => ui.TryEnqueue(() =>
+        {
+            Log.Info("exit requested by the installer");
+            Exit();
+        }));
 
         // Without a tray icon the OSD still works; only exiting needs scripts/stop.ps1.
         try
@@ -228,6 +236,7 @@ public sealed partial class App : Application, IDisposable
     public void Dispose()
     {
         _settingsWindow?.Close();
+        _exitSignal?.Dispose();
         _tray?.Dispose();
         _hotkey?.Dispose();
         _connector?.Dispose();

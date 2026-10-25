@@ -49,11 +49,20 @@ public static class Program
 
     /// <summary>
     /// Velopack setup/update/uninstall call the exe with a hook argument; Run() handles it and exits the
-    /// process (D-029). Before each of these Velopack kills launcher and app together, which leaves the
-    /// native flyout minimized (D-006), so every hook restores it. Outside an install it returns at once.
+    /// process (D-029). Velopack kills launcher and app together before install and uninstall, which
+    /// leaves the native flyout minimized (D-006), so every hook restores it. An update first runs the old
+    /// version's before-update hook, which asks the app to exit cleanly so nothing is killed. Outside an
+    /// install it returns at once.
     /// </summary>
     private static void RunInstallerHooks() =>
         VelopackApp.Build()
+            .OnBeforeUpdateFastCallback(v =>
+            {
+                // 15 s hook budget: 10 s for a clean exit, then restore anyway.
+                if (ExitSignal.Request() && !Launcher.WaitUntilStopped(TimeSpan.FromSeconds(10)))
+                    Log.Info("installer: app didn't exit in 10 s, the updater will kill it");
+                OnHook($"updating to {v}");
+            })
             .OnAfterInstallFastCallback(v => OnHook($"installed {v}"))
             .OnAfterUpdateFastCallback(v => OnHook($"updated to {v}"))
             .OnBeforeUninstallFastCallback(v =>

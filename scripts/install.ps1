@@ -28,8 +28,10 @@ if ($process.ExitCode -ne 0) { throw "Setup failed ($($process.ExitCode)); see $
 
 # One-time move from the pre-D-029 folder: keep "Start with Windows" (and a Task Manager "disabled", which
 # lives in StartupApproved and is left alone) by re-pointing our Run value, then delete the old copy.
+# Only that exact exe: a Run value of any other copy (Debug, a sibling folder) is not ours to move.
 $run = (Get-ItemProperty $runKey -Name DazeMediaOsd -ErrorAction SilentlyContinue).DazeMediaOsd
-if ($run -and $run.Trim('"').StartsWith($oldDir, [StringComparison]::OrdinalIgnoreCase)) {
+$oldExe = [IO.Path]::GetFullPath((Join-Path $oldDir 'DazeMediaOsd.exe'))
+if ($run -and [string]::Equals([IO.Path]::GetFullPath($run.Trim().Trim('"')), $oldExe, [StringComparison]::OrdinalIgnoreCase)) {
     Set-ItemProperty $runKey -Name DazeMediaOsd -Value "`"$exe`""
     Write-Host "Start with Windows moved from $oldDir to the new install."
 }

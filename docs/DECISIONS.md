@@ -463,7 +463,8 @@ Supersedes: D-003 (only "local build, nothing to install besides the folder"; un
   (Setup.exe, portable zip, full + delta packages, update feed). `ci.yml` builds and tests every PR and main.
   `Program.Main` runs `VelopackApp` first; every hook restores the native flyout (Velopack force-kills
   launcher and app together, D-006), uninstall also removes our Run value if it points into the install
-  folder. Unsigned for now. vpk is pinned in `dotnet-tools.json`, equal to the Velopack package.
+  folder. The before-update hook (old version, before the kill) sets `ExitSignal` (`Local\DazeMediaOsd.Exit`):
+  the app exits like tray Exit, the launcher restores, nothing is left to kill. Unsigned for now. vpk is pinned in `dotnet-tools.json`, equal to the Velopack package.
   `scripts/install.ps1` builds the same package and runs its Setup.exe, so a local build and a release share
   one folder and one Apps entry (user, 2026-10-24: never two copies); it moves the pre-D-029
   `Programs\DazeMediaOsd` copy once (re-points the Run value, deletes the folder).
@@ -475,5 +476,9 @@ Supersedes: D-003 (only "local build, nothing to install besides the folder"; un
 - Why not WiX MSI: per-user MSI needs care to avoid elevation, and no updates. Why not vpk `--msi`: a
   machine-wide bootstrapper (admin). Why not Inno Setup: no update feed. Why not MSIX: certificate (D-003).
   Why not a desktop shortcut: a tray app is reached from the tray and Start.
+- Accepted risk: Setup over an existing install and uninstall kill before any of our code runs (no
+  before-hook). If Setup then fails before its after-install hook, the flyout stays minimized until our next
+  start, `--restore`, an explorer restart or sign-out, as for any double kill (D-006). `install.ps1` stops
+  the app gracefully first, so only a hand-run Setup.exe or uninstall has that window.
 - Revisit if: SmartScreen warnings bother users (sign: SignPath Foundation for OSS, or Azure Trusted Signing
   via `--azureTrustedSignFile`), or Store/winget distribution is wanted.
