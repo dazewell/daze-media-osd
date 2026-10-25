@@ -550,3 +550,16 @@ Status: accepted
   Why not hide the old cover until the new one comes: the placeholder flash was the visible part of the lag.
 - Revisit if: the log shows `media thumbnail took` > ~300 ms often (then show the placeholder sooner), or the
   old cover under a new title reads as wrong.
+
+## D-034 · 2026-10-24 · Content changes in a visible OSD fade through; volume stays instant
+Status: accepted
+- Decision: `FadeThrough` (out 100 ms ease-in, swap, in 150 ms ease-out, opacity only) for media title/artist,
+  play state, output/input name, input icon, the output icon on mute or device-kind change, and "Muted" ↔
+  mic level. Only while the OSD (and that row) was already visible and "Animation effects" is on (D-012). A
+  change during the fade-out replaces the waiting one; the fade-in has no `From`, so a new change turns smoothly.
+- Why: the user liked the cover crossfade (D-033) and asked for the same on every change (2026-10-24).
+  Fade-through, not crossfade: text over text is unreadable mid-fade, and it needs no second element per field.
+- Why not the volume %, level bar or the level-step glyph: a held key updates every 30–60 ms, so any
+  transition lags or restarts (same reason as the fill, X-002). Why not animate a row appearing: it resizes
+  the window, which `OsdWindow.Place` sets per frame only for the show/hide slide (D-012).
+- Revisit if: fades feel slow during quick skips, or the user wants rows to animate in.

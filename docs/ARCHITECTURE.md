@@ -210,6 +210,9 @@ unit-tested with fakes. App never P/Invokes directly; window styling goes throug
 - Cover (D-033): decoded at 40 logical px by height; the old one stays until the new one is decoded, then
   the new one fades in (250 ms) on a second `Image` on top, which then hands it down. Only while already
   visible and with "Animation effects" on; a fresh show sets it directly.
+- Other content that changes while visible fades through (`FadeThrough`, D-034: out 100 ms, swap, in
+  150 ms): media title/artist, play state, output/input name, input icon, output icon on mute or device
+  kind, "Muted" ↔ mic level. Instant: volume %, level bar, the output icon's level steps, a row appearing.
 - `Refresh` (media change) re-renders and re-places only while visible and never restarts the hide
   timer; the media row sits on top, cover in place of the icon column, play-state glyph in the value column.
 - Device event line (D-014): topmost, same columns — glyph / name (BodyStrong, trimmed) / status

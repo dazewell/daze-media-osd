@@ -127,6 +127,8 @@ this file and know what to build next. History of *why* lives in [DECISIONS.md](
   playing, off by default; unit-tested. Not seen yet: the toggle on screen, real players (log `show MediaPlayback`)
 - [x] Cover lag (user saw it, 2026-10-24; D-033): title first, cover crossfades in when read and decoded,
   decoded at display size. Not seen yet: on screen; how long Spotify's cover read takes (log `media thumbnail took`)
+- [x] Changes in a visible OSD fade through (user liked the cover fade, 2026-10-24; D-034): track text, play
+  state, device names, mute icons. Volume stays instant. Not seen yet: on screen
 
 **Next step:** look at the new toggle in Settings and turn it on for a day: a track change in Spotify/Chromium
 pops once (log `show MediaPlayback`), a media key doesn't pop twice visibly, browser videos don't spam.
