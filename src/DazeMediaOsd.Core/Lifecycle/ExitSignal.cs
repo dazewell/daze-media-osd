@@ -37,7 +37,13 @@ public sealed class ExitSignal : IDisposable
 
     public void Dispose()
     {
-        _wait.Unregister(null);
+        // Unregister(null) returns before the pool's wait lets go of the event, which would keep it
+        // openable (Request true) for a moment after Dispose: wait for the release.
+        using (var released = new ManualResetEvent(false))
+        {
+            if (_wait.Unregister(released))
+                released.WaitOne(TimeSpan.FromSeconds(5));
+        }
         _event.Dispose();
     }
 }
