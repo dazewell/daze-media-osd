@@ -37,4 +37,19 @@ public static class OsdRules
         MediaKey.PlayPause or MediaKey.NextTrack or MediaKey.PreviousTrack when media is not null => OsdReason.MediaKey,
         _ => null,
     };
+
+    /// <summary>
+    /// A new track, or play/pause, in the same player; or a player that starts playing. A cover arriving late,
+    /// a session that ends or one that appears paused only refresh (D-032). The app drops it unless the
+    /// user turned it on.
+    /// </summary>
+    public static OsdReason? ReasonToShow(MediaState? before, MediaState? after)
+    {
+        if (after is null)
+            return null;
+        if (before is null || before.AppId != after.AppId)
+            return after.IsPlaying ? OsdReason.MediaPlayback : null;
+        var newTrack = before.Title != after.Title || before.Artist != after.Artist;
+        return newTrack || before.IsPlaying != after.IsPlaying ? OsdReason.MediaPlayback : null;
+    }
 }

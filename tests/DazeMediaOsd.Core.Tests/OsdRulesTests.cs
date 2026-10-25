@@ -73,4 +73,25 @@ public class OsdRulesTests
         Assert.Equal(OsdReason.MediaKey, OsdRules.ReasonToShow(key, new MediaState("app", "Song", "", false, null)));
         Assert.Null(OsdRules.ReasonToShow(key, null));
     }
+
+    private static readonly MediaState Playing = new("Spotify.exe", "Song", "Artist", true, null);
+
+    public static TheoryData<MediaState?, MediaState?, bool> MediaChanges => new()
+    {
+        { Playing, Playing with { Title = "Next" }, true },          // next track
+        { Playing, Playing with { Artist = "Other" }, true },
+        { Playing, Playing with { IsPlaying = false }, true },       // pause
+        { Playing with { IsPlaying = false }, Playing, true },       // play
+        { null, Playing, true },                                     // a player starts playing
+        { Playing, Playing with { AppId = "chrome", Title = "Video" }, true },
+        { null, Playing with { IsPlaying = false }, false },         // a session appears paused
+        { Playing, null, false },                                    // the session ends
+        { Playing, Playing with { Thumbnail = [1] }, false },        // the cover arrives late
+        { Playing, Playing with { AppId = "chrome", IsPlaying = false }, false },
+    };
+
+    [Theory]
+    [MemberData(nameof(MediaChanges))]
+    public void MediaChangePopsOnlyForTrackOrPlayState(MediaState? before, MediaState? after, bool shows) =>
+        Assert.Equal(shows ? OsdReason.MediaPlayback : null, OsdRules.ReasonToShow(before, after));
 }

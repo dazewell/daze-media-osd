@@ -44,6 +44,7 @@ public sealed class OsdController : IDisposable
     private DeviceNotice? _announced;
     private long _announcedAt;
     private bool _disposed;
+    private MediaState? _lastMedia;
 
     public OsdController(IAudioService audio, IKeySource keys, IMediaService media, TimeProvider? time = null)
     {
@@ -54,15 +55,19 @@ public sealed class OsdController : IDisposable
         _audio.Changed += OnAudioChanged;
         _keys.KeyPressed += OnKeyPressed;
         _media.Changed += OnMediaChanged;
+        // After subscribing: a change in between then lands in _lastMedia instead of being missed. Only if no
+        // event already set it, which would be newer than this read.
+        Interlocked.CompareExchange(ref _lastMedia, _media.Current, null);
     }
 
     /// <summary>Raised on the audio, key or media thread; marshal to the UI thread before rendering.</summary>
     public event EventHandler<OsdState>? ShowRequested;
 
     /// <summary>
-    /// The media session changed: re-render the OSD if it is visible, without popping it or extending its
-    /// time. A media key arrives before the player reacts, so this carries the new track or play state.
-    /// Raised on the media thread.
+    /// The media session changed in a way that never pops the OSD (a late cover, a session ending): re-render
+    /// it if visible, without extending its time. A new track or play state goes out as a
+    /// <see cref="ShowRequested"/> with <see cref="OsdReason.MediaPlayback"/> instead, which the app turns
+    /// back into a refresh unless the user opted in (D-032). Raised on the media thread.
     /// </summary>
     public event EventHandler<OsdState>? RefreshRequested;
 
@@ -169,8 +174,16 @@ public sealed class OsdController : IDisposable
             Request(OsdState.From(_audio.Current, media, reason));
     }
 
-    private void OnMediaChanged(object? sender, MediaState? media) =>
-        RefreshRequested?.Invoke(this, OsdState.From(_audio.Current, media, OsdReason.MediaChanged));
+    // The show goes out with every qualifying change; App turns it back into a refresh while the setting is
+    // off, so this needs no settings (D-032).
+    private void OnMediaChanged(object? sender, MediaState? media)
+    {
+        var before = Interlocked.Exchange(ref _lastMedia, media);
+        if (OsdRules.ReasonToShow(before, media) is { } reason)
+            Request(OsdState.From(_audio.Current, media, reason));
+        else
+            RefreshRequested?.Invoke(this, OsdState.From(_audio.Current, media, OsdReason.MediaChanged));
+    }
 
     // Audio and key sources call in from different threads.
     private void Request(OsdState state)

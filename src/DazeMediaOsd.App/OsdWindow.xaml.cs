@@ -29,12 +29,20 @@ public sealed partial class OsdWindow : Window
     private static readonly TimeSpan HideDuration = TimeSpan.FromMilliseconds(150);
     // Shows start one frame in, so the first composed frame is already visible (no later than unanimated).
     private static readonly TimeSpan FirstFrameLead = TimeSpan.FromMilliseconds(16);
+    private static readonly TimeSpan CoverFade = TimeSpan.FromMilliseconds(250);
+    private const int CoverDip = 40;
 
     private readonly nint _hwnd;
     private readonly DispatcherQueueTimer _hideTimer;
     private AppSettings _settings = AppSettings.Default;
     private int _outputPercent;
     private byte[]? _thumbnail;
+    private Storyboard? _coverFade;
+    private Action? _coverFadeEnd;
+    private readonly FadeThroughs _fades = new();
+    private bool? _shownOutputMuted;
+    private DeviceKind? _shownOutputKind;
+    private bool? _shownInputMuted;
     private Storyboard? _eventEntrance;
     private readonly OsdAnimation _animation = new(ShowDuration, HideDuration);
     private readonly Stopwatch _clock = Stopwatch.StartNew();
@@ -87,10 +95,11 @@ public sealed partial class OsdWindow : Window
         // Before Render, so the first frame is already the animation's first frame. A no-op while shown.
         // The lead only from hidden: a reversal mid-fade continues from the current value, without a jump.
         var now = _clock.Elapsed;
+        var wasHidden = _animation.IsHidden;
         _animation.Show(_animation.IsHidden ? now - FirstFrameLead : now, OverlayWindow.AnimationsEnabled());
         _animation.Tick(now);
         RenderDevice(state.Device);
-        Render(state);
+        Render(state, fade: !wasHidden);
         Animate();
         _hideTimer.Stop();
         _hideTimer.Start();
@@ -104,14 +113,16 @@ public sealed partial class OsdWindow : Window
     {
         ArgumentNullException.ThrowIfNull(state);
         if (!_animation.IsHidden)
-            Render(state);
+            Render(state, fade: true);
     }
 
-    private void Render(OsdState state)
+    // Changes fade only while the OSD is already on screen: a fresh show starts with the right content.
+    private void Render(OsdState state, bool fade)
     {
-        RenderMedia(state.Media);
-        RenderOutput(state.Output);
-        RenderInput(state.Input);
+        fade &= OverlayWindow.AnimationsEnabled();
+        RenderMedia(state.Media, fade);
+        RenderOutput(state.Output, fade);
+        RenderInput(state.Input, fade);
         Place();
     }
 
@@ -182,56 +193,138 @@ public sealed partial class OsdWindow : Window
         _eventEntrance.Begin();
     }
 
-    private void RenderMedia(MediaState? media)
+    private void RenderMedia(MediaState? media, bool fade)
     {
         if (media is null || !_settings.ShowMedia)
         {
             MediaRow.Visibility = Visibility.Collapsed;
             return;
         }
+        // Shown again after being collapsed: nothing on screen to fade from.
+        fade &= MediaRow.Visibility == Visibility.Visible;
         MediaRow.Visibility = Visibility.Visible;
-        MediaTitle.Text = media.Title;
-        MediaArtist.Text = media.Artist;
-        MediaArtist.Visibility = media.Artist.Length == 0 ? Visibility.Collapsed : Visibility.Visible;
-        MediaPlayback.Glyph = media.IsPlaying ? "" : ""; // Play / Pause
-        RenderThumbnail(media.Thumbnail);
+        _fades.Get(MediaText).Run($"{media.Title}\n{media.Artist}", fade, () =>
+        {
+            MediaTitle.Text = media.Title;
+            MediaArtist.Text = media.Artist;
+            MediaArtist.Visibility = media.Artist.Length == 0 ? Visibility.Collapsed : Visibility.Visible;
+        });
+        var playback = media.IsPlaying ? "" : ""; // Play / Pause
+        _fades.Get(MediaPlayback).Run(playback, fade, () => MediaPlayback.Glyph = playback);
+        RenderThumbnail(media.Thumbnail, fade);
     }
 
-    // The service keeps the same array while the cover is unchanged, so this decodes once per cover.
-    private async void RenderThumbnail(byte[]? bytes)
+    // The service keeps the same array while the cover is unchanged, so this decodes once per cover. The old
+    // cover stays until the new one is decoded (no placeholder flash), then crossfades to it (D-033).
+    private async void RenderThumbnail(byte[]? bytes, bool fade)
     {
         if (ReferenceEquals(bytes, _thumbnail))
             return;
         _thumbnail = bytes;
-        MediaThumbnail.Source = null;
-        MediaPlaceholder.Visibility = Visibility.Visible;
-        if (bytes is null)
-            return;
-        try
+        BitmapImage? image = null;
+        if (bytes is not null)
         {
-            var image = new BitmapImage();
-            using (var stream = new MemoryStream(bytes).AsRandomAccessStream())
-                await image.SetSourceAsync(stream);
+            try
+            {
+                // Decoded at the size it's drawn, not the player's 300–640 px. By height: wide video
+                // thumbnails fill the square by height (UniformToFill).
+                image = new BitmapImage { DecodePixelType = DecodePixelType.Logical, DecodePixelHeight = CoverDip };
+                using (var stream = new MemoryStream(bytes).AsRandomAccessStream())
+                    await image.SetSourceAsync(stream);
+            }
+            catch (Exception e) when (e is COMException or ArgumentException)
+            {
+                Log.Error($"media thumbnail ({bytes.Length} B) could not be decoded", e);
+                image = null;
+            }
             if (!ReferenceEquals(bytes, _thumbnail))
                 return; // a newer cover arrived while this one decoded
-            MediaThumbnail.Source = image;
-            MediaPlaceholder.Visibility = Visibility.Collapsed;
         }
-        catch (Exception e) when (e is COMException or ArgumentException)
+        ShowCover(image, fade);
+    }
+
+    // MediaThumbnail holds the shown cover; MediaThumbnailNext, on top, fades a new one in and then hands it down.
+    private void ShowCover(BitmapImage? image, bool fade)
+    {
+        EndCoverFade();
+        if (!fade || (image is null && MediaThumbnail.Source is null))
         {
-            Log.Error($"media thumbnail ({bytes.Length} B) could not be decoded", e);
+            SetCover(image);
+            return;
         }
+        if (image is null)
+        {
+            // No cover: the old one fades out to the placeholder.
+            MediaPlaceholder.Visibility = Visibility.Visible;
+            FadeCover(MediaThumbnail, from: 1, to: 0, () => SetCover(null));
+            return;
+        }
+        MediaThumbnailNext.Source = image;
+        FadeCover(MediaThumbnailNext, from: 0, to: 1, () => SetCover(image));
+    }
+
+    private void SetCover(BitmapImage? image)
+    {
+        MediaThumbnail.Source = image;
+        MediaThumbnail.Opacity = 1;
+        MediaThumbnailNext.Source = null;
+        MediaThumbnailNext.Opacity = 0;
+        MediaPlaceholder.Visibility = image is null ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    // Opacity runs on the composition thread. Storyboard.Stop doesn't raise Completed, so the end is kept
+    // to run when a newer cover cuts the fade short.
+    private void FadeCover(UIElement target, double from, double to, Action end)
+    {
+        var animation = new DoubleAnimation
+        {
+            From = from,
+            To = to,
+            Duration = CoverFade,
+            EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut },
+        };
+        Storyboard.SetTarget(animation, target);
+        Storyboard.SetTargetProperty(animation, "Opacity");
+        var storyboard = new Storyboard();
+        storyboard.Children.Add(animation);
+        storyboard.Completed += (_, _) =>
+        {
+            if (ReferenceEquals(_coverFade, storyboard))
+                EndCoverFade();
+        };
+        (_coverFade, _coverFadeEnd) = (storyboard, end);
+        storyboard.Begin();
+    }
+
+    private void EndCoverFade()
+    {
+        var (storyboard, end) = (_coverFade, _coverFadeEnd);
+        (_coverFade, _coverFadeEnd) = (null, null);
+        storyboard?.Stop(); // drops the animated value; end sets the final one
+        end?.Invoke();
     }
 
     private void OnThumbnailFailed(object sender, ExceptionRoutedEventArgs e)
     {
-        MediaThumbnail.Source = null;
-        MediaPlaceholder.Visibility = Visibility.Visible;
+        if (ReferenceEquals(sender, MediaThumbnailNext))
+        {
+            // The incoming cover failed: drop the fade and keep the one shown below.
+            _coverFade?.Stop();
+            (_coverFade, _coverFadeEnd) = (null, null);
+            MediaThumbnailNext.Source = null;
+            MediaThumbnailNext.Opacity = 0;
+            MediaThumbnail.Opacity = 1;
+            MediaPlaceholder.Visibility = MediaThumbnail.Source is null ? Visibility.Visible : Visibility.Collapsed;
+            return;
+        }
+        EndCoverFade();
+        SetCover(null);
     }
 
-    private void RenderOutput(EndpointState? output)
+    private void RenderOutput(EndpointState? output, bool fade)
     {
-        OutputName.Text = output?.Name ?? "No output device";
+        var name = output?.Name ?? "No output device";
+        _fades.Get(OutputName).Run(name, fade, () => OutputName.Text = name);
         _outputPercent = output?.Percent ?? 0;
         var muted = output is not { Muted: false };
         OutputFill.Style = (Style)Root.Resources[muted ? "OsdFillMuted" : "OsdFill"];
@@ -239,7 +332,7 @@ public sealed partial class OsdWindow : Window
         OutputPercent.Text = output is null ? "" : _outputPercent.ToString(CultureInfo.CurrentCulture);
         // The device type where it says more than "speaker"; a speaker shows its level, as the native flyout
         // does. Mute wins over both: the state matters more than the type (D-017).
-        OutputIcon.Glyph = output switch
+        var glyph = output switch
         {
             null or { Muted: true } => "\uE74F", // Mute
             { Kind: DeviceKind.Headphones or DeviceKind.Headset or DeviceKind.Display } => KindGlyph(output.Kind)!,
@@ -248,6 +341,10 @@ public sealed partial class OsdWindow : Window
             { Percent: < 67 } => "\uE994",        // Volume2
             _ => "\uE995",                        // Volume3
         };
+        // Mute and a device of another kind fade; a level step stays instant, it follows a held key (D-034).
+        var kindOrMute = (muted, output?.Kind) != (_shownOutputMuted, _shownOutputKind);
+        (_shownOutputMuted, _shownOutputKind) = (muted, output?.Kind);
+        _fades.Get(OutputIcon).Run(glyph, fade && kindOrMute, () => OutputIcon.Glyph = glyph);
         SizeFill();
     }
 
@@ -270,18 +367,27 @@ public sealed partial class OsdWindow : Window
         _ => null,
     };
 
-    private void RenderInput(EndpointState? input)
+    private void RenderInput(EndpointState? input, bool fade)
     {
         if (input is null || !_settings.ShowInput)
         {
             InputRow.Visibility = Visibility.Collapsed;
             return;
         }
+        fade &= InputRow.Visibility == Visibility.Visible;
         InputRow.Visibility = Visibility.Visible;
-        InputName.Text = input.Name;
-        InputIcon.Glyph = input.Muted ? "\uEC54" : input.Kind == DeviceKind.Headset ? "\uE95B" : "\uE720"; // MicOff / Headset / Microphone
-        InputStatus.Style = (Style)Root.Resources[input.Muted ? "OsdValueMuted" : "OsdValue"];
-        InputStatus.Text = input.Muted ? "Muted" : input.Percent.ToString(CultureInfo.CurrentCulture);
+        _fades.Get(InputName).Run(input.Name, fade, () => InputName.Text = input.Name);
+        var glyph = input.Muted ? "\uEC54" : input.Kind == DeviceKind.Headset ? "\uE95B" : "\uE720"; // MicOff / Headset / Microphone
+        _fades.Get(InputIcon).Run(glyph, fade, () => InputIcon.Glyph = glyph);
+        // The mic level is shown but never pops the OSD; only the switch to and from "Muted" fades.
+        var status = input.Muted ? "Muted" : input.Percent.ToString(CultureInfo.CurrentCulture);
+        var muteChanged = input.Muted != _shownInputMuted;
+        _shownInputMuted = input.Muted;
+        _fades.Get(InputStatus).Run(status, fade && muteChanged, () =>
+        {
+            InputStatus.Style = (Style)Root.Resources[input.Muted ? "OsdValueMuted" : "OsdValue"];
+            InputStatus.Text = status;
+        });
     }
 
     // In the primary work area at the chosen position (default bottom centre, like the native flyout). Root

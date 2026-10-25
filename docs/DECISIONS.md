@@ -141,7 +141,7 @@ Status: accepted
 - Revisit if: pages grow past ~4 or need deep links (→ `Frame`), or cards need expanders (→ `SettingsCard`).
 
 ## D-011 · 2026-10-22 · Media keys pop the OSD; media session changes only refresh it
-Status: superseded by D-013 (adds device connect/disconnect; the key and media rules stand)
+Status: superseded by D-013 (adds device connect/disconnect; the key and media rules stand); D-032 adds an opt-in pop on track/play-state changes
 Supersedes: D-007
 - Decision: D-007's audio rules, plus Play/Pause, Next and Previous (keyboard `VK_MEDIA_*`, Consumer
   Control 0xCD/0xB0/0xB1/0xB5/0xB6) pop the OSD — only while a GSMTC session exists and the Media
@@ -521,3 +521,47 @@ Status: accepted
   auto-tag workflow: two files and inputs for what one `check` job does.
 - Revisit if: a release should wait for a human (then a `workflow_dispatch` or draft-only mode), or
   version bumps start landing in PRs that aren't ready to ship.
+
+## D-032 · 2026-10-24 · Opt-in: a track or play/pause change pops the OSD
+Status: accepted
+Supersedes: D-011 in part (its "a session change never pops" rule, now only the default)
+- Decision: setting `showOnMediaChange`, off by default, needs `showMedia`. `OsdRules.ReasonToShow(before,
+  after)` returns `MediaPlayback` for a new title/artist or play state in the same player, or a player that
+  starts playing; a late cover, a paused session appearing or a session ending only refresh. The controller
+  always requests the show; `App.Show` turns it into a refresh while the setting is off.
+- Why: the user asked for it (2026-10-24), the trigger D-011 named. Off by default because D-011's reason
+  stands: players change tracks on their own. After a media key it simply re-shows with the new track
+  ~20–50 ms later, which replaces the refresh.
+- Why not pop on any session change: a cover arriving or a browser tab opening paused would pop it.
+  Why not two toggles (track / play-pause): the user asked for one option.
+- Revisit if: daily use shows pops from videos/notifications in the browser, or play-state flicker between
+  tracks pops twice.
+
+## D-033 · 2026-10-24 · Cover art: text first, crossfade to the new cover
+Status: accepted
+- Decision: `GsmtcMediaService` publishes a new track/play state with the previous cover (same player only;
+  another player's starts with none), then again once the new cover is read. `OsdWindow` keeps the shown cover until the new one is decoded, then fades it in (250 ms)
+  on a second `Image` on top; no cover → the old one fades out to the placeholder. Decoded at 40 logical px
+  (by height). Only while the OSD is already visible and "Animation effects" is on (D-012).
+- Why: the user saw the cover lag behind the title (2026-10-24). Before, the title waited for the whole cover
+  read, then the cover went to the placeholder icon while a 100–180 KB JPEG decoded at full size: a flash, then
+  a pop. Now the text is instant and the cover change reads as intended.
+- Why not cache covers by track: a player can reuse or change art per track; reads are once per change anyway.
+  Why not hide the old cover until the new one comes: the placeholder flash was the visible part of the lag.
+- Revisit if: the log shows `media thumbnail took` > ~300 ms often (then show the placeholder sooner), or the
+  old cover under a new title reads as wrong.
+
+## D-034 · 2026-10-24 · Content changes in a visible OSD fade through; volume stays instant
+Status: accepted
+- Decision: `FadeThrough` (out 100 ms ease-in, swap, in 150 ms ease-out, opacity only) for media title/artist,
+  play state, output/input name, input icon, the output icon on mute or device-kind change, and "Muted" ↔
+  mic level. Only while the OSD (and that row) was already visible and "Animation effects" is on (D-012). Each
+  fader keeps the content last asked for: a repeat is a no-op (one key raises ~2 renders, which must not cut a
+  fade), a non-fading change (level step, fresh show) cancels a running fade and applies at once, and a fading
+  change during the fade-out replaces the waiting swap. The fade-in has no `From`, so a new change turns smoothly.
+- Why: the user liked the cover crossfade (D-033) and asked for the same on every change (2026-10-24).
+  Fade-through, not crossfade: text over text is unreadable mid-fade, and it needs no second element per field.
+- Why not the volume %, level bar or the level-step glyph: a held key updates every 30–60 ms, so any
+  transition lags or restarts (same reason as the fill, X-002). Why not animate a row appearing: it resizes
+  the window, which `OsdWindow.Place` sets per frame only for the show/hide slide (D-012).
+- Revisit if: fades feel slow during quick skips, or the user wants rows to animate in.

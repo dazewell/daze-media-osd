@@ -18,6 +18,7 @@ public enum OsdPosition
 /// <param name="ShowInput">The microphone row.</param>
 /// <param name="ShowMedia">The media row (while a session is active); off also stops media keys popping the OSD.</param>
 /// <param name="ShowOnDeviceConnect">Pop the OSD when any audio device connects or disconnects (D-013).</param>
+/// <param name="ShowOnMediaChange">Pop the OSD on a new track or play/pause without a key (D-032); needs <paramref name="ShowMedia"/>.</param>
 /// <param name="CycleOutputHotkey">Global shortcut that switches to the next output (<see cref="Input.Hotkey"/> text); "" is off.</param>
 /// <param name="DeviceHotkeys">Shortcuts that each make one device the default (D-022); null reads as none.</param>
 // Defaults on the constructor, not property initializers: System.Text.Json source-gen sets every init-only
@@ -30,6 +31,7 @@ public sealed record AppSettings(
     bool ShowInput = true,
     bool ShowMedia = true,
     bool ShowOnDeviceConnect = true,
+    bool ShowOnMediaChange = false,
     string CycleOutputHotkey = AppSettings.DefaultCycleOutputHotkey,
     IReadOnlyList<DeviceHotkey>? DeviceHotkeys = null)
 {
@@ -85,6 +87,7 @@ public sealed record AppSettings(
         && ShowInput == other.ShowInput
         && ShowMedia == other.ShowMedia
         && ShowOnDeviceConnect == other.ShowOnDeviceConnect
+        && ShowOnMediaChange == other.ShowOnMediaChange
         && CycleOutputHotkey == other.CycleOutputHotkey
         && DeviceHotkeys.SequenceEqual(other.DeviceHotkeys);
 
@@ -94,13 +97,13 @@ public sealed record AppSettings(
         builder.Append(System.Globalization.CultureInfo.InvariantCulture,
             $"Version = {Version}, Position = {Position}, HideAfterSeconds = {HideAfterSeconds}, ShowInput = {ShowInput}, ");
         builder.Append(System.Globalization.CultureInfo.InvariantCulture,
-            $"ShowMedia = {ShowMedia}, ShowOnDeviceConnect = {ShowOnDeviceConnect}, CycleOutputHotkey = {CycleOutputHotkey}, ");
+            $"ShowMedia = {ShowMedia}, ShowOnDeviceConnect = {ShowOnDeviceConnect}, ShowOnMediaChange = {ShowOnMediaChange}, CycleOutputHotkey = {CycleOutputHotkey}, ");
         builder.Append("DeviceHotkeys = [").AppendJoin(", ", DeviceHotkeys).Append(']');
         return true;
     }
 
     public override int GetHashCode() =>
-        HashCode.Combine(Version, Position, HideAfterSeconds, ShowInput, ShowMedia, ShowOnDeviceConnect, CycleOutputHotkey, DeviceHotkeys.Count);
+        HashCode.Combine(Version, Position, HideAfterSeconds, ShowInput, ShowMedia, HashCode.Combine(ShowOnDeviceConnect, ShowOnMediaChange), CycleOutputHotkey, DeviceHotkeys.Count);
 
     // "" (off) stays off; a hand-edited typo falls back to the default rather than silently turning it off.
     private static string NormalizeHotkey(string? text) =>

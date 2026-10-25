@@ -124,20 +124,40 @@ public class OsdControllerTests
     }
 
     [Fact]
-    public void MediaChangeRefreshesButNeverShows()
+    public void MediaChangeOtherThanTrackOrPlayStateOnlyRefreshes()
     {
         using var audio = new FakeAudio { Current = new AudioSnapshot(Speakers, Mic) };
         using var keys = new FakeKeys();
-        using var media = new FakeMedia();
+        using var media = new FakeMedia { Current = Song };
         using var controller = new OsdController(audio, keys, media);
         var shown = Record(controller);
         var refreshed = new List<OsdState>();
         controller.RefreshRequested += (_, state) => refreshed.Add(state);
+        var withCover = Song with { Thumbnail = [1, 2, 3] };
 
-        media.Change(Song);
+        media.Change(withCover);
 
         Assert.Empty(shown);
-        Assert.Equal([new OsdState(Speakers, Mic, Song, OsdReason.MediaChanged)], refreshed);
+        Assert.Equal([new OsdState(Speakers, Mic, withCover, OsdReason.MediaChanged)], refreshed);
+    }
+
+    [Fact]
+    public void TrackAndPlayStateChangesRequestAShow()
+    {
+        using var audio = new FakeAudio { Current = new AudioSnapshot(Speakers, Mic) };
+        using var keys = new FakeKeys();
+        using var media = new FakeMedia { Current = Song };
+        using var controller = new OsdController(audio, keys, media);
+        var shown = Record(controller);
+        var next = Song with { Title = "Next song" };
+        var paused = next with { IsPlaying = false };
+
+        media.Change(next);
+        media.Change(paused);
+
+        Assert.Equal(
+            [new OsdState(Speakers, Mic, next, OsdReason.MediaPlayback), new OsdState(Speakers, Mic, paused, OsdReason.MediaPlayback)],
+            shown);
     }
 
     [Fact]

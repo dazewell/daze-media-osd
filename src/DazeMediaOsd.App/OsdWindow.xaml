@@ -102,9 +102,11 @@
             <Grid Width="40" Height="40" CornerRadius="4" VerticalAlignment="Center"
                   Background="{ThemeResource ControlStrongFillColorDisabledBrush}">
                 <FontIcon x:Name="MediaPlaceholder" Glyph="&#xE8D6;" Style="{StaticResource OsdIcon}" />
+                <!-- A new cover fades in on the top image over the old one (D-033). -->
                 <Image x:Name="MediaThumbnail" Stretch="UniformToFill" ImageFailed="OnThumbnailFailed" />
+                <Image x:Name="MediaThumbnailNext" Stretch="UniformToFill" Opacity="0" ImageFailed="OnThumbnailFailed" />
             </Grid>
-            <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
+            <StackPanel x:Name="MediaText" Grid.Column="1" VerticalAlignment="Center" Spacing="2">
                 <TextBlock x:Name="MediaTitle" Style="{StaticResource OsdTitle}" />
                 <TextBlock x:Name="MediaArtist" Style="{StaticResource OsdName}" />
             </StackPanel>
