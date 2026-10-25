@@ -314,6 +314,21 @@
                             </Button>
                         </Grid>
 
+                        <!-- Status from UpdateService (D-030); the button checks, or restarts once one is ready. -->
+                        <Grid Style="{StaticResource SettingsCard}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <FontIcon x:Name="UpdateIcon" Glyph="&#xE895;" Style="{StaticResource SettingsCardIcon}" />
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock x:Name="UpdateTitle" Text="Updates" />
+                                <TextBlock x:Name="UpdateText" Style="{StaticResource SettingsCardDescription}" TextWrapping="Wrap" />
+                            </StackPanel>
+                            <Button x:Name="UpdateButton" Grid.Column="2" VerticalAlignment="Center" Click="OnUpdateButton" />
+                        </Grid>
+
                         <TextBlock Text="Files" Style="{StaticResource SettingsSection}" />
                         <Grid Style="{StaticResource SettingsCard}">
                             <Grid.ColumnDefinitions>

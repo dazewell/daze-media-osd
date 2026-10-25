@@ -482,3 +482,23 @@ Supersedes: D-003 (only "local build, nothing to install besides the folder"; un
   the app gracefully first, so only a hand-run Setup.exe or uninstall has that window.
 - Revisit if: SmartScreen warnings bother users (sign: SignPath Foundation for OSS, or Azure Trusted Signing
   via `--azureTrustedSignFile`), or Store/winget distribution is wanted.
+
+## D-030 · 2026-10-24 · In-app updates: check daily, download quietly, apply at the next launcher start
+Status: accepted
+- Decision: `Core.Updates.UpdateService` checks GitHub Releases (Velopack `GithubSource`, stable only, no
+  token) 1 min after the app starts and every 24 h, downloads a newer release in the background and leaves
+  it. The launcher applies a downloaded update before it starts the app (`ApplyPendingAtStart`: updater
+  waits for the launcher to exit, applies, starts the exe bare = launcher), skipped when `VELOPACK_RESTART`
+  is set so a failed apply can't loop. Velopack's own `SetAutoApplyOnStartup` is off. About has an Updates
+  card: status in plain words, "Check for updates" / "Try again", and "Restart now" once one is ready (the
+  app hands the update to the updater and exits like tray Exit). Not a Velopack install (Debug) → no checks.
+  `DAZEMEDIAOSD_UPDATE_SOURCE` points the client at a local feed folder for testing.
+- Why: the user asked for check at startup and daily, download in the background, apply on next start,
+  shown in About (2026-10-24). Applying in the launcher means the app is never running mid-swap; the old
+  version's before-update hook (D-029) still exits a running app cleanly if one is found.
+- Why not Velopack's auto-apply: it runs in every process that calls `VelopackApp.Run()`, including `--app`
+  and `--restore`, and restarts with that process's args. Why not apply right after download: a restart
+  the user didn't ask for, while they may be using media keys. Why not a toast/tray badge: About is enough
+  until the user asks for more.
+- Revisit if: a release needs a migration step (use `OnAfterUpdateFastCallback`), GitHub rate limits bite
+  (60 unauthenticated requests/h per IP), or the user wants a notification when an update is ready.

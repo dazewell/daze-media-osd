@@ -54,6 +54,12 @@ Release package (D-029): `pwsh scripts/pack.ps1` publishes and runs `vpk pack` i
 equal to the Velopack package). CI does this on a `v<Version>` tag. Uninstall:
 `& "$env:LOCALAPPDATA\DazeMediaOsdApp\Update.exe" --uninstall --silent` (or Settings → Apps).
 
+Testing an update (D-030) without GitHub: `pwsh scripts/install.ps1`, then
+`pwsh scripts/pack.ps1 -Output artifacts/feed -Version <higher>`, stop the app, set
+`$env:DAZEMEDIAOSD_UPDATE_SOURCE` to that folder in the same shell and start the installed exe. After 1 min the
+log says `updates: <v> ready`; stop and start again → `launcher: applying downloaded update`, then `version <v>`.
+Finish with `pwsh scripts/install.ps1` from a shell without the variable, so the user is back on a real version.
+
 `dotnet run` blocks until the launcher exits — start it in the background (or a terminal tab) when you
 need to keep working, and stop it with `scripts/stop.ps1`. The Debug exe is
 `src/DazeMediaOsd.App/bin/Debug/net10.0-windows10.0.26100.0/win-x64/DazeMediaOsd.exe`.

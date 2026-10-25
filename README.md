@@ -65,7 +65,8 @@ and <b>which device just connected</b>. It looks like part of Windows 11, and it
 You need Windows 11 24H2 or later. Download `DazeMediaOsdApp-win-Setup.exe` from
 [Releases](https://github.com/dazewell/daze-media-osd/releases) and run it: it installs for your user only, no
 admin. It isn't signed yet, so Windows SmartScreen may ask you to confirm ("More info" → "Run anyway").
-Uninstall from Settings → Apps.
+It checks for updates once a day and installs them the next time it starts
+(Settings → About shows the status). Uninstall from Settings → Apps.
 
 To build it yourself, you need the [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0)
 (`winget install Microsoft.DotNet.SDK.10`).

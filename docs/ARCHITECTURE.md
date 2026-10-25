@@ -35,7 +35,8 @@ Directory.Build.props            shared props: TFM net10.0-windows10.0.26100.0, 
 Directory.Packages.props         central package versions
 dotnet-tools.json                pins vpk (Velopack CLI) for scripts/pack.ps1 and CI (D-029)
 src/DazeMediaOsd.Core/           no UI; Win32/COM via CsWin32 (NativeMethods.txt). Lifecycle/ (LaunchArgs,
-                                 Launcher, AppVersion, Autostart, ExitSignal), NativeFlyout/ (FlyoutHost, FlyoutSuppressor), Audio/
+                                 Launcher, AppVersion, Autostart, ExitSignal), Updates/ (UpdateService,
+                                 VelopackUpdateClient), NativeFlyout/ (FlyoutHost, FlyoutSuppressor), Audio/
                                  (CoreAudioService, DeviceChoices, DeviceCycle, DeviceConnector), Input/ (RawInputKeySource, GlobalHotkey, Hotkey, Shortcuts), Osd/ (OsdState, OsdRules,
                                  OsdController, DeviceNotice, OsdPlacement, OsdAnimation), Windowing/ (OverlayWindow styles), Tray/
                                  (TrayIcon), Settings/ (AppSettings, DeviceHotkey, SettingsStore), Media/
@@ -274,6 +275,13 @@ unit-tested with fakes. App never P/Invokes directly; window styling goes throug
   Updates run the old version's before-update hook first: it sets `ExitSignal`, the app exits like tray
   Exit (launcher restores), the hook waits for both mutexes to go (≤ 10 s). Verified 2026-10-24 by running
   the installed exe with `--veloapp-obsolete`: clean exit 0, flyout restored, 0.8 s.
+- Updates (D-030): `UpdateService` (Core/Updates, behind `IUpdateClient`; `VelopackUpdateClient` is the
+  real one) checks 1 min after start, then daily; a find downloads at once; status → About's Updates card
+  (raised on the checking thread, the window marshals). The launcher applies a downloaded update before
+  starting the app. Verified 2026-10-24 with a local feed (`DAZEMEDIAOSD_UPDATE_SOURCE`): 0.3.0 found and
+  downloaded 0.3.1 after 1 min; next launcher start applied it (before-update hook, after-update hook) and
+  came back as 0.3.1, flyout minimized by the new app. Not seen: the About card on screen, Restart now,
+  a GitHub-hosted feed.
   Verified 2026-10-24: install → run (host minimized) → uninstall → host restored, settings and the
   daily driver's Run value kept; `install.ps1` moved the old `Programs\DazeMediaOsd` copy (Run value
   re-pointed, folder deleted) and a second run reinstalled in place. Not verified: an update from one
