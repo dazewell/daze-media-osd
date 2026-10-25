@@ -15,6 +15,7 @@ internal sealed class FadeThrough
     private readonly Storyboard _out;
     private readonly Storyboard _in;
     private Action? _swap;
+    private string? _content; // the last asked for: on screen, or waiting in _swap
 
     public FadeThrough(UIElement target)
     {
@@ -31,19 +32,27 @@ internal sealed class FadeThrough
     }
 
     /// <summary>
-    /// Applies <paramref name="swap"/>: through a fade when <paramref name="changed"/> and <paramref name="fade"/>,
-    /// else at once. While fading out, the newest swap replaces the waiting one, so the last content goes in.
+    /// Shows <paramref name="content"/> by running <paramref name="swap"/>, through a fade when
+    /// <paramref name="fade"/>. The same content as last asked for (shown or waiting) does nothing, so a repeat
+    /// render doesn't disturb a fade. A non-fading change cancels a running fade (a level step or a fresh show
+    /// must not wait); a fading one during the fade-out replaces the waiting swap.
     /// </summary>
-    public void Run(bool changed, bool fade, Action swap)
+    public void Run(string content, bool fade, Action swap)
     {
+        if (content == _content)
+            return;
+        _content = content;
+        if (!fade)
+        {
+            _swap = null;
+            _out.Stop(); // Stop drops the animated opacity: back to the base 1
+            _in.Stop();
+            swap();
+            return;
+        }
         if (_swap is not null)
         {
             _swap = swap;
-            return;
-        }
-        if (!changed || !fade)
-        {
-            swap();
             return;
         }
         _swap = swap;

@@ -42,6 +42,7 @@ public sealed partial class OsdWindow : Window
     private readonly FadeThroughs _fades = new();
     private bool? _shownOutputMuted;
     private DeviceKind? _shownOutputKind;
+    private bool? _shownInputMuted;
     private Storyboard? _eventEntrance;
     private readonly OsdAnimation _animation = new(ShowDuration, HideDuration);
     private readonly Stopwatch _clock = Stopwatch.StartNew();
@@ -202,14 +203,14 @@ public sealed partial class OsdWindow : Window
         // Shown again after being collapsed: nothing on screen to fade from.
         fade &= MediaRow.Visibility == Visibility.Visible;
         MediaRow.Visibility = Visibility.Visible;
-        _fades.Get(MediaText).Run(MediaTitle.Text != media.Title || MediaArtist.Text != media.Artist, fade, () =>
+        _fades.Get(MediaText).Run($"{media.Title}\n{media.Artist}", fade, () =>
         {
             MediaTitle.Text = media.Title;
             MediaArtist.Text = media.Artist;
             MediaArtist.Visibility = media.Artist.Length == 0 ? Visibility.Collapsed : Visibility.Visible;
         });
         var playback = media.IsPlaying ? "" : ""; // Play / Pause
-        _fades.Get(MediaPlayback).Run(MediaPlayback.Glyph != playback, fade, () => MediaPlayback.Glyph = playback);
+        _fades.Get(MediaPlayback).Run(playback, fade, () => MediaPlayback.Glyph = playback);
         RenderThumbnail(media.Thumbnail, fade);
     }
 
@@ -312,7 +313,7 @@ public sealed partial class OsdWindow : Window
     private void RenderOutput(EndpointState? output, bool fade)
     {
         var name = output?.Name ?? "No output device";
-        _fades.Get(OutputName).Run(OutputName.Text != name, fade, () => OutputName.Text = name);
+        _fades.Get(OutputName).Run(name, fade, () => OutputName.Text = name);
         _outputPercent = output?.Percent ?? 0;
         var muted = output is not { Muted: false };
         OutputFill.Style = (Style)Root.Resources[muted ? "OsdFillMuted" : "OsdFill"];
@@ -332,7 +333,7 @@ public sealed partial class OsdWindow : Window
         // Mute and a device of another kind fade; a level step stays instant, it follows a held key (D-034).
         var kindOrMute = (muted, output?.Kind) != (_shownOutputMuted, _shownOutputKind);
         (_shownOutputMuted, _shownOutputKind) = (muted, output?.Kind);
-        _fades.Get(OutputIcon).Run(OutputIcon.Glyph != glyph, fade && kindOrMute, () => OutputIcon.Glyph = glyph);
+        _fades.Get(OutputIcon).Run(glyph, fade && kindOrMute, () => OutputIcon.Glyph = glyph);
         SizeFill();
     }
 
@@ -364,15 +365,17 @@ public sealed partial class OsdWindow : Window
         }
         fade &= InputRow.Visibility == Visibility.Visible;
         InputRow.Visibility = Visibility.Visible;
-        _fades.Get(InputName).Run(InputName.Text != input.Name, fade, () => InputName.Text = input.Name);
+        _fades.Get(InputName).Run(input.Name, fade, () => InputName.Text = input.Name);
         var glyph = input.Muted ? "\uEC54" : input.Kind == DeviceKind.Headset ? "\uE95B" : "\uE720"; // MicOff / Headset / Microphone
-        _fades.Get(InputIcon).Run(InputIcon.Glyph != glyph, fade, () => InputIcon.Glyph = glyph);
+        _fades.Get(InputIcon).Run(glyph, fade, () => InputIcon.Glyph = glyph);
         // The mic level is shown but never pops the OSD; only the switch to and from "Muted" fades.
-        var muteChanged = input.Muted != (InputStatus.Text == "Muted");
-        _fades.Get(InputStatus).Run(true, fade && muteChanged, () =>
+        var status = input.Muted ? "Muted" : input.Percent.ToString(CultureInfo.CurrentCulture);
+        var muteChanged = input.Muted != _shownInputMuted;
+        _shownInputMuted = input.Muted;
+        _fades.Get(InputStatus).Run(status, fade && muteChanged, () =>
         {
             InputStatus.Style = (Style)Root.Resources[input.Muted ? "OsdValueMuted" : "OsdValue"];
-            InputStatus.Text = input.Muted ? "Muted" : input.Percent.ToString(CultureInfo.CurrentCulture);
+            InputStatus.Text = status;
         });
     }
 
