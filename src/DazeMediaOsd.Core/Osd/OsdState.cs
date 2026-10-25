@@ -20,6 +20,11 @@ public enum OsdReason
     MediaKey,
     /// <summary>The media session changed. Only refreshes a visible OSD, never pops it.</summary>
     MediaChanged,
+    /// <summary>
+    /// The track or play state changed on its own (D-032). Pops the OSD only with
+    /// <c>ShowOnMediaChange</c> on; otherwise it is a refresh.
+    /// </summary>
+    MediaPlayback,
     /// <summary>A setting changed: show the OSD so its effect is visible.</summary>
     SettingsPreview,
     /// <summary>

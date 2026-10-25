@@ -154,6 +154,22 @@
                                           AutomationProperties.Name="Show now playing"
                                           IsOn="{x:Bind ViewModel.ShowMedia, Mode=TwoWay}" />
                         </Grid>
+                        <Grid Style="{StaticResource SettingsCard}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <FontIcon Glyph="&#xE768;" Style="{StaticResource SettingsCardIcon}" />
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock Text="When the song changes or pauses" />
+                                <TextBlock Text="Pop up for a new song, play or pause, even when you didn't press a key" Style="{StaticResource SettingsCardDescription}" />
+                            </StackPanel>
+                            <ToggleSwitch Grid.Column="2" VerticalAlignment="Center" MinWidth="0"
+                                          AutomationProperties.Name="Show when the song changes or pauses"
+                                          IsEnabled="{x:Bind ViewModel.ShowMedia, Mode=OneWay}"
+                                          IsOn="{x:Bind ViewModel.ShowOnMediaChange, Mode=TwoWay}" />
+                        </Grid>
 
                         <Grid Style="{StaticResource SettingsCard}">
                             <Grid.ColumnDefinitions>

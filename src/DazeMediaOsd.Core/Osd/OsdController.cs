@@ -44,6 +44,7 @@ public sealed class OsdController : IDisposable
     private DeviceNotice? _announced;
     private long _announcedAt;
     private bool _disposed;
+    private MediaState? _lastMedia;
 
     public OsdController(IAudioService audio, IKeySource keys, IMediaService media, TimeProvider? time = null)
     {
@@ -51,6 +52,7 @@ public sealed class OsdController : IDisposable
         _keys = keys ?? throw new ArgumentNullException(nameof(keys));
         _media = media ?? throw new ArgumentNullException(nameof(media));
         _time = time ?? TimeProvider.System;
+        _lastMedia = _media.Current;
         _audio.Changed += OnAudioChanged;
         _keys.KeyPressed += OnKeyPressed;
         _media.Changed += OnMediaChanged;
@@ -169,8 +171,16 @@ public sealed class OsdController : IDisposable
             Request(OsdState.From(_audio.Current, media, reason));
     }
 
-    private void OnMediaChanged(object? sender, MediaState? media) =>
-        RefreshRequested?.Invoke(this, OsdState.From(_audio.Current, media, OsdReason.MediaChanged));
+    // The show goes out with every qualifying change; App turns it back into a refresh while the setting is
+    // off, so this needs no settings (D-032).
+    private void OnMediaChanged(object? sender, MediaState? media)
+    {
+        var before = Interlocked.Exchange(ref _lastMedia, media);
+        if (OsdRules.ReasonToShow(before, media) is { } reason)
+            Request(OsdState.From(_audio.Current, media, reason));
+        else
+            RefreshRequested?.Invoke(this, OsdState.From(_audio.Current, media, OsdReason.MediaChanged));
+    }
 
     // Audio and key sources call in from different threads.
     private void Request(OsdState state)

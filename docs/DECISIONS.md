@@ -141,7 +141,7 @@ Status: accepted
 - Revisit if: pages grow past ~4 or need deep links (→ `Frame`), or cards need expanders (→ `SettingsCard`).
 
 ## D-011 · 2026-10-22 · Media keys pop the OSD; media session changes only refresh it
-Status: superseded by D-013 (adds device connect/disconnect; the key and media rules stand)
+Status: superseded by D-013 (adds device connect/disconnect; the key and media rules stand); D-032 adds an opt-in pop on track/play-state changes
 Supersedes: D-007
 - Decision: D-007's audio rules, plus Play/Pause, Next and Previous (keyboard `VK_MEDIA_*`, Consumer
   Control 0xCD/0xB0/0xB1/0xB5/0xB6) pop the OSD — only while a GSMTC session exists and the Media
@@ -521,3 +521,18 @@ Status: accepted
   auto-tag workflow: two files and inputs for what one `check` job does.
 - Revisit if: a release should wait for a human (then a `workflow_dispatch` or draft-only mode), or
   version bumps start landing in PRs that aren't ready to ship.
+
+## D-032 · 2026-10-24 · Opt-in: a track or play/pause change pops the OSD
+Status: accepted
+Supersedes: D-011 in part (its "a session change never pops" rule, now only the default)
+- Decision: setting `showOnMediaChange`, off by default, needs `showMedia`. `OsdRules.ReasonToShow(before,
+  after)` returns `MediaPlayback` for a new title/artist or play state in the same player, or a player that
+  starts playing; a late cover, a paused session appearing or a session ending only refresh. The controller
+  always requests the show; `App.Show` turns it into a refresh while the setting is off.
+- Why: the user asked for it (2026-10-24), the trigger D-011 named. Off by default because D-011's reason
+  stands: players change tracks on their own. After a media key it simply re-shows with the new track
+  ~20–50 ms later, which replaces the refresh.
+- Why not pop on any session change: a cover arriving or a browser tab opening paused would pop it.
+  Why not two toggles (track / play-pause): the user asked for one option.
+- Revisit if: daily use shows pops from videos/notifications in the browser, or play-state flicker between
+  tracks pops twice.

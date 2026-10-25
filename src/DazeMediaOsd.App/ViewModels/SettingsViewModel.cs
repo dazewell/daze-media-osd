@@ -41,6 +41,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         ShowInput = current.ShowInput;
         ShowMedia = current.ShowMedia;
         ShowOnDeviceConnect = current.ShowOnDeviceConnect;
+        ShowOnMediaChange = current.ShowOnMediaChange;
         CycleOutputHotkey = current.CycleOutputHotkey;
         HotkeyNote = RegistrationNote(Shortcuts.CycleOutputId);
         ReadEndpoints();
@@ -74,6 +75,9 @@ public sealed partial class SettingsViewModel : ObservableObject
 
     [ObservableProperty]
     public partial bool ShowOnDeviceConnect { get; set; }
+
+    [ObservableProperty]
+    public partial bool ShowOnMediaChange { get; set; }
 
     /// <summary>Set while the last edit couldn't be written to disk: it applies only until the app exits.</summary>
     [ObservableProperty]
@@ -115,6 +119,8 @@ public sealed partial class SettingsViewModel : ObservableObject
     partial void OnShowMediaChanged(bool value) => Update(s => s with { ShowMedia = value });
 
     partial void OnShowOnDeviceConnectChanged(bool value) => Update(s => s with { ShowOnDeviceConnect = value });
+
+    partial void OnShowOnMediaChangeChanged(bool value) => Update(s => s with { ShowOnMediaChange = value });
 
     /// <summary>The cycle-output shortcut, recorded from the keys pressed in its box. "" is off.</summary>
     [ObservableProperty]

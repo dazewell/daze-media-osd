@@ -20,7 +20,8 @@ this file and know what to build next. History of *why* lives in [DECISIONS.md](
 - OSD shows: volume level + mute state, **default output device name**, **default input device name**
   (+ mic mute state). Media info (title/artist/controls) when a media session is active.
 - OSD also appears when the default output/input device changes, and on media keys
-  (play/pause/next/previous) (user, 2026-10-22).
+  (play/pause/next/previous) (user, 2026-10-22). Optionally also on a track change or play/pause that
+  didn't come from a key, off by default (user, 2026-10-24; D-032).
 - OSD animates in and out like the native flyout (user, 2026-10-22).
 - OSD pops up when any audio device (Bluetooth, USB, …) connects or disconnects; on by default, off in
   settings. It still shows the current default output/input as always (user, 2026-10-22), and also
@@ -122,8 +123,12 @@ this file and know what to build next. History of *why* lives in [DECISIONS.md](
 - [x] In-app updates (D-030): daily check of GitHub Releases, background download, applied at the next
   start; About shows status, Check for updates and Restart now. Seen with a local feed: 0.3.0 → 0.3.1
   (2026-10-24). Not seen: the About card on screen, Restart now, the real GitHub feed
+- [x] Opt-in pop on track change / play-pause (D-032): "When the song changes or pauses" toggle under Now
+  playing, off by default; unit-tested. Not seen yet: the toggle on screen, real players (log `show MediaPlayback`)
 
-**Next step:** the next feat/fix merge is the first automatic release (D-031): check its Release run and
+**Next step:** look at the new toggle in Settings and turn it on for a day: a track change in Spotify/Chromium
+pops once (log `show MediaPlayback`), a media key doesn't pop twice visibly, browser videos don't spam.
+Then: the next feat/fix merge is the first automatic release (D-031): check its Release run and
 that the daily driver (0.3.0 in `%LOCALAPPDATA%\DazeMediaOsdApp`) downloads it within a day (log
 `updates: <v> ready`) and runs it after the next start; look at About → Updates on screen once. Then the user lives with the finished Plan C and Bluetooth connect (D-023) on the daily driver for a
 day (real device shortcuts, presses while the headphones are off or disconnected) and reports back. Then pick the next feature from the PR #8 survey with the user. When convenient: the headset glyph

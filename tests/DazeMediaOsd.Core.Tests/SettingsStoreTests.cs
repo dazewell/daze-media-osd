@@ -89,6 +89,15 @@ public sealed class SettingsStoreTests : IDisposable
         Assert.True(new SettingsStore(_directory).Current.ShowOnDeviceConnect);
     }
 
+    [Fact]
+    public void FileFromBeforeShowOnMediaChangeGetsItOff()
+    {
+        Directory.CreateDirectory(_directory);
+        File.WriteAllText(SettingsFile, """{ "version": 1, "showMedia": true }""");
+
+        Assert.False(new SettingsStore(_directory).Current.ShowOnMediaChange);
+    }
+
     [Theory]
     [InlineData("""{ "version": 1 }""", "Win+Alt+A")]                          // file from before the hotkey
     [InlineData("""{ "cycleOutputHotkey": "" }""", "")]                       // off
