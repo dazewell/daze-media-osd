@@ -41,12 +41,24 @@ dotnet run --project src/DazeMediaOsd.App -c Debug             # starts the laun
 dotnet publish src/DazeMediaOsd.App -c Release -r win-x64 -o artifacts/publish   # self-contained, ~230 MB
 ```
 
-Daily-driver install: `pwsh scripts/install.ps1` stops any running copy, publishes to
-`%LOCALAPPDATA%\Programs\DazeMediaOsd` and starts it there. The user's autostart (D-015) points at that
-exe: after testing a Debug build, reinstall or start the installed copy again
-(`& "$env:LOCALAPPDATA\Programs\DazeMediaOsd\DazeMediaOsd.exe"`) so the user isn't left without the app.
+Daily-driver install: `pwsh scripts/install.ps1` packs the release package (below), stops any running copy,
+installs it with its Setup.exe to `%LOCALAPPDATA%\DazeMediaOsdApp` (the folder a GitHub Release installs to,
+D-029) and starts it there. The user's autostart (D-015) points at that exe: after testing a Debug build,
+reinstall or start the installed copy again
+(`& "$env:LOCALAPPDATA\DazeMediaOsdApp\current\DazeMediaOsd.exe"`) so the user isn't left without the app.
 Toggling "Start with Windows" from a Debug build re-points the user's Run value at the Debug exe: put it
 back from the installed copy afterwards.
+
+Release package (D-029): `pwsh scripts/pack.ps1` publishes and runs `vpk pack` into `artifacts/releases`
+(Setup.exe, portable zip, update feed). vpk is pinned in `dotnet-tools.json` (the script restores it; keep it
+equal to the Velopack package). CI does this on a `v<Version>` tag. Uninstall:
+`& "$env:LOCALAPPDATA\DazeMediaOsdApp\Update.exe" --uninstall --silent` (or Settings → Apps).
+
+Testing an update (D-030) without GitHub: `pwsh scripts/install.ps1`, then
+`pwsh scripts/pack.ps1 -Output artifacts/feed -Version <higher>`, stop the app, set
+`$env:DAZEMEDIAOSD_UPDATE_SOURCE` to that folder in the same shell and start the installed exe. After 1 min the
+log says `updates: <v> ready`; stop and start again → `launcher: applying downloaded update`, then `version <v>`.
+Finish with `pwsh scripts/install.ps1` from a shell without the variable, so the user is back on a real version.
 
 `dotnet run` blocks until the launcher exits — start it in the background (or a terminal tab) when you
 need to keep working, and stop it with `scripts/stop.ps1`. The Debug exe is

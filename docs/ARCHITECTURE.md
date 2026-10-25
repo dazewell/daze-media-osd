@@ -33,8 +33,10 @@ global.json                      pins .NET 10 SDK; opts `dotnet test` into Micro
 Directory.Build.props            shared props: TFM net10.0-windows10.0.26100.0, nullable, warnings as errors;
                                  `<Version>` + product metadata (D-024)
 Directory.Packages.props         central package versions
+dotnet-tools.json                pins vpk (Velopack CLI) for scripts/pack.ps1 and CI (D-029)
 src/DazeMediaOsd.Core/           no UI; Win32/COM via CsWin32 (NativeMethods.txt). Lifecycle/ (LaunchArgs,
-                                 Launcher, AppVersion), NativeFlyout/ (FlyoutHost, FlyoutSuppressor), Audio/
+                                 Launcher, AppVersion, Autostart, ExitSignal), Updates/ (UpdateService,
+                                 VelopackUpdateClient), NativeFlyout/ (FlyoutHost, FlyoutSuppressor), Audio/
                                  (CoreAudioService, DeviceChoices, DeviceCycle, DeviceConnector), Input/ (RawInputKeySource, GlobalHotkey, Hotkey, Shortcuts), Osd/ (OsdState, OsdRules,
                                  OsdController, DeviceNotice, OsdPlacement, OsdAnimation), Windowing/ (OverlayWindow styles), Tray/
                                  (TrayIcon), Settings/ (AppSettings, DeviceHotkey, SettingsStore), Media/
@@ -48,7 +50,9 @@ src/DazeMediaOsd.App/            WinUI 3 exe `DazeMediaOsd.exe`: Program.Main �
 tests/DazeMediaOsd.Core.Tests/   xUnit v3; logic only, fakes for IAudioService / IKeySource / IMediaService
 scripts/                         run.ps1 (stop + build + start), stop.ps1 (safe stop), press-key.ps1
                                  (SendInput volume/media keys), audio-device.ps1 (list / set default output,
-                                 dev only)
+                                 dev only), install.ps1 (daily-driver copy), pack.ps1 (Velopack release, D-029)
+.github/workflows/               ci.yml (build + test on PRs and main), release.yml (tag v<Version> → test,
+                                 pack, GitHub Release with Setup.exe + update feed, D-029)
 docs/images/                     README art: hero.png and framed shots, captured from the running app (demo
                                  media page, Stereo Mix as the connected device). Re-shoot after UI changes.
 spikes/FlyoutProbe/              console probe for the native flyout — re-run after Windows updates.
@@ -260,9 +264,28 @@ unit-tested with fakes. App never P/Invokes directly; window styling goes throug
   kill launcher → app restores, hides per show; tray Exit → both exit, native flyout stock again.
 - Autostart (D-015): `Autostart` reads/writes `HKCU\…\Run\DazeMediaOsd` + its `StartupApproved\Run`
   flag (Explorer writes 12 bytes, first byte 02/06 on, 03/07 off; no value = on). Installed copy:
-  `%LOCALAPPDATA%\Programs\DazeMediaOsd` via `scripts/install.ps1`. Verified 2026-10-22: toggle on/off
+  `%LOCALAPPDATA%\DazeMediaOsdApp\current` via Setup.exe or `scripts/install.ps1` (D-029). Verified 2026-10-22: toggle on/off
   writes/removes the value, a Task Manager "disabled" shows off + note and "on" clears it. Not verified
   yet: an actual sign-in start.
+- Installer (D-029): Velopack Setup.exe installs to `%LOCALAPPDATA%\DazeMediaOsdApp\current\` (per user,
+  Start menu shortcut, no autostart). Setup, update and uninstall start the exe with `--veloapp-*`;
+  `VelopackApp.Run()` at the top of `Program.Main` handles it and exits. Velopack force-kills every process
+  in the install folder first (launcher + app together → host left minimized), so each hook calls
+  `FlyoutHost.RestoreAll()`; uninstall also drops the Run value if it points into the install folder.
+  Updates run the old version's before-update hook first: it sets `ExitSignal`, the app exits like tray
+  Exit (launcher restores), the hook waits for both mutexes to go (≤ 10 s). Verified 2026-10-24 by running
+  the installed exe with `--veloapp-obsolete`: clean exit 0, flyout restored, 0.8 s.
+- Updates (D-030): `UpdateService` (Core/Updates, behind `IUpdateClient`; `VelopackUpdateClient` is the
+  real one) checks 1 min after start, then daily; a find downloads at once; status → About's Updates card
+  (raised on the checking thread, the window marshals). The launcher applies a downloaded update before
+  starting the app. Verified 2026-10-24 with a local feed (`DAZEMEDIAOSD_UPDATE_SOURCE`): 0.3.0 found and
+  downloaded 0.3.1 after 1 min; next launcher start applied it (before-update hook, after-update hook) and
+  came back as 0.3.1, flyout minimized by the new app. Not seen: the About card on screen, Restart now,
+  a GitHub-hosted feed.
+  Verified 2026-10-24: install → run (host minimized) → uninstall → host restored, settings and the
+  daily driver's Run value kept; `install.ps1` moved the old `Programs\DazeMediaOsd` copy (Run value
+  re-pointed, folder deleted) and a second run reinstalled in place. Not verified: an update from one
+  release to the next.
 
 ## Invariants
 

@@ -34,7 +34,7 @@ Status: accepted (Q1 spike confirmed suppression works on build 26300, see D-005
 - Revisit if: suppression stops working on a Windows update and can't be fixed quickly.
 
 ## D-003 · 2026-10-22 · Unpackaged, self-contained, single process, local build
-Status: accepted; "single process" amended by D-006 (launcher process)
+Status: accepted; "single process" amended by D-006 (launcher process); "local build" amended by D-029 (Velopack release)
 - Decision: `WindowsPackageType=None`, `WindowsAppSDKSelfContained=true`, self-contained .NET publish to
   a folder, win-x64. One process hosts tray + OSD + settings window (settings window created on demand,
   destroyed on close). Settings as JSON in `%LOCALAPPDATA%\DazeMediaOsd\`. Autostart via HKCU Run key.
@@ -225,7 +225,7 @@ Supersedes: D-013 (adds what the show says and drops repeated bursts; when it po
   device, or a Bluetooth endpoint shows the speaker glyph (log line lacks `bluetooth`).
 
 ## D-015 · 2026-10-22 · Autostart: the Run value is the only state; the copy that turns it on registers itself
-Status: accepted
+Status: accepted; install folder amended by D-029 (`%LOCALAPPDATA%\DazeMediaOsdApp`)
 - Decision: "Start with Windows" writes `HKCU\…\CurrentVersion\Run\DazeMediaOsd` = `"<this exe>"` (no
   args → launcher, D-006) and deletes our `Explorer\StartupApproved\Run` value; off deletes both. The
   toggle reads the registry each time the settings window opens: on only if the Run value exists and
@@ -383,7 +383,7 @@ Supersedes: D-022 (only "not active → no switch", for devices that take the re
   or a connect regularly takes > 15 s.
 
 ## D-024 · 2026-10-23 · Version: one `<Version>` in Directory.Build.props, SemVer 0.x, bumped by the PR
-Status: accepted
+Status: accepted; releases: the tag must equal `<Version>` (D-029)
 - Decision: `Directory.Build.props` holds `<Version>` (started at 0.1.0) with Product/Company/Copyright; the
   SDK appends `+<commit sha>` to the informational version. `Core.Lifecycle.AppVersion` parses it: About shows
   "0.1.0 (abc1234)", the launcher logs `version 0.1.0+abc1234` and the exe path. A `feat` PR bumps minor, a
@@ -453,3 +453,52 @@ Status: accepted
   app outlives day changes too, and the mutex already makes either process safe.
 - Revisit if: someone tails `app.log` without delete sharing across midnight — the rename fails and that
   day's lines stay in `app.log` until the next day's rotation (logged to the debugger only).
+
+## D-029 · 2026-10-24 · Release packaging: Velopack Setup.exe from a tag-triggered GitHub Actions workflow
+Status: accepted
+Supersedes: D-003 (only "local build, nothing to install besides the folder"; unpackaged + self-contained stand)
+- Decision: `scripts/pack.ps1` publishes (D-003) and runs `vpk pack` with packId `DazeMediaOsdApp`, Start-menu
+  shortcut only. `release.yml` runs on a `v<Version>` tag: the tag must equal `<Version>` in
+  Directory.Build.props (D-024 stays the one source), then tests, pack, and `vpk upload github --publish`
+  (Setup.exe, portable zip, full + delta packages, update feed). `ci.yml` builds and tests every PR and main.
+  `Program.Main` runs `VelopackApp` first; every hook restores the native flyout (Velopack force-kills
+  launcher and app together, D-006), uninstall also removes our Run value if it points into the install
+  folder. The before-update hook (old version, before the kill) sets `ExitSignal` (`Local\DazeMediaOsd.Exit`):
+  the app exits like tray Exit, the launcher restores, nothing is left to kill. Unsigned for now. vpk is pinned in `dotnet-tools.json`, equal to the Velopack package.
+  `scripts/install.ps1` builds the same package and runs its Setup.exe, so a local build and a release share
+  one folder and one Apps entry (user, 2026-10-24: never two copies); it moves the pre-D-029
+  `Programs\DazeMediaOsd` copy once (re-points the Run value, deletes the folder).
+- Why: the user picked Velopack (2026-10-24) over WiX and Inno: per-user install without admin by default
+  (hard rule), and it ships an update feed on GitHub Releases, so an in-app updater is one step away.
+  packId isn't `DazeMediaOsd` because Velopack deletes `%LOCALAPPDATA%\<packId>` on uninstall and
+  `%LOCALAPPDATA%\DazeMediaOsd` holds settings and logs. The install path `…\current\DazeMediaOsd.exe` is
+  stable across updates, so the Run value the app writes (D-015) stays valid.
+- Why not WiX MSI: per-user MSI needs care to avoid elevation, and no updates. Why not vpk `--msi`: a
+  machine-wide bootstrapper (admin). Why not Inno Setup: no update feed. Why not MSIX: certificate (D-003).
+  Why not a desktop shortcut: a tray app is reached from the tray and Start.
+- Accepted risk: Setup over an existing install and uninstall kill before any of our code runs (no
+  before-hook). If Setup then fails before its after-install hook, the flyout stays minimized until our next
+  start, `--restore`, an explorer restart or sign-out, as for any double kill (D-006). `install.ps1` stops
+  the app gracefully first, so only a hand-run Setup.exe or uninstall has that window.
+- Revisit if: SmartScreen warnings bother users (sign: SignPath Foundation for OSS, or Azure Trusted Signing
+  via `--azureTrustedSignFile`), or Store/winget distribution is wanted.
+
+## D-030 · 2026-10-24 · In-app updates: check daily, download quietly, apply at the next launcher start
+Status: accepted
+- Decision: `Core.Updates.UpdateService` checks GitHub Releases (Velopack `GithubSource`, stable only, no
+  token) 1 min after the app starts and every 24 h, downloads a newer release in the background and leaves
+  it. The launcher applies a downloaded update before it starts the app (`ApplyPendingAtStart`: updater
+  waits for the launcher to exit, applies, starts the exe bare = launcher), skipped when `VELOPACK_RESTART`
+  is set so a failed apply can't loop. Velopack's own `SetAutoApplyOnStartup` is off. About has an Updates
+  card: status in plain words, "Check for updates" / "Try again", and "Restart now" once one is ready (the
+  app hands the update to the updater and exits like tray Exit). Not a Velopack install (Debug) → no checks.
+  `DAZEMEDIAOSD_UPDATE_SOURCE` points the client at a local feed folder for testing.
+- Why: the user asked for check at startup and daily, download in the background, apply on next start,
+  shown in About (2026-10-24). Applying in the launcher means the app is never running mid-swap; the old
+  version's before-update hook (D-029) still exits a running app cleanly if one is found.
+- Why not Velopack's auto-apply: it runs in every process that calls `VelopackApp.Run()`, including `--app`
+  and `--restore`, and restarts with that process's args. Why not apply right after download: a restart
+  the user didn't ask for, while they may be using media keys. Why not a toast/tray badge: About is enough
+  until the user asks for more.
+- Revisit if: a release needs a migration step (use `OnAfterUpdateFastCallback`), GitHub rate limits bite
+  (60 unauthenticated requests/h per IP), or the user wants a notification when an update is ready.

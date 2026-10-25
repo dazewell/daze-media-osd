@@ -9,6 +9,7 @@ using DazeMediaOsd.Core.NativeFlyout;
 using DazeMediaOsd.Core.Osd;
 using DazeMediaOsd.Core.Settings;
 using DazeMediaOsd.Core.Tray;
+using DazeMediaOsd.Core.Updates;
 using DazeMediaOsd.Core.Windowing;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
@@ -26,6 +27,8 @@ public sealed partial class App : Application, IDisposable
     private OsdController? _osd;
     private OsdWindow? _window;
     private TrayIcon? _tray;
+    private ExitSignal? _exitSignal;
+    private UpdateService? _updates;
     private SettingsStore? _settings;
     private SettingsWindow? _settingsWindow;
     private GlobalHotkey? _hotkey;
@@ -105,6 +108,16 @@ public sealed partial class App : Application, IDisposable
         }));
         _suppressor = new FlyoutSuppressor(_launcher is null ? SuppressionMode.HidePerShow : SuppressionMode.Minimize);
         Log.Info($"app started, suppression={_suppressor.Mode}, {OsdState.Describe(_audio.Current)}");
+
+        // The updater's before-update hook asks us to exit like tray Exit (D-029).
+        _exitSignal = ExitSignal.Listen(() => ui.TryEnqueue(() =>
+        {
+            Log.Info("exit requested by the installer");
+            Exit();
+        }));
+        // Checks GitHub Releases a minute from now and daily; a download applies at the next start (D-030).
+        _updates = new UpdateService(new VelopackUpdateClient());
+        _updates.Start();
 
         // Without a tray icon the OSD still works; only exiting needs scripts/stop.ps1.
         try
@@ -201,11 +214,18 @@ public sealed partial class App : Application, IDisposable
     {
         if (_settingsWindow is null)
         {
-            _settingsWindow = new SettingsWindow(new SettingsViewModel(_settings!, new Autostart(), Environment.ProcessPath!, _hotkey, _audio!));
+            _settingsWindow = new SettingsWindow(new SettingsViewModel(_settings!, new Autostart(), Environment.ProcessPath!, _hotkey, _audio!), _updates!, RestartToUpdate);
             _settingsWindow.Closed += (_, _) => _settingsWindow = null;
             _settingsWindow.Activate();
         }
         WindowActivation.BringToFront(_settingsWindow.Handle);
+    }
+
+    // About's "Restart now": the updater waits for us, applies, then starts the launcher again.
+    private void RestartToUpdate()
+    {
+        if (_updates?.ApplyAfterExit() == true)
+            Exit(); // Program's finally restores the native flyout; the launcher exits after us (D-006)
     }
 
     private void Show(OsdState state)
@@ -228,6 +248,8 @@ public sealed partial class App : Application, IDisposable
     public void Dispose()
     {
         _settingsWindow?.Close();
+        _exitSignal?.Dispose();
+        _updates?.Dispose();
         _tray?.Dispose();
         _hotkey?.Dispose();
         _connector?.Dispose();

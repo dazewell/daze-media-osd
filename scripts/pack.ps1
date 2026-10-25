@@ -1,0 +1,30 @@
+# Release package (D-029): self-contained publish (D-003), then Velopack's per-user Setup.exe, portable zip and
+# update feed in artifacts/releases. The release workflow and install.ps1 run this; vpk comes from the repo's
+# dotnet-tools.json (keep its version equal to the Velopack package). Example: pwsh scripts/pack.ps1
+# -Version overrides <Version> (testing an update against a local feed, build skill).
+param([string]$Output = (Join-Path (Split-Path $PSScriptRoot -Parent) 'artifacts/releases'), [string]$Version)
+$ErrorActionPreference = 'Stop'
+$root = Split-Path $PSScriptRoot -Parent
+$publish = Join-Path $root 'artifacts/publish'
+# Not "DazeMediaOsd": Velopack installs to %LOCALAPPDATA%\<packId> and deletes it on uninstall, and
+# %LOCALAPPDATA%\DazeMediaOsd holds settings.json and the logs.
+$packId = 'DazeMediaOsdApp'
+
+dotnet tool restore --tool-manifest (Join-Path $root 'dotnet-tools.json') | Out-Null
+if ($LASTEXITCODE -ne 0) { throw "dotnet tool restore failed ($LASTEXITCODE)." }
+
+$props = [xml](Get-Content (Join-Path $root 'Directory.Build.props'))
+$version = if ($Version) { $Version } else { $props.Project.PropertyGroup.Version | Where-Object { $_ } | Select-Object -First 1 }
+if (-not $version) { throw 'No <Version> in Directory.Build.props.' }
+
+if (Test-Path $publish) { Remove-Item $publish -Recurse -Force }
+dotnet publish (Join-Path $root 'src/DazeMediaOsd.App') -c Release -r win-x64 -o $publish -v q -nologo -p:Version=$version
+if ($LASTEXITCODE -ne 0) { throw "Publish failed ($LASTEXITCODE)." }
+# Without the .pri the app dies loading XAML (X-004).
+if (-not (Test-Path (Join-Path $publish 'DazeMediaOsd.pri'))) { throw 'Publish has no DazeMediaOsd.pri (X-004).' }
+
+dotnet vpk pack --packId $packId --packVersion $version --packDir $publish --mainExe DazeMediaOsd.exe `
+    --packTitle 'Daze Media OSD' --packAuthors dazewell --icon (Join-Path $root 'src/DazeMediaOsd.App/Assets/app.ico') `
+    --shortcuts StartMenuRoot --outputDir $Output
+if ($LASTEXITCODE -ne 0) { throw "vpk pack failed ($LASTEXITCODE)." }
+Write-Host "Packed $version into $Output"

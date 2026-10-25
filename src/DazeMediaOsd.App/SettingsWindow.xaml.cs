@@ -5,6 +5,7 @@ using DazeMediaOsd.App.ViewModels;
 using DazeMediaOsd.Core.Diagnostics;
 using DazeMediaOsd.Core.Lifecycle;
 using DazeMediaOsd.Core.Settings;
+using DazeMediaOsd.Core.Updates;
 using DazeMediaOsd.Core.Windowing;
 using Microsoft.UI;
 using Microsoft.UI.Xaml;
@@ -22,9 +23,16 @@ public sealed partial class SettingsWindow : Window
     private const int WidthDip = 860;
     private const int HeightDip = 620;
 
-    public SettingsWindow(SettingsViewModel viewModel)
+    private readonly UpdateService _updates;
+    private readonly Action _restartToUpdate;
+
+    /// <param name="restartToUpdate">Hands the ready update to the updater and exits the app.</param>
+    public SettingsWindow(SettingsViewModel viewModel, UpdateService updates, Action restartToUpdate)
     {
+        ArgumentNullException.ThrowIfNull(updates);
         ViewModel = viewModel;
+        _updates = updates;
+        _restartToUpdate = restartToUpdate;
         InitializeComponent();
         SystemBackdrop = new MicaBackdrop();
         ExtendsContentIntoTitleBar = true;
@@ -45,6 +53,13 @@ public sealed partial class SettingsWindow : Window
         var scale = OverlayWindow.Scale(Handle);
         AppWindow.Resize(new SizeInt32((int)(WidthDip * scale), (int)(HeightDip * scale)));
         Closed += (_, _) => ViewModel.EndRecording();
+
+        // Raised on the checking thread; the window may be gone by the time it lands.
+        var ui = DispatcherQueue;
+        void OnUpdateStatus(object? sender, UpdateStatus status) => ui.TryEnqueue(() => ShowUpdate(status));
+        _updates.StatusChanged += OnUpdateStatus;
+        Closed += (_, _) => _updates.StatusChanged -= OnUpdateStatus;
+        ShowUpdate(_updates.Status);
     }
 
     public SettingsViewModel ViewModel { get; }
@@ -86,6 +101,45 @@ public sealed partial class SettingsWindow : Window
             CopyDetailsText.Text = "Copy details";
         };
         timer.Start();
+    }
+
+    private void ShowUpdate(UpdateStatus status)
+    {
+        UpdateTitle.Text = status.State == UpdateState.Ready ? "Update ready" : "Updates";
+        UpdateText.Text = status.State switch
+        {
+            UpdateState.NotInstalled => "Only the installed app updates itself. This copy runs from a build folder.",
+            UpdateState.Checking => "Checking for updates…",
+            UpdateState.UpToDate => $"You're up to date. Last checked {When(status.CheckedAt)}",
+            UpdateState.Downloading => $"Downloading version {status.Version}…",
+            UpdateState.Ready => $"Version {status.Version} installs the next time the app starts.",
+            UpdateState.Failed => "Couldn't check for updates. Check your internet connection, or see the log.",
+            _ => "Checks for updates once a day",
+        };
+        UpdateButton.Visibility = status.State == UpdateState.NotInstalled ? Visibility.Collapsed : Visibility.Visible;
+        UpdateButton.IsEnabled = status.State is not (UpdateState.Checking or UpdateState.Downloading);
+        UpdateButton.Content = status.State switch
+        {
+            UpdateState.Ready => "Restart now",
+            UpdateState.Failed => "Try again",
+            _ => "Check for updates",
+        };
+    }
+
+    private static string When(DateTimeOffset? at)
+    {
+        if (at is not { } time)
+            return "";
+        var local = time.ToLocalTime();
+        return local.Date == DateTime.Today ? $"today at {local:t}" : $"{local:d} at {local:t}";
+    }
+
+    private void OnUpdateButton(object sender, RoutedEventArgs e)
+    {
+        if (_updates.Status.State == UpdateState.Ready)
+            _restartToUpdate();
+        else
+            _ = _updates.CheckAsync();
     }
 
     private void OnOpenAppFolder(object sender, RoutedEventArgs e) => OpenInExplorer(AppContext.BaseDirectory);

@@ -1,0 +1,48 @@
+# Push a tag v<Version> (the <Version> in Directory.Build.props, D-024) to publish a GitHub Release with the
+# Velopack Setup.exe, portable zip and update feed (D-029).
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+
+      - name: Check the tag matches the version
+        shell: pwsh
+        run: |
+          $version = ([xml](Get-Content Directory.Build.props)).Project.PropertyGroup.Version | Where-Object { $_ } | Select-Object -First 1
+          if ("v$version" -ne $env:GITHUB_REF_NAME) { throw "Tag $env:GITHUB_REF_NAME doesn't match <Version> $version in Directory.Build.props." }
+          "VERSION=$version" >> $env:GITHUB_ENV
+
+      - name: Test
+        run: dotnet test --solution DazeMediaOsd.slnx -c Release
+
+      - name: Restore vpk
+        run: dotnet tool restore
+
+      # The previous release's full package lets vpk build a delta update; the first release has none.
+      - name: Download previous release
+        continue-on-error: true
+        run: dotnet vpk download github --repoUrl https://github.com/${{ github.repository }} --token ${{ secrets.GITHUB_TOKEN }} -o artifacts/releases
+
+      - name: Pack
+        shell: pwsh
+        run: ./scripts/pack.ps1
+
+      - name: Upload to GitHub Releases
+        run: >
+          dotnet vpk upload github --repoUrl https://github.com/${{ github.repository }} --token ${{ secrets.GITHUB_TOKEN }}
+          -o artifacts/releases --tag ${{ github.ref_name }} --releaseName "Daze Media OSD ${{ env.VERSION }}" --publish
