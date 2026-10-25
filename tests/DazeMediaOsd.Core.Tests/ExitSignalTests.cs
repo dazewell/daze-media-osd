@@ -28,11 +28,16 @@ public sealed class ExitSignalTests
         Assert.Equal(1, calls);
     }
 
+    // Not "Request returns false": when Windows frees the event after Dispose varies (CI kept it openable).
     [Fact]
-    public void DisposedListenerNoLongerCounts()
+    public void DisposedListenerIsNotCalled()
     {
-        ExitSignal.Listen(() => { }, _name).Dispose();
+        var calls = 0;
+        ExitSignal.Listen(() => Interlocked.Increment(ref calls), _name).Dispose();
 
-        Assert.False(ExitSignal.Request(_name));
+        ExitSignal.Request(_name);
+        Thread.Sleep(200);
+
+        Assert.Equal(0, calls);
     }
 }
