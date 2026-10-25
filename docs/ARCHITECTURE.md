@@ -51,7 +51,8 @@ tests/DazeMediaOsd.Core.Tests/   xUnit v3; logic only, fakes for IAudioService /
 scripts/                         run.ps1 (stop + build + start), stop.ps1 (safe stop), press-key.ps1
                                  (SendInput volume/media keys), audio-device.ps1 (list / set default output,
                                  dev only), install.ps1 (daily-driver copy), pack.ps1 (Velopack release, D-029)
-.github/workflows/               ci.yml (build + test on PRs and main), release.yml (tag v<Version> → test,
+.github/workflows/               ci.yml (build + test on PRs and main), release.yml (push to main with an untagged
+                                 <Version>, or tag v<Version> → test,
                                  pack, GitHub Release with Setup.exe + update feed, D-029)
 docs/images/                     README art: hero.png and framed shots, captured from the running app (demo
                                  media page, Stereo Mix as the connected device). Re-shoot after UI changes.
