@@ -60,6 +60,22 @@ public sealed class Autostart
         DeleteValue(_approvedKey);
     }
 
+    /// <summary>
+    /// Uninstall (D-029): turns autostart off only if the Run value starts an exe inside
+    /// <paramref name="directory"/>, so removing the installed copy never touches a Debug copy's entry.
+    /// </summary>
+    public bool DisableIfUnder(string directory)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(directory);
+        if (Read().Path is not { } path)
+            return false;
+        var root = Path.TrimEndingDirectorySeparator(Path.GetFullPath(directory)) + Path.DirectorySeparatorChar;
+        if (!Path.GetFullPath(path).StartsWith(root, StringComparison.OrdinalIgnoreCase))
+            return false;
+        Disable();
+        return true;
+    }
+
     private static void DeleteValue(string keyPath)
     {
         using var key = Registry.CurrentUser.OpenSubKey(keyPath, writable: true);

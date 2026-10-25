@@ -48,6 +48,13 @@ exe: after testing a Debug build, reinstall or start the installed copy again
 Toggling "Start with Windows" from a Debug build re-points the user's Run value at the Debug exe: put it
 back from the installed copy afterwards.
 
+Release package (D-029): `pwsh scripts/pack.ps1` publishes and runs `vpk pack` into `artifacts/releases`
+(Setup.exe, portable zip, update feed). Needs `vpk` on PATH at the version in `.github/workflows/release.yml`
+(`dotnet tool install -g vpk --version <it>`, ask first). CI does this on a `v<Version>` tag. To try a
+Setup.exe: `Start-Process <it> -ArgumentList '--silent' -Wait` (silent doesn't start the app), uninstall with
+`& "$env:LOCALAPPDATA\DazeMediaOsdApp\Update.exe" --uninstall --silent`; stop the daily driver first and
+start it again after.
+
 `dotnet run` blocks until the launcher exits — start it in the background (or a terminal tab) when you
 need to keep working, and stop it with `scripts/stop.ps1`. The Debug exe is
 `src/DazeMediaOsd.App/bin/Debug/net10.0-windows10.0.26100.0/win-x64/DazeMediaOsd.exe`.

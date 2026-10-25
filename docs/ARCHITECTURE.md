@@ -48,7 +48,9 @@ src/DazeMediaOsd.App/            WinUI 3 exe `DazeMediaOsd.exe`: Program.Main �
 tests/DazeMediaOsd.Core.Tests/   xUnit v3; logic only, fakes for IAudioService / IKeySource / IMediaService
 scripts/                         run.ps1 (stop + build + start), stop.ps1 (safe stop), press-key.ps1
                                  (SendInput volume/media keys), audio-device.ps1 (list / set default output,
-                                 dev only)
+                                 dev only), install.ps1 (daily-driver copy), pack.ps1 (Velopack release, D-029)
+.github/workflows/               ci.yml (build + test on PRs and main), release.yml (tag v<Version> → test,
+                                 pack, GitHub Release with Setup.exe + update feed, D-029)
 docs/images/                     README art: hero.png and framed shots, captured from the running app (demo
                                  media page, Stereo Mix as the connected device). Re-shoot after UI changes.
 spikes/FlyoutProbe/              console probe for the native flyout — re-run after Windows updates.
@@ -263,6 +265,13 @@ unit-tested with fakes. App never P/Invokes directly; window styling goes throug
   `%LOCALAPPDATA%\Programs\DazeMediaOsd` via `scripts/install.ps1`. Verified 2026-10-22: toggle on/off
   writes/removes the value, a Task Manager "disabled" shows off + note and "on" clears it. Not verified
   yet: an actual sign-in start.
+- Installer (D-029): Velopack Setup.exe installs to `%LOCALAPPDATA%\DazeMediaOsdApp\current\` (per user,
+  Start menu shortcut, no autostart). Setup, update and uninstall start the exe with `--veloapp-*`;
+  `VelopackApp.Run()` at the top of `Program.Main` handles it and exits. Velopack force-kills every process
+  in the install folder first (launcher + app together → host left minimized), so each hook calls
+  `FlyoutHost.RestoreAll()`; uninstall also drops the Run value if it points into the install folder.
+  Verified 2026-10-24: install → run (host minimized) → uninstall → host restored, settings and the
+  daily driver's Run value kept. Not verified: an update from one release to the next.
 
 ## Invariants
 

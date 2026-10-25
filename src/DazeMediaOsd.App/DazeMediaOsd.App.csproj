@@ -23,6 +23,8 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.WindowsAppSDK" />
     <PackageReference Include="CommunityToolkit.Mvvm" />
+    <!-- Installer hooks in Program.Main (D-029). -->
+    <PackageReference Include="Velopack" />
     <!-- For About: ReleaseInfo throws in a self-contained app and the runtime DLLs only say "2.0". -->
     <AssemblyMetadata Include="WindowsAppSdkVersion"
                       Value="@(PackageVersion->WithMetadataValue('Identity', 'Microsoft.WindowsAppSDK')->'%(Version)')" />

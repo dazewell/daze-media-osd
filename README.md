@@ -6,7 +6,7 @@
   <img src="https://img.shields.io/badge/Windows%2011-24H2%2B-0078D4?logo=windows11&logoColor=white" alt="Windows 11 24H2+">
   <img src="https://img.shields.io/badge/.NET-10-512BD4?logo=dotnet&logoColor=white" alt=".NET 10">
   <img src="https://img.shields.io/badge/WinUI-3-6B4FBB" alt="WinUI 3">
-  <img src="https://img.shields.io/badge/version-0.2.1-F5B83D" alt="Version 0.2.1">
+  <img src="https://img.shields.io/badge/version-0.3.0-F5B83D" alt="Version 0.3.0">
   <img src="https://img.shields.io/badge/no%20admin-fail--open-2EA043" alt="No admin, fail-open">
   <img src="https://img.shields.io/badge/license-GPL--3.0-blue" alt="License: GPL-3.0-or-later">
 </p>
@@ -62,7 +62,12 @@ and <b>which device just connected</b>. It looks like part of Windows 11, and it
 
 ## Get it running
 
-You need Windows 11 24H2 or later and the [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0)
+You need Windows 11 24H2 or later. Download `DazeMediaOsdApp-win-Setup.exe` from
+[Releases](https://github.com/dazewell/daze-media-osd/releases) and run it: it installs for your user only, no
+admin. It isn't signed yet, so Windows SmartScreen may ask you to confirm ("More info" → "Run anyway").
+Uninstall from Settings → Apps.
+
+To build it yourself, you need the [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0)
 (`winget install Microsoft.DotNet.SDK.10`).
 
 ```powershell
@@ -75,7 +80,7 @@ runs the tests too).
 
 ## Status
 
-**0.2.1**, used every day on the author's machine. What's done and what's next:
+**0.3.0**, used every day on the author's machine. What's done and what's next:
 [docs/GOALS.md](docs/GOALS.md).
 
 ## Under the hood

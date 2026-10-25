@@ -34,7 +34,7 @@ Status: accepted (Q1 spike confirmed suppression works on build 26300, see D-005
 - Revisit if: suppression stops working on a Windows update and can't be fixed quickly.
 
 ## D-003 · 2026-10-22 · Unpackaged, self-contained, single process, local build
-Status: accepted; "single process" amended by D-006 (launcher process)
+Status: accepted; "single process" amended by D-006 (launcher process); "local build" amended by D-029 (Velopack release)
 - Decision: `WindowsPackageType=None`, `WindowsAppSDKSelfContained=true`, self-contained .NET publish to
   a folder, win-x64. One process hosts tray + OSD + settings window (settings window created on demand,
   destroyed on close). Settings as JSON in `%LOCALAPPDATA%\DazeMediaOsd\`. Autostart via HKCU Run key.
@@ -383,7 +383,7 @@ Supersedes: D-022 (only "not active → no switch", for devices that take the re
   or a connect regularly takes > 15 s.
 
 ## D-024 · 2026-10-23 · Version: one `<Version>` in Directory.Build.props, SemVer 0.x, bumped by the PR
-Status: accepted
+Status: accepted; releases: the tag must equal `<Version>` (D-029)
 - Decision: `Directory.Build.props` holds `<Version>` (started at 0.1.0) with Product/Company/Copyright; the
   SDK appends `+<commit sha>` to the informational version. `Core.Lifecycle.AppVersion` parses it: About shows
   "0.1.0 (abc1234)", the launcher logs `version 0.1.0+abc1234` and the exe path. A `feat` PR bumps minor, a
@@ -453,3 +453,24 @@ Status: accepted
   app outlives day changes too, and the mutex already makes either process safe.
 - Revisit if: someone tails `app.log` without delete sharing across midnight — the rename fails and that
   day's lines stay in `app.log` until the next day's rotation (logged to the debugger only).
+
+## D-029 · 2026-10-24 · Release packaging: Velopack Setup.exe from a tag-triggered GitHub Actions workflow
+Status: accepted
+Supersedes: D-003 (only "local build, nothing to install besides the folder"; unpackaged + self-contained stand)
+- Decision: `scripts/pack.ps1` publishes (D-003) and runs `vpk pack` with packId `DazeMediaOsdApp`, Start-menu
+  shortcut only. `release.yml` runs on a `v<Version>` tag: the tag must equal `<Version>` in
+  Directory.Build.props (D-024 stays the one source), then tests, pack, and `vpk upload github --publish`
+  (Setup.exe, portable zip, full + delta packages, update feed). `ci.yml` builds and tests every PR and main.
+  `Program.Main` runs `VelopackApp` first; every hook restores the native flyout (Velopack force-kills
+  launcher and app together, D-006), uninstall also removes our Run value if it points into the install
+  folder. Unsigned for now. Velopack and vpk versions are pinned and kept equal.
+- Why: the user picked Velopack (2026-10-24) over WiX and Inno: per-user install without admin by default
+  (hard rule), and it ships an update feed on GitHub Releases, so an in-app updater is one step away.
+  packId isn't `DazeMediaOsd` because Velopack deletes `%LOCALAPPDATA%\<packId>` on uninstall and
+  `%LOCALAPPDATA%\DazeMediaOsd` holds settings and logs. The install path `…\current\DazeMediaOsd.exe` is
+  stable across updates, so the Run value the app writes (D-015) stays valid.
+- Why not WiX MSI: per-user MSI needs care to avoid elevation, and no updates. Why not vpk `--msi`: a
+  machine-wide bootstrapper (admin). Why not Inno Setup: no update feed. Why not MSIX: certificate (D-003).
+  Why not a desktop shortcut: a tray app is reached from the tray and Start.
+- Revisit if: SmartScreen warnings bother users (sign: SignPath Foundation for OSS, or Azure Trusted Signing
+  via `--azureTrustedSignFile`), or Store/winget distribution is wanted.

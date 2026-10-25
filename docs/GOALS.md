@@ -12,7 +12,7 @@ this file and know what to build next. History of *why* lives in [DECISIONS.md](
   plain and friendly, not geeky (user, 2026-10-23; D-026).
 - The repo is driven purely by AI agents. Decisions, reasons, rejected options and dead ends are written
   down so the next agent understands *why* the code is the way it is — but kept lean, no bloat.
-- v1 builds on the local machine. GitHub CI comes in v2.
+- v1 builds on the local machine. GitHub CI and a Setup.exe from GitHub Releases came early (user, 2026-10-24; D-029).
 
 ## v1 scope
 
@@ -36,7 +36,7 @@ this file and know what to build next. History of *why* lives in [DECISIONS.md](
 
 ## Later (not v1)
 
-- v2: GitHub Actions CI (build + test + publish artifact), release packaging.
+- v2: an in-app update check (the Velopack feed exists, D-029), code signing.
 - Brightness / airplane-mode / keyboard-layout flyouts.
 - Per-app volume in the OSD.
 
@@ -114,7 +114,8 @@ this file and know what to build next. History of *why* lives in [DECISIONS.md](
 - [x] Crash on a system light/dark switch fixed (X-007); unhandled XAML-event exceptions now logged with
   their stack. Seen: 4 switches from Settings, OSD light then dark (2026-10-24)
 
-**Next step:** reinstall (`pwsh scripts/install.ps1`) once the theme-crash fix (X-007) is merged. Then the user lives with the finished Plan C and Bluetooth connect (D-023) on the daily driver for a
+**Next step:** after the PR is merged, the user pushes tag `v0.3.0` on main and checks the Release run:
+Setup.exe installs, the app starts from the Start menu. Then reinstall (`pwsh scripts/install.ps1`) once the theme-crash fix (X-007) is merged. Then the user lives with the finished Plan C and Bluetooth connect (D-023) on the daily driver for a
 day (real device shortcuts, presses while the headphones are off or disconnected) and reports back. Then pick the next feature from the PR #8 survey with the user. When convenient: the headset glyph
 (Technics hands-free as default mic) and the monitor glyph (Dell over DisplayPort).
 

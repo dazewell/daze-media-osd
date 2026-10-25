@@ -69,6 +69,22 @@ public sealed class AutostartTests : IDisposable
     [Fact]
     public void DisableWithoutKeysDoesNothing() => Autostart.Disable();
 
+    [Theory]
+    [InlineData(@"C:\Users\u\AppData\Local\DazeMediaOsdApp\current\DazeMediaOsd.exe", true)]
+    [InlineData(@"c:\users\u\appdata\local\dazemediaosdapp\current\DazeMediaOsd.exe", true)]
+    [InlineData(@"C:\Users\u\AppData\Local\DazeMediaOsdApp2\current\DazeMediaOsd.exe", false)]
+    [InlineData(@"C:\src\daze\bin\Debug\DazeMediaOsd.exe", false)]
+    public void DisableIfUnderOnlyRemovesEntriesInsideTheFolder(string exePath, bool removed)
+    {
+        Autostart.Enable(exePath);
+
+        Assert.Equal(removed, Autostart.DisableIfUnder(@"C:\Users\u\AppData\Local\DazeMediaOsdApp\"));
+        Assert.Equal(removed ? AutostartState.Off : AutostartState.On, Autostart.Read().State);
+    }
+
+    [Fact]
+    public void DisableIfUnderWithoutEntryDoesNothing() => Assert.False(Autostart.DisableIfUnder(@"C:\x"));
+
     private void SetApproved(byte flag)
     {
         using var approved = Registry.CurrentUser.CreateSubKey(ApprovedKey);
