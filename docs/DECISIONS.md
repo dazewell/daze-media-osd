@@ -455,7 +455,7 @@ Status: accepted
   day's lines stay in `app.log` until the next day's rotation (logged to the debugger only).
 
 ## D-029 · 2026-10-24 · Release packaging: Velopack Setup.exe from a tag-triggered GitHub Actions workflow
-Status: accepted
+Status: accepted; trigger amended by D-031 (push to main also releases)
 Supersedes: D-003 (only "local build, nothing to install besides the folder"; unpackaged + self-contained stand)
 - Decision: `scripts/pack.ps1` publishes (D-003) and runs `vpk pack` with packId `DazeMediaOsdApp`, Start-menu
   shortcut only. `release.yml` runs on a `v<Version>` tag: the tag must equal `<Version>` in
@@ -502,3 +502,18 @@ Status: accepted
   until the user asks for more.
 - Revisit if: a release needs a migration step (use `OnAfterUpdateFastCallback`), GitHub rate limits bite
   (60 unauthenticated requests/h per IP), or the user wants a notification when an update is ready.
+
+## D-031 · 2026-10-24 · Release on merge: a push to main with an untagged `<Version>` publishes it
+Status: accepted
+- Decision: `release.yml` also runs on pushes to main. A `check` job reads `<Version>`; if tag `v<Version>`
+  exists it stops, else the `release` job tests, packs and `vpk upload --tag v<Version> --targetCommitish
+  <sha>`: publishing the draft creates the tag on that commit. A hand-pushed `v<Version>` tag still works
+  (must match `<Version>`). `concurrency: release` keeps two quick merges from releasing one version twice.
+- Why: the user wants releases without tagging by hand (2026-10-24); D-024 already bumps the version in
+  every feat/fix PR, so "untagged version on main" is exactly "something new to ship". Tag at upload, not up
+  front: a failed run leaves no tag, so the next push to main retries instead of skipping that version.
+- Why not a separate auto-tag workflow: a tag pushed with `GITHUB_TOKEN` doesn't trigger other workflows,
+  so the release would never run without a PAT or GitHub App secret. Why not `workflow_call` from an
+  auto-tag workflow: two files and inputs for what one `check` job does.
+- Revisit if: a release should wait for a human (then a `workflow_dispatch` or draft-only mode), or
+  version bumps start landing in PRs that aren't ready to ship.

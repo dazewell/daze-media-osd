@@ -115,16 +115,17 @@ this file and know what to build next. History of *why* lives in [DECISIONS.md](
   their stack. Seen: 4 switches from Settings, OSD light then dark (2026-10-24)
 - [x] CI + release packaging (D-029): `ci.yml` builds/tests PRs; a `v<Version>` tag publishes a GitHub Release
   with a per-user Velopack Setup.exe; `install.ps1` installs through the same Setup.exe (one folder). Seen
-  locally: pack, install, run, uninstall restored the native flyout, settings kept (2026-10-24). Not seen:
-  the release workflow on GitHub
+  locally: pack, install, run, uninstall restored the native flyout, settings kept (2026-10-24). v0.3.0
+  released by tag (2026-10-24): Setup.exe, zip, full package, feed; the installed app's check said up to date
+- [x] Release on merge (D-031): a push to main whose `<Version>` has no tag releases it. Not seen yet: the
+  first automatic release (the next feat/fix merge)
 - [x] In-app updates (D-030): daily check of GitHub Releases, background download, applied at the next
   start; About shows status, Check for updates and Restart now. Seen with a local feed: 0.3.0 → 0.3.1
   (2026-10-24). Not seen: the About card on screen, Restart now, the real GitHub feed
 
-**Next step:** after the PR is merged, the user pushes tag `v0.3.0` on main and checks the Release run:
-Setup.exe installs over the local install (same folder, D-029), the app starts from the Start menu.
-Open About → Updates: "You're up to date" after the first check (1 min after start). The daily driver
-already runs 0.3.0 from `%LOCALAPPDATA%\DazeMediaOsdApp` (installed from this branch, theme fix included). Then the user lives with the finished Plan C and Bluetooth connect (D-023) on the daily driver for a
+**Next step:** the next feat/fix merge is the first automatic release (D-031): check its Release run and
+that the daily driver (0.3.0 in `%LOCALAPPDATA%\DazeMediaOsdApp`) downloads it within a day (log
+`updates: <v> ready`) and runs it after the next start; look at About → Updates on screen once. Then the user lives with the finished Plan C and Bluetooth connect (D-023) on the daily driver for a
 day (real device shortcuts, presses while the headphones are off or disconnected) and reports back. Then pick the next feature from the PR #8 survey with the user. When convenient: the headset glyph
 (Technics hands-free as default mic) and the monitor glyph (Dell over DisplayPort).
 
