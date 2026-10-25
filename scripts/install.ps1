@@ -1,40 +1,46 @@
-# Daily-driver install: publish Release (self-contained, D-003) to a fixed folder outside any checkout and
-# start it from there. Autostart is the app's own "Start with Windows" toggle, which registers the copy it
-# runs from (D-015): turn it on once from the installed copy and later installs keep it.
+# Daily-driver install from this checkout: the same Velopack package a GitHub Release ships (D-029), installed
+# with its Setup.exe, so a local build and a release share one folder (%LOCALAPPDATA%\DazeMediaOsdApp), one
+# Apps entry and one uninstall. Autostart is the app's own "Start with Windows" toggle (D-015).
 # Example: pwsh scripts/install.ps1
-param([string]$Destination = (Join-Path $env:LOCALAPPDATA 'Programs/DazeMediaOsd'))
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
-$exe = Join-Path $Destination 'DazeMediaOsd.exe'
+$packages = Join-Path $root 'artifacts/install'
+$installDir = Join-Path $env:LOCALAPPDATA 'DazeMediaOsdApp'
+$exe = Join-Path $installDir 'current/DazeMediaOsd.exe'
+# Where install.ps1 put the app before D-029.
+$oldDir = Join-Path $env:LOCALAPPDATA 'Programs/DazeMediaOsd'
+$runKey = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run'
 
-# Publish to a staging folder while the old copy keeps running: a failed publish changes nothing.
-$staging = "$Destination.new"
-$backup = "$Destination.old"
-if (Test-Path $staging) { Remove-Item $staging -Recurse -Force }
-# A stale backup must go before the app is stopped: failing here leaves it running.
-if (Test-Path $backup) { Remove-Item $backup -Recurse -Force }
-dotnet publish (Join-Path $root 'src/DazeMediaOsd.App') -c Release -r win-x64 -o $staging -v q -nologo
-if ($LASTEXITCODE -ne 0) { Write-Error "Publish failed ($LASTEXITCODE); installed copy unchanged and still running." }
+# Pack while the installed copy keeps running: a failed build changes nothing. A fresh folder each time, so
+# vpk never sees an earlier local package of the same version.
+if (Test-Path $packages) { Remove-Item $packages -Recurse -Force }
+& (Join-Path $PSScriptRoot 'pack.ps1') -Output $packages
+$setup = Get-ChildItem $packages -Filter '*-Setup.exe' | Select-Object -First 1
+if (-not $setup) { throw "No Setup.exe in $packages." }
 
-# Any running copy (Debug or installed) locks files or would block the new one's single-instance mutex.
+# Stop gracefully so the launcher restores the native flyout (D-006). Setup would force-kill both processes
+# instead, and only its install hook would restore the flyout.
 & (Join-Path $PSScriptRoot 'stop.ps1')
 
-# Swap with rollback: the old copy is only deleted once the new one is in place.
-try {
-    if (Test-Path $Destination) { Move-Item $Destination $backup }
-    Move-Item $staging $Destination
-} catch {
-    if (-not (Test-Path $Destination) -and (Test-Path $backup)) { Move-Item $backup $Destination }
-    if (Test-Path $exe) { Start-Process -FilePath $exe -WorkingDirectory $Destination | Out-Null }
-    throw "Install failed, previous copy restored and restarted: $_"
+# Over an existing install, Setup keeps the old folder until the new one is in place (rollback).
+$process = Start-Process $setup.FullName -ArgumentList '--silent' -Wait -PassThru
+if ($process.ExitCode -ne 0) { throw "Setup failed ($($process.ExitCode)); see $env:LOCALAPPDATA\velopack\velopack.log." }
+
+# One-time move from the pre-D-029 folder: keep "Start with Windows" (and a Task Manager "disabled", which
+# lives in StartupApproved and is left alone) by re-pointing our Run value, then delete the old copy.
+$run = (Get-ItemProperty $runKey -Name DazeMediaOsd -ErrorAction SilentlyContinue).DazeMediaOsd
+if ($run -and $run.Trim('"').StartsWith($oldDir, [StringComparison]::OrdinalIgnoreCase)) {
+    Set-ItemProperty $runKey -Name DazeMediaOsd -Value "`"$exe`""
+    Write-Host "Start with Windows moved from $oldDir to the new install."
 }
-# Leftover backup is harmless (the next run removes it): never let it keep the new copy from starting.
-if (Test-Path $backup) {
-    Remove-Item $backup -Recurse -Force -ErrorAction SilentlyContinue
-    if (Test-Path $backup) { Write-Warning "Couldn't remove $backup; the next install retries." }
+foreach ($dir in $oldDir, "$oldDir.new", "$oldDir.old") {
+    if (Test-Path $dir) {
+        Remove-Item $dir -Recurse -Force -ErrorAction SilentlyContinue
+        if (Test-Path $dir) { Write-Warning "Couldn't remove $dir; delete it by hand." } else { Write-Host "Removed old copy $dir" }
+    }
 }
 
-Start-Process -FilePath $exe -WorkingDirectory $Destination | Out-Null
-$run = (Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run' -Name DazeMediaOsd -ErrorAction SilentlyContinue).DazeMediaOsd
+Start-Process -FilePath $exe -WorkingDirectory (Split-Path $exe) | Out-Null
+$run = (Get-ItemProperty $runKey -Name DazeMediaOsd -ErrorAction SilentlyContinue).DazeMediaOsd
 Write-Host "Installed and started: $exe"
 Write-Host "Start with Windows: $(if ($run) { $run } else { 'off - turn it on in Settings (tray icon)' })"

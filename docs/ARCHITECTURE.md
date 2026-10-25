@@ -33,6 +33,7 @@ global.json                      pins .NET 10 SDK; opts `dotnet test` into Micro
 Directory.Build.props            shared props: TFM net10.0-windows10.0.26100.0, nullable, warnings as errors;
                                  `<Version>` + product metadata (D-024)
 Directory.Packages.props         central package versions
+dotnet-tools.json                pins vpk (Velopack CLI) for scripts/pack.ps1 and CI (D-029)
 src/DazeMediaOsd.Core/           no UI; Win32/COM via CsWin32 (NativeMethods.txt). Lifecycle/ (LaunchArgs,
                                  Launcher, AppVersion), NativeFlyout/ (FlyoutHost, FlyoutSuppressor), Audio/
                                  (CoreAudioService, DeviceChoices, DeviceCycle, DeviceConnector), Input/ (RawInputKeySource, GlobalHotkey, Hotkey, Shortcuts), Osd/ (OsdState, OsdRules,
@@ -262,7 +263,7 @@ unit-tested with fakes. App never P/Invokes directly; window styling goes throug
   kill launcher → app restores, hides per show; tray Exit → both exit, native flyout stock again.
 - Autostart (D-015): `Autostart` reads/writes `HKCU\…\Run\DazeMediaOsd` + its `StartupApproved\Run`
   flag (Explorer writes 12 bytes, first byte 02/06 on, 03/07 off; no value = on). Installed copy:
-  `%LOCALAPPDATA%\Programs\DazeMediaOsd` via `scripts/install.ps1`. Verified 2026-10-22: toggle on/off
+  `%LOCALAPPDATA%\DazeMediaOsdApp\current` via Setup.exe or `scripts/install.ps1` (D-029). Verified 2026-10-22: toggle on/off
   writes/removes the value, a Task Manager "disabled" shows off + note and "on" clears it. Not verified
   yet: an actual sign-in start.
 - Installer (D-029): Velopack Setup.exe installs to `%LOCALAPPDATA%\DazeMediaOsdApp\current\` (per user,
@@ -271,7 +272,9 @@ unit-tested with fakes. App never P/Invokes directly; window styling goes throug
   in the install folder first (launcher + app together → host left minimized), so each hook calls
   `FlyoutHost.RestoreAll()`; uninstall also drops the Run value if it points into the install folder.
   Verified 2026-10-24: install → run (host minimized) → uninstall → host restored, settings and the
-  daily driver's Run value kept. Not verified: an update from one release to the next.
+  daily driver's Run value kept; `install.ps1` moved the old `Programs\DazeMediaOsd` copy (Run value
+  re-pointed, folder deleted) and a second run reinstalled in place. Not verified: an update from one
+  release to the next.
 
 ## Invariants
 

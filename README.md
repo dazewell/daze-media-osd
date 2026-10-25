@@ -71,7 +71,7 @@ To build it yourself, you need the [.NET 10 SDK](https://dotnet.microsoft.com/do
 (`winget install Microsoft.DotNet.SDK.10`).
 
 ```powershell
-pwsh scripts/install.ps1   # build and install to %LOCALAPPDATA%\Programs\DazeMediaOsd, then start it
+pwsh scripts/install.ps1   # build the installer, install to %LOCALAPPDATA%\DazeMediaOsdApp, then start it
 ```
 
 The icon appears in the tray (pin it from the `^` overflow). Click it for settings, and turn on

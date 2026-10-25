@@ -225,7 +225,7 @@ Supersedes: D-013 (adds what the show says and drops repeated bursts; when it po
   device, or a Bluetooth endpoint shows the speaker glyph (log line lacks `bluetooth`).
 
 ## D-015 · 2026-10-22 · Autostart: the Run value is the only state; the copy that turns it on registers itself
-Status: accepted
+Status: accepted; install folder amended by D-029 (`%LOCALAPPDATA%\DazeMediaOsdApp`)
 - Decision: "Start with Windows" writes `HKCU\…\CurrentVersion\Run\DazeMediaOsd` = `"<this exe>"` (no
   args → launcher, D-006) and deletes our `Explorer\StartupApproved\Run` value; off deletes both. The
   toggle reads the registry each time the settings window opens: on only if the Run value exists and
@@ -463,7 +463,10 @@ Supersedes: D-003 (only "local build, nothing to install besides the folder"; un
   (Setup.exe, portable zip, full + delta packages, update feed). `ci.yml` builds and tests every PR and main.
   `Program.Main` runs `VelopackApp` first; every hook restores the native flyout (Velopack force-kills
   launcher and app together, D-006), uninstall also removes our Run value if it points into the install
-  folder. Unsigned for now. Velopack and vpk versions are pinned and kept equal.
+  folder. Unsigned for now. vpk is pinned in `dotnet-tools.json`, equal to the Velopack package.
+  `scripts/install.ps1` builds the same package and runs its Setup.exe, so a local build and a release share
+  one folder and one Apps entry (user, 2026-10-24: never two copies); it moves the pre-D-029
+  `Programs\DazeMediaOsd` copy once (re-points the Run value, deletes the folder).
 - Why: the user picked Velopack (2026-10-24) over WiX and Inno: per-user install without admin by default
   (hard rule), and it ships an update feed on GitHub Releases, so an in-app updater is one step away.
   packId isn't `DazeMediaOsd` because Velopack deletes `%LOCALAPPDATA%\<packId>` on uninstall and
