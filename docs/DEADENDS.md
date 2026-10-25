@@ -47,3 +47,12 @@ here (an option rejected on paper belongs in the "Why not" of a decision). Forma
   `ms-appx:///Assets/app.png` in an `Image` on a page renders fine.
 - Evidence: build 26300, WinAppSDK 2.5.1.
 - Retry only if: never in XAML; the window sets `AppTitleBar.IconSource` from code with a file path.
+
+## X-007 · 2026-10-24 · Leaving `SystemBackdrop.OnDefaultSystemBackdropConfigurationChanged` to the base
+- Tried: a custom `SystemBackdrop` (`AlwaysActiveAcrylicBackdrop`, D-012) that doesn't override it.
+- Failed because: on a system light/dark switch from Settings the base throws `ArgumentException`
+  ("target", E_INVALIDARG) inside a XAML event → fail-fast 0xC000027B, app gone (launcher restored).
+  A registry flip + `WM_SETTINGCHANGE` "ImmersiveColorSet" doesn't trigger it; the Settings combo does.
+- Evidence: build 26300, WinAppSDK `Microsoft.UI.Xaml.dll` 3.2.3, user crash 2026-10-24 17:02 and
+  reproduced by UIA on the Settings "Choose your mode" combo; app log stack from `UnhandledException`.
+- Retry only if: never; the backdrop overrides it as a no-op and follows `ActualThemeChanged`.

@@ -110,10 +110,11 @@ this file and know what to build next. History of *why* lives in [DECISIONS.md](
   (2026-10-23)
 - [x] Log rotation (D-028): first write of a day renames `app.log` to `app-<date>.log`, archives ≥ 7 days
   old deleted. Seen: `Log` on a temp folder with a stale `app.log` (archived) and 7/6-day-old archives
-  (deleted / kept) (2026-10-23). Not seen: a real midnight with both processes running
+  (deleted / kept) (2026-10-23); a real midnight on the daily driver: `app-2026-10-23.log` + fresh `app.log`
+- [x] Crash on a system light/dark switch fixed (X-007); unhandled XAML-event exceptions now logged with
+  their stack. Seen: 4 switches from Settings, OSD light then dark (2026-10-24)
 
-**Next step:** reinstall (`pwsh scripts/install.ps1`) so the daily driver rotates its log; after the
-next midnight check that `logs\` has `app-<yesterday>.log` and a fresh `app.log`. Then the user lives with the finished Plan C and Bluetooth connect (D-023) on the daily driver for a
+**Next step:** reinstall (`pwsh scripts/install.ps1`) once the theme-crash fix (X-007) is merged. Then the user lives with the finished Plan C and Bluetooth connect (D-023) on the daily driver for a
 day (real device shortcuts, presses while the headphones are off or disconnected) and reports back. Then pick the next feature from the PR #8 survey with the user. When convenient: the headset glyph
 (Technics hands-free as default mic) and the monitor glyph (Dell over DisplayPort).
 
