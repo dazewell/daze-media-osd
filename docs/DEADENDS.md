@@ -56,3 +56,10 @@ here (an option rejected on paper belongs in the "Why not" of a decision). Forma
 - Evidence: build 26300, WinAppSDK `Microsoft.UI.Xaml.dll` 3.2.3, user crash 2026-10-24 17:02 and
   reproduced by UIA on the Settings "Choose your mode" combo; app log stack from `UnhandledException`.
 - Retry only if: never; the backdrop overrides it as a no-op and follows `ActualThemeChanged`.
+
+## X-008 · 2026-10-26 · Handling a `gh api` 404 in a `shell: pwsh` step without resetting `$LASTEXITCODE`
+- Tried: release.yml `check` step treated 404 as "not released yet" (`release=true`) and fell through.
+- Failed because: Actions runs `pwsh -command ". '{0}'"`, which exits with the last native command's
+  `$LASTEXITCODE`; the 404's 1 survived, so the step failed after printing the right answer and v0.4.0 wasn't released.
+- Evidence: run 40163907848 on `main` 4a5f64b, 2026-10-25.
+- Retry only if: never; any handled non-zero native exit sets `$global:LASTEXITCODE = 0`.

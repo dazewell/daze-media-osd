@@ -42,7 +42,8 @@ jobs:
               # the run rather than guessing.
               $answer = gh api "repos/$env:GITHUB_REPOSITORY/releases/tags/v$version" --jq .html_url 2>&1
               if ($LASTEXITCODE -eq 0) { $release = 'false'; Write-Host "v$version is already released: $answer" }
-              elseif ("$answer" -match 'HTTP 404') { $release = 'true'; Write-Host "v$version has no published release yet: releasing." }
+              # The handled 404 must not leave $LASTEXITCODE at 1: pwsh exits with it when the script ends.
+              elseif ("$answer" -match 'HTTP 404') { $global:LASTEXITCODE = 0; $release = 'true'; Write-Host "v$version has no published release yet: releasing." }
               else { throw "Couldn't look up release v${version}: $answer" }
           }
           "version=$version" >> $env:GITHUB_OUTPUT
