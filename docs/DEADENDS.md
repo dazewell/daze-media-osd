@@ -63,3 +63,13 @@ here (an option rejected on paper belongs in the "Why not" of a decision). Forma
   `$LASTEXITCODE`; the 404's 1 survived, so the step failed after printing the right answer and v0.4.0 wasn't released.
 - Evidence: run 40163907848 on `main` 4a5f64b, 2026-10-25.
 - Retry only if: never; any handled non-zero native exit sets `$global:LASTEXITCODE = 0`.
+
+## X-009 · 2026-10-28 · Probing the taskbar wheel while the screen is locked, or with a wheel mod running
+- Tried: `spikes/TaskbarWheelProbe auto` (injected notches over each taskbar button) while the session was locked,
+  then with the user's Windhawk taskbar-volume mod enabled.
+- Failed because: locked, the input desktop is the lock screen: `SendInput` fails with 5 and `WindowFromPoint`
+  returns the lock screen's `CoreWindow`. With the mod on, every notch anywhere on the taskbar changed the volume,
+  which looked native.
+- Evidence: 26300; locked run 4 of 57 sent; mod run 74 → 76 % on Start, Widgets and the clock.
+- Retry only if: never: run probes unlocked, with Windhawk/AutoHotkey wheel mods off; Mouse Without Borders may move
+  the cursor during a run (ignore notches whose zone is `none`).

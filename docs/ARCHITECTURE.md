@@ -308,3 +308,14 @@ unit-tested with fakes. App never P/Invokes directly; window styling goes throug
   flyouts, so minimizing it probably hides those too. Not tested: brightness keys aren't scriptable on
   the dev machine. If confirmed, ask the user: accept, or show those in our OSD (brightness is already
   "Later" in GOALS). UIA can't read the island content (X-001).
+- **Q6 (Plan D, D-035):** tray vs tasks. Answered on 26300 (one monitor, vertical taskbar on the left, 2026-10-28,
+  `spikes/TaskbarWheelProbe dump/auto`): cursor in a `Shell_TrayWnd` / `Shell_SecondaryTrayWnd` rect → tasks, unless
+  also in its child `TrayNotifyWnd` rect → tray. `TrayNotifyWnd` matched the drawn tray exactly (Show Hidden Icons
+  → Show Desktop, 490 px); Widgets sits in the tasks part. `ReBarWindow32`/`MSTaskSwWClass` rects are stale — don't use
+  them. `WindowFromPoint` also works when unlocked, but the rects are enough (X-009). Still open: a secondary taskbar, a horizontal one, auto-hide, and a
+  fullscreen window over the taskbar (the rect test alone would still fire).
+- **Q7 (Plan D):** answered on 26300 (2026-10-28, `auto`, 57 injected notches, no wheel mods running): the only native
+  wheel action on the taskbar is the speaker icon (`SystemTray.OmniButtonCenter`, name "Volume …"): ±2 % per notch,
+  with or without Ctrl/Shift. Nothing else reacts. The raw-input sink saw every notch. So over the speaker icon our
+  action must stand aside (D-035); its rect comes from a cached UIA lookup, never on the wheel path.
+
