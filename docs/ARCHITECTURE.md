@@ -308,11 +308,12 @@ unit-tested with fakes. App never P/Invokes directly; window styling goes throug
   flyouts, so minimizing it probably hides those too. Not tested: brightness keys aren't scriptable on
   the dev machine. If confirmed, ask the user: accept, or show those in our OSD (brightness is already
   "Later" in GOALS). UIA can't read the island content (X-001).
-- **Q6 (Plan D, D-035):** how to tell the tray zone from the tasks zone on the Win11 XAML taskbar. Candidates,
-  cheapest first: root window of `WindowFromPoint` is `Shell_TrayWnd` / `Shell_SecondaryTrayWnd`, then the
-  legacy child `TrayNotifyWnd` rect (does it still match the drawn tray on 26300?); else UIA
-  `ElementFromPoint` on the taskbar (X-001 is about the flyout island, not the taskbar), with zone rects cached
-  and refreshed on `EVENT_OBJECT_LOCATIONCHANGE` / `TaskbarCreated` so the wheel path never waits on UIA.
+- **Q6 (Plan D, D-035):** tray vs tasks. Answered on 26300 (one monitor, vertical taskbar on the left, 2026-10-28,
+  `spikes/TaskbarWheelProbe dump/auto`): cursor in a `Shell_TrayWnd` / `Shell_SecondaryTrayWnd` rect → tasks, unless
+  also in its child `TrayNotifyWnd` rect → tray. `TrayNotifyWnd` matched the drawn tray exactly (Show Hidden Icons
+  → Show Desktop, 490 px); Widgets sits in the tasks part. `ReBarWindow32`/`MSTaskSwWClass` rects are stale — don't use
+  them. `WindowFromPoint` is useless here (X-009). Still open: a secondary taskbar, a horizontal one, auto-hide, and a
+  fullscreen window over the taskbar (the rect test alone would still fire).
 - **Q7 (Plan D):** does a wheel over the taskbar already do something natively (the speaker icon changes the
   volume on recent builds)? Raw input can't swallow it, so we'd double the step there. If so: leave the
   quick-settings button out of our tray zone, or ask the user about a `WH_MOUSE_LL` hook (D-035 Revisit).

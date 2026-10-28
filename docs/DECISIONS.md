@@ -571,7 +571,8 @@ Status: accepted (planned; Q6/Q7 spike first)
 - Decision: a `TaskbarWheelSource` on its own thread registers raw mouse input (`RIDEV_INPUTSINK`, usage 0x01/0x02)
   and acts only on `RI_MOUSE_WHEEL`; it hit-tests the cursor into `TaskbarZone.Tasks` / `Tray` / none (Q6) and
   posts the notch to the UI thread. Each zone has its own `WheelAction` in settings (Volume, Off; Brightness
-  after step 3). Deltas accumulate to 120 per step, so high-resolution wheels step evenly. Brightness targets
+  after step 3), each with an optional modifier (none / Ctrl / Shift / Alt, read with `GetAsyncKeyState` at the notch).
+  Fallback if Q6 finds no reliable split: one zone, actions told apart by modifier only (user, 2026-10-28). Deltas accumulate to 120 per step, so high-resolution wheels step evenly. Brightness targets
   the monitor under the cursor (WMI for internal panels, DDC/CI for external).
 - Why: the user wants tasks and tray separate so the tray can do brightness (2026-10-28). Raw input is how
   `RawInputKeySource` already listens: no hook, no added input latency, no injection (D-002), no admin. Own

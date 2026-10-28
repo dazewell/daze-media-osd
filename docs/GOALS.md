@@ -37,6 +37,9 @@ this file and know what to build next. History of *why* lives in [DECISIONS.md](
 - Plan D, mouse wheel over the taskbar (user, 2026-10-28; D-035): the wheel over the task buttons and the
   wheel over the tray (notification area + clock) are **separate** settings, each with its own action.
   First both can change the volume. Then the tray gets **brightness** of the monitor under the cursor.
+  Each action can require an optional modifier (Ctrl / Shift / Alt / none), volume included. If the tray
+  can't be told apart reliably, fall back to modifiers instead of zones: wheel = volume, wheel + a
+  modifier = brightness, anywhere on the taskbar (user, 2026-10-28).
 
 ## Later (not v1)
 
@@ -137,7 +140,9 @@ this file and know what to build next. History of *why* lives in [DECISIONS.md](
   1. **Spike** `spikes/TaskbarWheelProbe` (answers Q6, Q7): log every wheel notch with the hit zone (tasks /
      tray / none) and the window under the cursor, on the primary and a secondary taskbar, auto-hide on, the
      taskbar at 100 %/125 %. Also: does Windows itself change the volume on a wheel over the speaker icon,
-     and does a wheel over task buttons do anything native.
+     and does a wheel over task buttons do anything native. Done 2026-10-28: `dump` + `auto` → Q6 answered by
+     rects on one vertical taskbar (X-009 for what failed). Left: `watch` with a real wheel (raw input sees
+     physical notches? native volume on the speaker icon? Q7), and a secondary / horizontal / auto-hide taskbar.
   2. **Volume** (`feat/taskbar-wheel-volume`): `TaskbarWheelSource` (Core/Input) → `TaskbarZone` hit test →
      `WheelAction` per zone from settings → output volume ± step per notch (`IAudioEndpointVolume`); the
      existing volume-changed rule pops the OSD. Settings: a "Mouse wheel" card with two pickers (Over the

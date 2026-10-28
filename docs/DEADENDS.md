@@ -63,3 +63,12 @@ here (an option rejected on paper belongs in the "Why not" of a decision). Forma
   `$LASTEXITCODE`; the 404's 1 survived, so the step failed after printing the right answer and v0.4.0 wasn't released.
 - Evidence: run 40163907848 on `main` 4a5f64b, 2026-10-25.
 - Retry only if: never; any handled non-zero native exit sets `$global:LASTEXITCODE = 0`.
+
+## X-009 · 2026-10-28 · Taskbar hit test by `WindowFromPoint`; probing the wheel with `SendInput`
+- Tried: `WindowFromPoint` + `GetAncestor(GA_ROOT)` to see if the cursor is on `Shell_TrayWnd`; UIA `ElementFromPoint`;
+  injecting wheel notches with `SendInput` over each taskbar button to look for a native reaction (Q7).
+- Failed because: over the taskbar `WindowFromPoint` returns a top-level, non-cloaked `Windows.UI.Core.CoreWindow`
+  laid over it, never the taskbar; UIA stops at the `Shell_TrayWnd` pane. `SendInput` failed with error 5 (UIPI)
+  for most notches, so "no volume change" from injected notches proves nothing.
+- Evidence: 26300, `spikes/TaskbarWheelProbe auto` (4 of 57 notches sent; all 4 seen by the raw-input sink).
+- Retry only if: never for the hit test (use the rects, Q6); `SendInput` only from a context without UIPI limits.
