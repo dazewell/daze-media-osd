@@ -552,7 +552,7 @@ Status: accepted
   old cover under a new title reads as wrong.
 
 ## D-034 · 2026-10-24 · Content changes in a visible OSD fade through; volume stays instant
-Status: accepted
+Status: accepted; the volume % superseded by D-037
 - Decision: `FadeThrough` (out 100 ms ease-in, swap, in 150 ms ease-out, opacity only) for media title/artist,
   play state, output/input name, input icon, the output icon on mute or device-kind change, and "Muted" ↔
   mic level. Only while the OSD (and that row) was already visible and "Animation effects" is on (D-012). Each
@@ -595,3 +595,16 @@ Supersedes: D-035 (only "each zone has its own action": the source, zones and sp
   wheel = volume / Ctrl+wheel = brightness anywhere. Exact-key match keeps Ctrl+wheel free for the other action.
 - Why not one action per zone (D-035's plan): can't express "modifier picks the action" on the same zone.
 - Revisit if: brightness lands and two actions claim the same area + key — then the settings must refuse it.
+
+## D-037 · 2026-10-28 · The volume % rolls to each new value
+Status: accepted
+Supersedes: D-034 (only "the volume % stays instant": the bar and level glyph still step at once)
+- Decision: `NumberRoll` on the output %: the old number slides 8 DIP out and fades (100 ms), the new one
+  slides in from the other side and fades in (150 ms), both ease-out, up when the value grows. A change mid-roll
+  starts the outgoing number from where the incoming one was, so a held key reads as one rolling motion.
+  Same gates as D-034: OSD already visible, same device, "Animation effects" on.
+- Why: the user asked for the number to fade when it changes while shown (2026-10-28). A roll, not D-034's
+  fade-through: it never waits on a fade-out, so it keeps up with a held key (30–60 ms steps) instead of lagging.
+- Why not a count-up tween (66→67→68): steps are only 2 %, nothing to count through.
+- Revisit if: a held key looks blurry (shorten the in-roll) or the user wants the mic level to roll too.
+

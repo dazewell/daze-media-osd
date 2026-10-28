@@ -130,7 +130,12 @@
                     <Border x:Name="OutputFill" Style="{StaticResource OsdFill}" />
                 </Grid>
             </StackPanel>
-            <TextBlock x:Name="OutputPercent" Grid.Column="2" Style="{StaticResource OsdValue}" />
+            <!-- The old number rolls out on top while the new one rolls in (D-037). -->
+            <Grid Grid.Column="2">
+                <TextBlock x:Name="OutputPercent" Style="{StaticResource OsdValue}" />
+                <TextBlock x:Name="OutputPercentOld" Style="{StaticResource OsdValue}" Opacity="0"
+                           AutomationProperties.AccessibilityView="Raw" />
+            </Grid>
         </Grid>
 
         <Grid x:Name="InputRow" Style="{StaticResource OsdRow}">

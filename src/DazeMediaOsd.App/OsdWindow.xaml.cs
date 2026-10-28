@@ -40,8 +40,10 @@ public sealed partial class OsdWindow : Window
     private Storyboard? _coverFade;
     private Action? _coverFadeEnd;
     private readonly FadeThroughs _fades = new();
+    private readonly NumberRoll _outputPercentRoll;
     private bool? _shownOutputMuted;
     private DeviceKind? _shownOutputKind;
+    private string? _shownOutputId;
     private bool? _shownInputMuted;
     private Storyboard? _eventEntrance;
     private readonly OsdAnimation _animation = new(ShowDuration, HideDuration);
@@ -52,6 +54,7 @@ public sealed partial class OsdWindow : Window
     public OsdWindow(AppSettings settings)
     {
         InitializeComponent();
+        _outputPercentRoll = new NumberRoll(OutputPercent, OutputPercentOld);
         SystemBackdrop = new AlwaysActiveAcrylicBackdrop();
         AppWindow.IsShownInSwitchers = false;
         if (AppWindow.Presenter is OverlappedPresenter presenter)
@@ -328,8 +331,12 @@ public sealed partial class OsdWindow : Window
         _outputPercent = output?.Percent ?? 0;
         var muted = output is not { Muted: false };
         OutputFill.Style = (Style)Root.Resources[muted ? "OsdFillMuted" : "OsdFill"];
-        OutputPercent.Style = (Style)Root.Resources[muted ? "OsdValueMuted" : "OsdValue"];
-        OutputPercent.Text = output is null ? "" : _outputPercent.ToString(CultureInfo.CurrentCulture);
+        var percent = output is null ? "" : _outputPercent.ToString(CultureInfo.CurrentCulture);
+        // Rolls on every level step, held key included (D-037); a new device just shows its level.
+        var sameDevice = output?.Id == _shownOutputId;
+        _shownOutputId = output?.Id;
+        _outputPercentRoll.Run(percent, _outputPercent, fade && sameDevice,
+            (Style)Root.Resources[muted ? "OsdValueMuted" : "OsdValue"]);
         // The device type where it says more than "speaker"; a speaker shows its level, as the native flyout
         // does. Mute wins over both: the state matters more than the type (D-017).
         var glyph = output switch
@@ -341,7 +348,7 @@ public sealed partial class OsdWindow : Window
             { Percent: < 67 } => "\uE994",        // Volume2
             _ => "\uE995",                        // Volume3
         };
-        // Mute and a device of another kind fade; a level step stays instant, it follows a held key (D-034).
+        // Mute and a device of another kind fade; the level glyph steps at once with the bar (D-034).
         var kindOrMute = (muted, output?.Kind) != (_shownOutputMuted, _shownOutputKind);
         (_shownOutputMuted, _shownOutputKind) = (muted, output?.Kind);
         _fades.Get(OutputIcon).Run(glyph, fade && kindOrMute, () => OutputIcon.Glyph = glyph);
