@@ -136,6 +136,7 @@ this file and know what to build next. History of *why* lives in [DECISIONS.md](
   state, device names, mute icons. Volume stays instant. Not seen yet: on screen
 
 - [x] The volume % rolls to each new value while the OSD is up (user, 2026-10-28; D-037)
+- [x] OSD behind every window fixed: topmost re-asserted per show (user saw it, 2026-10-28; D-038)
 - [ ] Plan D (wheel over the taskbar, D-035, D-036), three PRs in order:
   1. **Spike** `spikes/TaskbarWheelProbe` (answers Q6, Q7): log every wheel notch with the hit zone (tasks /
      tray / none) and the window under the cursor, on the primary and a secondary taskbar, auto-hide on, the
@@ -154,8 +155,9 @@ this file and know what to build next. History of *why* lives in [DECISIONS.md](
      default then becomes the apps); refuse two actions on the same area + key (D-036). A brightness OSD layout
      (sun glyph, %, monitor name). Coalesce DDC/CI writes on a worker (slow, ~50 ms+).
 
-**Next step:** the user looks at the volume % roll (D-037), held key and wheel included: not seen on
-screen yet (an always-on-top window covered the OSD in captures). Then the user scrolls the taskbar with a real wheel for a day (Windhawk's taskbar-volume mod off, X-009) and
+**Next step:** the user tries the volume % roll (D-037) with a held key and the wheel (single steps seen
+in a capture), and checks that the OSD stays above every window (D-038; `osd: topmost was lost` in the log
+says how often it is needed). Then the user scrolls the taskbar with a real wheel for a day (Windhawk's taskbar-volume mod off, X-009) and
 reports back: physical and high-resolution notches, a fullscreen game with the cursor at the bottom edge (must do
 nothing). Then Plan D step 3, brightness (above). Unrelated, still pending from before: look at the new toggle in Settings and turn it on for a day: a track change in Spotify/Chromium
 pops once (log `show MediaPlayback`), a media key doesn't pop twice visibly, browser videos don't spam.

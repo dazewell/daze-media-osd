@@ -457,7 +457,17 @@ public sealed partial class OsdWindow : Window
         var fromTop = _settings.Position is OsdPosition.TopCenter or OsdPosition.TopLeft or OsdPosition.TopRight;
         var slide = (int)Math.Round((1 - visibility) * SlideDip * OverlayWindow.Scale(_hwnd));
         _ = OverlayWindow.SetAlpha(_hwnd, (byte)Math.Round(255 * visibility));
+        KeepTopmost();
         if (!OverlayWindow.ShowAt(_hwnd, x, fromTop ? y - slide : y + slide, width, height))
             Log.Error($"OSD not shown at {x},{y} {width}x{height}", new Win32Exception());
+    }
+
+    private void KeepTopmost()
+    {
+        if (OverlayWindow.IsTopmost(_hwnd) || AppWindow.Presenter is not OverlappedPresenter presenter)
+            return;
+        presenter.IsAlwaysOnTop = false;
+        presenter.IsAlwaysOnTop = true;
+        Log.Info($"osd: topmost was lost, re-applied: {OverlayWindow.IsTopmost(_hwnd)}");
     }
 }

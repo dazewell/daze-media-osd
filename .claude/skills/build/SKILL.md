@@ -101,9 +101,12 @@ can't verify visually, say so explicitly instead of claiming it works.
 - The OSD is the `--app` process's `WinUIDesktopWin32WindowClass` window titled `DazeMediaOsd`
   (`FindWindow` by title alone misses it — enumerate by pid + class). It hides 2.5 s after a show.
 - Screen captures from PowerShell need `SetProcessDpiAwarenessContext(-4)` first, else they get the
-  scaled-down top-left part of the screen. If `CopyFromScreen` shows what's *under* the OSD (another
-  topmost window, e.g. the agent's own app, sits above it — seen 2026-10-22), capture the window itself:
-  `PrintWindow(hwnd, hdc, 2)` (PW_RENDERFULLCONTENT) renders its XAML content, without the acrylic.
+  scaled-down top-left part of the screen. The OSD is a layered window (D-012): a screen copy without
+  `CAPTUREBLT` leaves it out and shows what's under it. `CopyFromScreen` rejects that flag; P/Invoke `BitBlt`
+  from `GetDC(0)` with `0x40CC0020` (SRCCOPY | CAPTUREBLT). That catches mid-animation frames too;
+  `PrintWindow(hwnd, hdc, 2)` only renders final XAML values, without the acrylic.
+- If the OSD shows behind other windows, check its ex style for `WS_EX_TOPMOST` (0x8); the log says
+  `osd: topmost was lost` when the show path had to put it back (D-038).
   `pwsh -File` + `Add-Type` takes ~1–2 s to start: press keys / toggle devices from inside the capture
   script, or the OSD has hidden by the time it captures.
 - Tray: the icon window is class `DazeMediaOsd.Tray` (uID 1). `Shell_NotifyIconGetRect` gives its

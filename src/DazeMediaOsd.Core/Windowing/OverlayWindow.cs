@@ -36,6 +36,10 @@ public static class OverlayWindow
         PInvoke.SetWindowPos((HWND)hwnd, HWND.HWND_TOPMOST, x, y, width, height,
             SET_WINDOW_POS_FLAGS.SWP_NOACTIVATE | SET_WINDOW_POS_FLAGS.SWP_SHOWWINDOW);
 
+    /// <summary>Whether the window currently has <c>WS_EX_TOPMOST</c>.</summary>
+    public static bool IsTopmost(nint hwnd) =>
+        ((WINDOW_EX_STYLE)PInvoke.GetWindowLong((HWND)hwnd, WINDOW_LONG_PTR_INDEX.GWL_EXSTYLE) & WINDOW_EX_STYLE.WS_EX_TOPMOST) != 0;
+
     /// <summary>Window size minus client size, in physical pixels: what the non-client frame takes.</summary>
     public static (int Width, int Height) FrameSize(nint hwnd)
     {

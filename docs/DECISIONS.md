@@ -271,7 +271,7 @@ Status: accepted
 - Revisit if: a device reports a misleading form factor (e.g. USB headset as Speakers) often enough.
 
 ## D-018 · 2026-10-23 · OSD topmost through `OverlappedPresenter.IsAlwaysOnTop`, plus SetWindowPos
-Status: accepted
+Status: accepted; amended by D-038 (setting it once doesn't stick)
 Supersedes: D-008 (only "why not `IsAlwaysOnTop`"; the window design stands)
 - Decision: `OsdWindow` sets `presenter.IsAlwaysOnTop = true`; `ShowAt` keeps `SetWindowPos(HWND_TOPMOST)`.
 - Why: the user saw no OSD while changing volume over a maximized, focused window (2026-10-23). The
@@ -607,4 +607,17 @@ Supersedes: D-034 (only "the volume % stays instant": the bar and level glyph st
   fade-through: it never waits on a fade-out, so it keeps up with a held key (30–60 ms steps) instead of lagging.
 - Why not a count-up tween (66→67→68): steps are only 2 %, nothing to count through.
 - Revisit if: a held key looks blurry (shorten the in-roll) or the user wants the mic level to roll too.
+
+## D-038 · 2026-10-28 · Re-assert `IsAlwaysOnTop` on every show that finds the OSD not topmost
+Status: accepted
+Amends: D-018 (setting `IsAlwaysOnTop` once in the constructor)
+- Decision: `ApplyFrame` checks `WS_EX_TOPMOST` before each `ShowAt`; when it's gone, toggles
+  `presenter.IsAlwaysOnTop` false → true and logs `osd: topmost was lost, re-applied: <result>`.
+- Why: the user saw the OSD behind every window (2026-10-28). Polled every 10 ms through 5 starts on the
+  same code and WinAppSDK 2.5.1 as D-018: the style was set without `WS_EX_TOPMOST` in 4 of 5 starts, from the
+  first frame on; once it was there. The setter in the constructor is not reliably applied. A toggle makes the
+  presenter apply it: topmost from the first show on, and still topmost after the hide.
+- Why not setting it later only (e.g. after the first show): the loss is intermittent, so a check on every
+  show costs one `GetWindowLong` and also covers anything that drops it later.
+- Revisit if: the log shows `re-applied: False` (then the native flyout's band is the way up, D-018).
 
