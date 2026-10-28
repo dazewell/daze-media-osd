@@ -30,6 +30,30 @@ public sealed class SettingsStoreTests : IDisposable
     }
 
     [Fact]
+    public void WheelSettingsRoundTrip()
+    {
+        new SettingsStore(_directory).Update(s => s with
+        {
+            WheelVolumeArea = WheelArea.Tray, WheelVolumeModifier = WheelModifier.Alt, WheelVolumeStep = 5,
+        });
+
+        var reloaded = new SettingsStore(_directory).Current;
+
+        Assert.Equal((WheelArea.Tray, WheelModifier.Alt, 5), (reloaded.WheelVolumeArea, reloaded.WheelVolumeModifier, reloaded.WheelVolumeStep));
+    }
+
+    [Fact]
+    public void AFileWithoutWheelSettingsGetsTheDefaults()
+    {
+        Directory.CreateDirectory(_directory);
+        File.WriteAllText(SettingsFile, """{ "position": "topLeft" }""");
+
+        var settings = new SettingsStore(_directory).Current;
+
+        Assert.Equal((WheelArea.Taskbar, 2), (settings.WheelVolumeArea, settings.WheelVolumeStep));
+    }
+
+    [Fact]
     public void EnumsAreWrittenAsNames()
     {
         new SettingsStore(_directory).Update(s => s with { Position = OsdPosition.TopLeft });

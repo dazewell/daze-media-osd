@@ -160,6 +160,7 @@ public sealed partial class SettingsWindow : Window
         var tag = (args.SelectedItem as NavigationViewItem)?.Tag as string;
         OsdPage.Visibility = tag is "Osd" or null ? Visibility.Visible : Visibility.Collapsed;
         ShortcutsPage.Visibility = tag == "Shortcuts" ? Visibility.Visible : Visibility.Collapsed;
+        WheelPage.Visibility = tag == "Wheel" ? Visibility.Visible : Visibility.Collapsed;
         AboutPage.Visibility = tag == "About" ? Visibility.Visible : Visibility.Collapsed;
     }
 

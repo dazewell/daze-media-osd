@@ -32,6 +32,8 @@ public enum OsdReason
     /// default or isn't connected (D-022), or is being connected (D-023). Show the current devices as the answer.
     /// </summary>
     Hotkey,
+    /// <summary>The wheel over the taskbar stepped the volume (D-036); like a volume key, it shows even at the limits.</summary>
+    Wheel,
 }
 
 /// <summary>

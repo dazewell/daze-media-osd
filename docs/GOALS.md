@@ -34,12 +34,11 @@ this file and know what to build next. History of *why* lives in [DECISIONS.md](
   and input rows, and **quick switching** of the default output/input device. Then **a hotkey per
   device**: one press makes that device the default (user, 2026-10-23). A press on a paired Bluetooth
   device that isn't connected connects it first (user, 2026-10-23).
-- Plan D, mouse wheel over the taskbar (user, 2026-10-28; D-035): the wheel over the task buttons and the
-  wheel over the tray (notification area + clock) are **separate** settings, each with its own action.
-  First both can change the volume. Then the tray gets **brightness** of the monitor under the cursor.
-  Each action can require an optional modifier (Ctrl / Shift / Alt / none), volume included. If the tray
-  can't be told apart reliably, fall back to modifiers instead of zones: wheel = volume, wheel + a
-  modifier = brightness, anywhere on the taskbar (user, 2026-10-28).
+- Plan D, mouse wheel over the taskbar (user, 2026-10-28; D-035, D-036): the task buttons and the tray
+  (notification area + clock) can do **different** things. First volume, then **brightness** of the monitor
+  under the cursor, meant for the tray. Each action has an optional key to hold (Ctrl / Shift / Alt / none),
+  volume included, so "wheel = volume, wheel + a key = brightness" anywhere on the taskbar works too
+  (user, 2026-10-28). The speaker icon stays Windows' own (it already changes the volume).
 
 ## Later (not v1)
 
@@ -136,24 +135,27 @@ this file and know what to build next. History of *why* lives in [DECISIONS.md](
 - [x] Changes in a visible OSD fade through (user liked the cover fade, 2026-10-24; D-034): track text, play
   state, device names, mute icons. Volume stays instant. Not seen yet: on screen
 
-- [ ] Plan D (wheel over the taskbar, D-035), three PRs in order:
+- [ ] Plan D (wheel over the taskbar, D-035, D-036), three PRs in order:
   1. **Spike** `spikes/TaskbarWheelProbe` (answers Q6, Q7): log every wheel notch with the hit zone (tasks /
      tray / none) and the window under the cursor, on the primary and a secondary taskbar, auto-hide on, the
      taskbar at 100 %/125 %. Also: does Windows itself change the volume on a wheel over the speaker icon,
      and does a wheel over task buttons do anything native. Done 2026-10-28 (one vertical taskbar, unlocked, wheel
      mods off): Q6 by rects, Q7 only the speaker icon reacts natively (X-009 for the bad runs). Not seen: a physical
      wheel through raw input (`watch`), a secondary / horizontal / auto-hide taskbar — check these in step 2.
-  2. **Volume** (`feat/taskbar-wheel-volume`): `TaskbarWheelSource` (Core/Input) → `TaskbarZone` hit test →
-     `WheelAction` per zone from settings → output volume ± step per notch (`IAudioEndpointVolume`); the
-     existing volume-changed rule pops the OSD. Settings: a "Mouse wheel" card with two pickers (Over the
-     taskbar apps / Over the tray: Change volume, Do nothing) + step size. Tests: delta accumulation,
-     zone → action mapping, settings round-trip.
+  2. [x] **Volume** (0.5.0, D-036): "Mouse wheel" settings page (where, key to hold, step); default anywhere
+     on the taskbar, plain wheel, 2 %. Seen 2026-10-28 with injected notches over all 21 taskbar buttons:
+     plain → +2 %, Ctrl/Shift → nothing, speaker icon → +2 % (Windows only, never doubled), OSD shown,
+     foreground kept; "Over the apps" live: clock nothing, Start +2 %. Not seen: a physical wheel, a
+     high-resolution wheel, a secondary / horizontal / auto-hide taskbar, a fullscreen app over the taskbar.
   3. **Brightness** (`feat/tray-wheel-brightness`): `Brightness` service (internal panel via WMI
      `WmiMonitorBrightnessMethods`, external via DDC/CI `SetMonitorBrightness`), target = monitor under the
-     cursor; "Change brightness" added to the tray picker (its default then); a brightness OSD layout
+     cursor; a second action on the Mouse wheel page with its own area + key (default: tray, no key; volume's
+     default then becomes the apps); refuse two actions on the same area + key (D-036). A brightness OSD layout
      (sun glyph, %, monitor name). Coalesce DDC/CI writes on a worker (slow, ~50 ms+).
 
-**Next step:** Plan D step 2, wheel volume (above), with an optional modifier per action and the speaker icon left to Windows (D-035). The user has a Windhawk taskbar-volume mod: it must be off while testing (X-009). Unrelated, still pending from before: look at the new toggle in Settings and turn it on for a day: a track change in Spotify/Chromium
+**Next step:** the user scrolls the taskbar with a real wheel for a day (Windhawk's taskbar-volume mod off, X-009) and
+reports back: physical and high-resolution notches, a fullscreen game with the cursor at the bottom edge (must do
+nothing). Then Plan D step 3, brightness (above). Unrelated, still pending from before: look at the new toggle in Settings and turn it on for a day: a track change in Spotify/Chromium
 pops once (log `show MediaPlayback`), a media key doesn't pop twice visibly, browser videos don't spam.
 Then: the next feat/fix merge is the first automatic release (D-031): check its Release run and
 that the daily driver (0.3.0 in `%LOCALAPPDATA%\DazeMediaOsdApp`) downloads it within a day (log

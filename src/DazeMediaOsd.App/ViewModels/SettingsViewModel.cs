@@ -43,6 +43,9 @@ public sealed partial class SettingsViewModel : ObservableObject
         ShowOnDeviceConnect = current.ShowOnDeviceConnect;
         ShowOnMediaChange = current.ShowOnMediaChange;
         CycleOutputHotkey = current.CycleOutputHotkey;
+        WheelVolumeAreaIndex = Array.IndexOf(WheelAreaOrder, current.WheelVolumeArea);
+        WheelVolumeModifierIndex = (int)current.WheelVolumeModifier;
+        WheelVolumeStep = current.WheelVolumeStep;
         HotkeyNote = RegistrationNote(Shortcuts.CycleOutputId);
         ReadEndpoints();
         foreach (var row in current.DeviceHotkeys)
@@ -121,6 +124,48 @@ public sealed partial class SettingsViewModel : ObservableObject
     partial void OnShowOnDeviceConnectChanged(bool value) => Update(s => s with { ShowOnDeviceConnect = value });
 
     partial void OnShowOnMediaChangeChanged(bool value) => Update(s => s with { ShowOnMediaChange = value });
+
+    /// <summary>The wheel-area ComboBox's items, most to least reach, then off (D-036).</summary>
+    private static readonly WheelArea[] WheelAreaOrder = [WheelArea.Taskbar, WheelArea.Apps, WheelArea.Tray, WheelArea.Off];
+
+    /// <summary>Index into the wheel-area ComboBox, see <see cref="WheelAreaOrder"/>.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(WheelVolumeOn))]
+    public partial int WheelVolumeAreaIndex { get; set; }
+
+    /// <summary>Index into the key ComboBox: <see cref="WheelModifier"/>'s own order.</summary>
+    [ObservableProperty]
+    public partial int WheelVolumeModifierIndex { get; set; }
+
+    [ObservableProperty]
+    public partial double WheelVolumeStep { get; set; }
+
+    /// <summary>The key and step only matter while the wheel does something.</summary>
+    public bool WheelVolumeOn => WheelVolumeAreaIndex >= 0 && WheelAreaOrder[WheelVolumeAreaIndex] != WheelArea.Off;
+
+    partial void OnWheelVolumeAreaIndexChanged(int value)
+    {
+        if (value >= 0)
+            Update(s => s with { WheelVolumeArea = WheelAreaOrder[value] });
+    }
+
+    partial void OnWheelVolumeModifierIndexChanged(int value)
+    {
+        if (value >= 0)
+            Update(s => s with { WheelVolumeModifier = (WheelModifier)value });
+    }
+
+    partial void OnWheelVolumeStepChanged(double value)
+    {
+        // A cleared NumberBox reports NaN: put the stored value back.
+        if (!double.IsFinite(value))
+        {
+            WheelVolumeStep = _store.Current.WheelVolumeStep;
+            return;
+        }
+        Update(s => s with { WheelVolumeStep = (int)Math.Round(value) });
+        WheelVolumeStep = _store.Current.WheelVolumeStep; // shows the clamped, whole value
+    }
 
     /// <summary>The cycle-output shortcut, recorded from the keys pressed in its box. "" is off.</summary>
     [ObservableProperty]

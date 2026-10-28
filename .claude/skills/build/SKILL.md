@@ -85,6 +85,10 @@ Driving it without touching hardware:
   on the device's **Headset** (hands-free) endpoint drops the whole device (the A2DP one ignores it, X-005);
   ask the user first, audio falls back to the speakers. Press its shortcut within ~15 s: earbuds may
   reconnect on their own ~20 s later. A Windows "Disconnect" (Bluetooth settings) doesn't auto-reconnect.
+- Taskbar wheel (D-036): `dotnet run --project spikes/TaskbarWheelProbe -- auto` (from a scratch folder; writes
+  `probe-out/`) moves the cursor over every taskbar button and scrolls one notch plain / Ctrl / Shift, restoring the
+  volume each time; with our app running, plain notches change it, keyed ones don't, the speaker icon exactly once.
+  Only unlocked (`SendInput` fails with 5 on the lock screen) and with Windhawk/AutoHotkey wheel mods off (X-009).
 - `dotnet run --project spikes/FlyoutProbe -- watch` presses Mute twice (net zero) and logs the native
   flyout host. Minimized = tiny rect, no SHOW/HIDE ~2.5 s apart.
 
@@ -116,7 +120,7 @@ can't verify visually, say so explicitly instead of claiming it works.
   `show SettingsPreview`). UI Automation drives the window: post `WM_APP+1` with lParam
   `0x400 | (1 << 16)` (NIN_SELECT, icon 1) to the `DazeMediaOsd.Tray` window to open it (title
   `Daze Media OSD`); toggles are found by their `AutomationProperties.Name` (e.g. "Show now playing"); the nav items are
-  "Pop-up", "Shortcuts", "About".
+  "Pop-up", "Shortcuts", "Mouse wheel", "About".
 - Also check: foreground window unchanged by a show (`GetForegroundWindow`), and `WindowFromPoint`
   over the OSD returns the window below (click-through).
 

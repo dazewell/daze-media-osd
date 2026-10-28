@@ -85,6 +85,11 @@ internal sealed class FakeAudio : IAudioService
 
     public void SetDefault(string id, EndpointFlow flow) => Defaults.Add((id, flow));
 
+    /// <summary>Every <see cref="StepOutputVolume"/> delta, in order.</summary>
+    public List<float> VolumeSteps { get; } = [];
+
+    public void StepOutputVolume(float delta) => VolumeSteps.Add(delta);
+
     public ConnectResult Connect(string id)
     {
         Connects.Add(id);

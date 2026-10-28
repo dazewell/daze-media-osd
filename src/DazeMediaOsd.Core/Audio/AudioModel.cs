@@ -115,6 +115,13 @@ public interface IAudioService : IDisposable
     /// </summary>
     ConnectResult Connect(string id);
 
+    /// <summary>
+    /// Moves the default output's volume by <paramref name="delta"/> (0–1 scale), clamped, on whole percents like
+    /// the volume keys; a step up unmutes, as the keys do. Returns at once; the result shows up as a
+    /// <see cref="AudioChangeKind.VolumeOrMute"/> change.
+    /// </summary>
+    void StepOutputVolume(float delta);
+
     /// <summary>Raised on the service's own thread; handlers must marshal before touching UI.</summary>
     event EventHandler<AudioChangedEventArgs>? Changed;
 }

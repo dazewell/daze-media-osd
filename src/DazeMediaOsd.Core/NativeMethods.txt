@@ -93,3 +93,14 @@ KSPROPERTY_BTAUDIO
 KSPROPERTY_TYPE_GET
 KSPROPERTY_TYPE_BASICSUPPORT
 PKEY_Device_ContainerId
+GetCursorPos
+WindowFromPoint
+GetAncestor
+GetAsyncKeyState
+RI_MOUSE_WHEEL
+CUIAutomation
+IUIAutomation
+IUIAutomationElement
+IUIAutomationElementArray
+UIA_CONTROLTYPE_ID
+UIA_PROPERTY_ID
