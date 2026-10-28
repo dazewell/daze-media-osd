@@ -66,7 +66,7 @@ public static class FlyoutHost
         }
     }
 
-    private static string ProcessName(HWND hwnd)
+    internal static string ProcessName(HWND hwnd)
     {
         unsafe
         {

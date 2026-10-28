@@ -608,16 +608,19 @@ Supersedes: D-034 (only "the volume % stays instant": the bar and level glyph st
 - Why not a count-up tween (66→67→68): steps are only 2 %, nothing to count through.
 - Revisit if: a held key looks blurry (shorten the in-roll) or the user wants the mic level to roll too.
 
-## D-038 · 2026-10-28 · Re-assert `IsAlwaysOnTop` on every show that finds the OSD not topmost
+## D-038 · 2026-10-28 · Repair a lost topmost once per show, and log what was in front
 Status: accepted
 Amends: D-018 (setting `IsAlwaysOnTop` once in the constructor)
-- Decision: `ApplyFrame` checks `WS_EX_TOPMOST` before each `ShowAt`; when it's gone, toggles
-  `presenter.IsAlwaysOnTop` false → true and logs `osd: topmost was lost, re-applied: <result>`.
-- Why: the user saw the OSD behind every window (2026-10-28). Polled every 10 ms through 5 starts on the
-  same code and WinAppSDK 2.5.1 as D-018: the style was set without `WS_EX_TOPMOST` in 4 of 5 starts, from the
-  first frame on; once it was there. The setter in the constructor is not reliably applied. A toggle makes the
-  presenter apply it: topmost from the first show on, and still topmost after the hide.
-- Why not setting it later only (e.g. after the first show): the loss is intermittent, so a check on every
-  show costs one `GetWindowLong` and also covers anything that drops it later.
-- Revisit if: the log shows `re-applied: False` (then the native flyout's band is the way up, D-018).
-
+- Decision: `Show` from hidden checks `WS_EX_TOPMOST`; when it's gone, toggles `presenter.IsAlwaysOnTop`
+  false → true and logs `osd: was not topmost, re-applied: <result>; foreground <process> <class> topmost=…
+  fullscreen=…, <n> monitor(s)`. One `GetWindowLong` per show, nothing per frame.
+- Why: the user saw the OSD behind every window (2026-10-28). From 15:39 to 15:45 every start was without
+  `WS_EX_TOPMOST` from the first frame on; from 15:54 on, 12 starts of the same code kept it. So the code
+  is fine and something outside drops it. Another process can: `SetWindowPos(HWND_NOTOPMOST)` from outside
+  works, and the presenter doesn't put it back while it still reports `IsAlwaysOnTop` true. Off then on
+  applies it again (verified); a plain second `= true` wasn't tried.
+- Why not every frame (this PR's first version): odd busywork for an unknown cause (user, 2026-10-28); a
+  drop while the OSD is up for 2.5 s is rare enough to wait for the next show.
+- Why not log only: the user would be left with a hidden OSD until the cause is found (user, 2026-10-28).
+- Revisit when the log line shows up: its foreground names the suspect. First lead: in the forced test the
+  foreground was PowerToys `MouseWithoutBordersHelper`, itself topmost (may be coincidence).

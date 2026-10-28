@@ -106,7 +106,9 @@ can't verify visually, say so explicitly instead of claiming it works.
   from `GetDC(0)` with `0x40CC0020` (SRCCOPY | CAPTUREBLT). That catches mid-animation frames too;
   `PrintWindow(hwnd, hdc, 2)` only renders final XAML values, without the acrylic.
 - If the OSD shows behind other windows, check its ex style for `WS_EX_TOPMOST` (0x8); the log says
-  `osd: topmost was lost` when the show path had to put it back (D-038).
+  `osd: was not topmost` (with the foreground window) when a show had to put it back (D-038).
+  To test that path: `SetWindowPos(osd, HWND_NOTOPMOST, …, SWP_NOMOVE|SWP_NOSIZE|SWP_NOACTIVATE)` from
+  another process, then press a volume key.
   `pwsh -File` + `Add-Type` takes ~1–2 s to start: press keys / toggle devices from inside the capture
   script, or the OSD has hidden by the time it captures.
 - Tray: the icon window is class `DazeMediaOsd.Tray` (uID 1). `Shell_NotifyIconGetRect` gives its

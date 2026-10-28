@@ -101,6 +101,8 @@ public sealed partial class OsdWindow : Window
         var wasHidden = _animation.IsHidden;
         _animation.Show(_animation.IsHidden ? now - FirstFrameLead : now, OverlayWindow.AnimationsEnabled());
         _animation.Tick(now);
+        if (wasHidden)
+            EnsureTopmost();
         RenderDevice(state.Device);
         Render(state, fade: !wasHidden);
         Animate();
@@ -457,17 +459,20 @@ public sealed partial class OsdWindow : Window
         var fromTop = _settings.Position is OsdPosition.TopCenter or OsdPosition.TopLeft or OsdPosition.TopRight;
         var slide = (int)Math.Round((1 - visibility) * SlideDip * OverlayWindow.Scale(_hwnd));
         _ = OverlayWindow.SetAlpha(_hwnd, (byte)Math.Round(255 * visibility));
-        KeepTopmost();
         if (!OverlayWindow.ShowAt(_hwnd, x, fromTop ? y - slide : y + slide, width, height))
             Log.Error($"OSD not shown at {x},{y} {width}x{height}", new Win32Exception());
     }
 
-    private void KeepTopmost()
+    // Topmost holds once set (D-018), but users have seen it gone with unchanged code (D-038): repair it per show
+    // and log what was in front, to find the cause.
+    private void EnsureTopmost()
     {
         if (OverlayWindow.IsTopmost(_hwnd) || AppWindow.Presenter is not OverlappedPresenter presenter)
             return;
+        var context = OverlayWindow.ForegroundContext();
+        // Off and on again: the presenter still reports it on, and a real change is what makes it apply.
         presenter.IsAlwaysOnTop = false;
         presenter.IsAlwaysOnTop = true;
-        Log.Info($"osd: topmost was lost, re-applied: {OverlayWindow.IsTopmost(_hwnd)}");
+        Log.Info($"osd: was not topmost, re-applied: {OverlayWindow.IsTopmost(_hwnd)}; {context}");
     }
 }
