@@ -104,3 +104,4 @@ IUIAutomationElement
 IUIAutomationElementArray
 UIA_CONTROLTYPE_ID
 UIA_PROPERTY_ID
+FindWindow

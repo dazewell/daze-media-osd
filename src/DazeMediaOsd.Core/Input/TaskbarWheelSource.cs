@@ -13,8 +13,9 @@ namespace DazeMediaOsd.Core.Input;
 /// <summary>
 /// Sees mouse wheel turns over a taskbar passively through raw input (RIDEV_INPUTSINK), like
 /// <see cref="RawInputKeySource"/>: no hook, nobody's input waits on us (D-035). Its own thread and message-only
-/// window, so the stream of mouse-move messages never delays the key source. Lookups here (the speaker icon's
-/// place through UIA) only delay our own answer, never the system's input.
+/// window, so the stream of mouse-move messages never delays the key source. Nothing on that thread waits: the
+/// speaker icon's place comes from a cache that the thread pool refreshes, so queued notches keep their keys and
+/// cursor position.
 /// </summary>
 public sealed class TaskbarWheelSource : ITaskbarWheelSource
 {
@@ -54,11 +55,14 @@ public sealed class TaskbarWheelSource : ITaskbarWheelSource
             IsBackground = true,
             Name = "TaskbarWheel",
         };
-        _thread.SetApartmentState(ApartmentState.MTA); // UIA clients belong in the MTA
         _thread.Start();
         ready.Wait();
         if (failure is not null)
             throw failure;
+        // Find the speaker icon now, so the first notch over the tray isn't skipped while it is looked up.
+        var primary = PInvoke.FindWindow("Shell_TrayWnd", null);
+        if (primary != HWND.Null)
+            _volumeIcon.Refresh(primary);
     }
 
     public event EventHandler<TaskbarWheelEventArgs>? Wheeled;
@@ -130,7 +134,6 @@ public sealed class TaskbarWheelSource : ITaskbarWheelSource
 
     private void OnWheel(int delta)
     {
-        // Keys first: the speaker icon lookup below can take ~70 ms, long enough for a quick Ctrl to be let go.
         var held = Held();
         if (!PInvoke.GetCursorPos(out var point) || ZoneAt(point) is not { } zone)
             return;
@@ -154,7 +157,14 @@ public sealed class TaskbarWheelSource : ITaskbarWheelSource
         var tray = PInvoke.FindWindowEx(root, HWND.Null, "TrayNotifyWnd", null);
         if (tray == HWND.Null || !PInvoke.GetWindowRect(tray, out var rect) || !Contains(rect, point))
             return TaskbarZone.Apps;
-        return _volumeIcon.Contains(root, point) ? TaskbarZone.VolumeIcon : TaskbarZone.Tray;
+        // Unknown (not read yet, or UIA failed): skip the notch. Counting it as tray could double the speaker
+        // icon's own step.
+        return _volumeIcon.Hit(root, point) switch
+        {
+            IconHit.Inside => TaskbarZone.VolumeIcon,
+            IconHit.Outside => TaskbarZone.Tray,
+            _ => null,
+        };
     }
 
     private static unsafe bool IsTaskbar(HWND window)
@@ -195,38 +205,71 @@ public sealed class TaskbarWheelSource : ITaskbarWheelSource
         }
     }
 
+    private enum IconHit
+    {
+        /// <summary>Not read yet for this taskbar, or the last read failed.</summary>
+        Unknown,
+        Inside,
+        Outside,
+    }
+
     /// <summary>
-    /// Where the tray's speaker icon is, found through UIA and kept for a second: a scroll is many notches, and
-    /// icons coming and going move it. Recognized by its tooltip naming the default output; "Volume" covers an
-    /// English system without one. Used on the wheel thread only.
+    /// Where the tray's speaker icon is, found through UIA (~70 ms) on the thread pool and refreshed once a second
+    /// old: icons coming and going move it. The wheel thread only reads the last result, so a lookup never holds
+    /// up notches queued behind it. Recognized by its tooltip naming the default output; "Volume" covers an
+    /// English system without one.
     /// </summary>
     private sealed class VolumeIconLocator(Func<string?> outputName)
     {
         private static readonly TimeSpan MaxAge = TimeSpan.FromSeconds(1);
-        private IUIAutomation? _automation;
-        private HWND _taskbar;
-        private RECT? _icon;
-        private long _readAt;
+        private readonly System.Collections.Concurrent.ConcurrentDictionary<nint, Reading> _readings = new();
+        private IUIAutomation? _automation; // used by one refresh at a time
+        private int _refreshing;
         private bool _loggedCost;
 
-        public bool Contains(HWND taskbar, System.Drawing.Point point)
+        /// <param name="Found">False when UIA failed: the icon's place is unknown.</param>
+        private sealed record Reading(bool Found, RECT? Icon, long ReadAt);
+
+        public IconHit Hit(HWND taskbar, System.Drawing.Point point)
         {
-            if (taskbar != _taskbar || Stopwatch.GetElapsedTime(_readAt) > MaxAge)
+            var reading = _readings.GetValueOrDefault(taskbar);
+            if (reading is null || Stopwatch.GetElapsedTime(reading.ReadAt) > MaxAge)
+                Refresh(taskbar); // meanwhile the last reading still answers: the icon rarely moves
+            return reading switch
             {
-                var started = Stopwatch.GetTimestamp();
-                _icon = Find(taskbar);
-                (_taskbar, _readAt) = (taskbar, Stopwatch.GetTimestamp());
-                var took = Stopwatch.GetElapsedTime(started, _readAt);
-                if (!_loggedCost || took > TimeSpan.FromMilliseconds(100))
-                {
-                    Log.Info($"wheel: speaker icon {(_icon is { } r ? $"at {r.left},{r.top} {r.right - r.left}x{r.bottom - r.top}" : "not found")}, took {took.TotalMilliseconds:F0} ms");
-                    _loggedCost = true;
-                }
-            }
-            return _icon is { } icon && TaskbarWheelSource.Contains(icon, point);
+                null or { Found: false } => IconHit.Unknown,
+                { Icon: { } icon } when Contains(icon, point) => IconHit.Inside,
+                _ => IconHit.Outside,
+            };
         }
 
-        private RECT? Find(HWND taskbar)
+        public void Refresh(HWND taskbar)
+        {
+            if (Interlocked.Exchange(ref _refreshing, 1) == 1)
+                return;
+            ThreadPool.UnsafeQueueUserWorkItem(_ =>
+            {
+                try
+                {
+                    var started = Stopwatch.GetTimestamp();
+                    var (found, icon) = Find(taskbar);
+                    var reading = new Reading(found, icon, Stopwatch.GetTimestamp());
+                    _readings[taskbar] = reading;
+                    var took = Stopwatch.GetElapsedTime(started, reading.ReadAt);
+                    if (!_loggedCost || took > TimeSpan.FromMilliseconds(100))
+                    {
+                        Log.Info($"wheel: speaker icon {(icon is { } r ? $"at {r.left},{r.top} {r.right - r.left}x{r.bottom - r.top}" : found ? "not found" : "lookup failed")}, took {took.TotalMilliseconds:F0} ms");
+                        _loggedCost = true;
+                    }
+                }
+                finally
+                {
+                    Volatile.Write(ref _refreshing, 0);
+                }
+            }, null);
+        }
+
+        private (bool Found, RECT? Icon) Find(HWND taskbar)
         {
             try
             {
@@ -243,16 +286,16 @@ public sealed class TaskbarWheelSource : ITaskbarWheelSource
                     var name = Read(button.CurrentName);
                     if ((!string.IsNullOrEmpty(output) && name.Contains(output, StringComparison.OrdinalIgnoreCase))
                         || name.StartsWith("Volume", StringComparison.OrdinalIgnoreCase))
-                        return button.CurrentBoundingRectangle;
+                        return (true, button.CurrentBoundingRectangle);
                 }
-                return null;
+                return (true, null); // no speaker icon on this taskbar (a secondary one, or hidden)
             }
             catch (COMException e)
             {
-                // Explorer restarting, or the element went away mid-walk: the tray just counts as tray.
+                // Explorer restarting, or the element went away mid-walk: unknown until the next refresh.
                 Log.Info($"wheel: speaker icon lookup failed: 0x{e.HResult:X8}");
                 _automation = null;
-                return null;
+                return (false, null);
             }
         }
 
