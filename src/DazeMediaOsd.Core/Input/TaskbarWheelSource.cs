@@ -106,8 +106,15 @@ public sealed class TaskbarWheelSource : ITaskbarWheelSource
         switch (message)
         {
             case PInvoke.WM_INPUT:
-                if (ReadWheel(lParam) is { } delta && delta != 0)
-                    OnWheel(delta);
+                switch (ReadWheel(lParam))
+                {
+                    case 0:
+                        OnMove();
+                        break;
+                    case { } delta:
+                        OnWheel(delta);
+                        break;
+                }
                 break; // WM_INPUT must still reach DefWindowProc so the system can clean up
             case PInvoke.WM_CLOSE:
                 PInvoke.DestroyWindow(hwnd);
@@ -119,7 +126,7 @@ public sealed class TaskbarWheelSource : ITaskbarWheelSource
         return PInvoke.DefWindowProc(hwnd, message, wParam, lParam);
     }
 
-    // Every mouse move lands here too: read the fixed-size record and leave unless it carries a vertical wheel.
+    // Every mouse move lands here too: the vertical wheel delta, 0 for any other mouse input, null for no mouse.
     private static unsafe int? ReadWheel(LPARAM lParam)
     {
         RAWINPUT input;
@@ -129,7 +136,21 @@ public sealed class TaskbarWheelSource : ITaskbarWheelSource
             || input.header.dwType != (uint)RID_DEVICE_INFO_TYPE.RIM_TYPEMOUSE)
             return null;
         var mouse = input.data.mouse.Anonymous.Anonymous;
-        return (mouse.usButtonFlags & PInvoke.RI_MOUSE_WHEEL) != 0 ? (short)mouse.usButtonData : null;
+        return (mouse.usButtonFlags & PInvoke.RI_MOUSE_WHEEL) != 0 ? (short)mouse.usButtonData : 0;
+    }
+
+    private static readonly TimeSpan HoverCheckEvery = TimeSpan.FromMilliseconds(200);
+    private long _hoverCheckedAt;
+
+    // The cursor reaching the tray refreshes the speaker icon's place before the first notch can need it. At most
+    // five times a second: moves arrive at the mouse's polling rate.
+    private void OnMove()
+    {
+        if (Stopwatch.GetElapsedTime(_hoverCheckedAt) < HoverCheckEvery)
+            return;
+        _hoverCheckedAt = Stopwatch.GetTimestamp();
+        if (PInvoke.GetCursorPos(out var point) && TrayUnder(point) is { } taskbar)
+            _volumeIcon.Prefetch(taskbar);
     }
 
     private void OnWheel(int delta)
@@ -151,13 +172,12 @@ public sealed class TaskbarWheelSource : ITaskbarWheelSource
     // taskbar must not count. Its tray part is the legacy TrayNotifyWnd, which still matches the drawn tray (Q6).
     private TaskbarZone? ZoneAt(System.Drawing.Point point)
     {
-        var root = PInvoke.GetAncestor(PInvoke.WindowFromPoint(point), GET_ANCESTOR_FLAGS.GA_ROOT);
-        if (root == HWND.Null || !IsTaskbar(root))
+        var root = TaskbarUnder(point);
+        if (root == HWND.Null)
             return null;
-        var tray = PInvoke.FindWindowEx(root, HWND.Null, "TrayNotifyWnd", null);
-        if (tray == HWND.Null || !PInvoke.GetWindowRect(tray, out var rect) || !Contains(rect, point))
+        if (!InTray(root, point))
             return TaskbarZone.Apps;
-        // Unknown (not read yet, or UIA failed): skip the notch. Counting it as tray could double the speaker
+        // Unknown (not read, too old, or UIA failed): skip the notch. Counting it as tray could double the speaker
         // icon's own step.
         return _volumeIcon.Hit(root, point) switch
         {
@@ -166,6 +186,22 @@ public sealed class TaskbarWheelSource : ITaskbarWheelSource
             _ => null,
         };
     }
+
+    private static HWND TaskbarUnder(System.Drawing.Point point)
+    {
+        var root = PInvoke.GetAncestor(PInvoke.WindowFromPoint(point), GET_ANCESTOR_FLAGS.GA_ROOT);
+        return root != HWND.Null && IsTaskbar(root) ? root : HWND.Null;
+    }
+
+    private static bool InTray(HWND taskbar, System.Drawing.Point point)
+    {
+        var tray = PInvoke.FindWindowEx(taskbar, HWND.Null, "TrayNotifyWnd", null);
+        return tray != HWND.Null && PInvoke.GetWindowRect(tray, out var rect) && Contains(rect, point);
+    }
+
+    /// <summary>The taskbar whose tray is under <paramref name="point"/>, or null.</summary>
+    private static HWND? TrayUnder(System.Drawing.Point point) =>
+        TaskbarUnder(point) is var root && root != HWND.Null && InTray(root, point) ? root : null;
 
     private static unsafe bool IsTaskbar(HWND window)
     {
@@ -214,33 +250,44 @@ public sealed class TaskbarWheelSource : ITaskbarWheelSource
     }
 
     /// <summary>
-    /// Where the tray's speaker icon is, found through UIA (~70 ms) on the thread pool and refreshed once a second
-    /// old: icons coming and going move it. The wheel thread only reads the last result, so a lookup never holds
-    /// up notches queued behind it. Recognized by its tooltip naming the default output; "Volume" covers an
-    /// English system without one.
+    /// Where the tray's speaker icon is, found through UIA (~70 ms) on the thread pool: icons coming and going
+    /// move it. The wheel thread only reads the last result, so a lookup never holds up notches queued behind it.
+    /// A reading is refreshed once it is <see cref="RefreshAfter"/> old (the cursor reaching the tray, or a notch)
+    /// and trusted only until <see cref="TrustFor"/>: an older one is Unknown, never a guess that may double
+    /// Windows' own step. A steady scroll refreshes long before that. Recognized by its tooltip naming the default
+    /// output; "Volume" covers an English system without one.
     /// </summary>
     private sealed class VolumeIconLocator(Func<string?> outputName)
     {
-        private static readonly TimeSpan MaxAge = TimeSpan.FromSeconds(1);
+        private static readonly TimeSpan RefreshAfter = TimeSpan.FromMilliseconds(500);
+        private static readonly TimeSpan TrustFor = TimeSpan.FromSeconds(2);
         private readonly System.Collections.Concurrent.ConcurrentDictionary<nint, Reading> _readings = new();
         private IUIAutomation? _automation; // used by one refresh at a time
         private int _refreshing;
         private bool _loggedCost;
 
         /// <param name="Found">False when UIA failed: the icon's place is unknown.</param>
-        private sealed record Reading(bool Found, RECT? Icon, long ReadAt);
+        internal sealed record Reading(bool Found, RECT? Icon, long ReadAt);
 
         public IconHit Hit(HWND taskbar, System.Drawing.Point point)
         {
-            var reading = _readings.GetValueOrDefault(taskbar);
-            if (reading is null || Stopwatch.GetElapsedTime(reading.ReadAt) > MaxAge)
-                Refresh(taskbar); // meanwhile the last reading still answers: the icon rarely moves
+            var reading = Prefetch(taskbar);
             return reading switch
             {
                 null or { Found: false } => IconHit.Unknown,
+                _ when Stopwatch.GetElapsedTime(reading.ReadAt) > TrustFor => IconHit.Unknown,
                 { Icon: { } icon } when Contains(icon, point) => IconHit.Inside,
                 _ => IconHit.Outside,
             };
+        }
+
+        /// <summary>Starts a refresh if the last reading is missing or <see cref="RefreshAfter"/> old; returns it.</summary>
+        public Reading? Prefetch(HWND taskbar)
+        {
+            var reading = _readings.GetValueOrDefault(taskbar);
+            if (reading is null || Stopwatch.GetElapsedTime(reading.ReadAt) > RefreshAfter)
+                Refresh(taskbar);
+            return reading;
         }
 
         public void Refresh(HWND taskbar)
