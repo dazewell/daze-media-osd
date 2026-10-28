@@ -43,13 +43,18 @@ internal sealed class NumberRoll
 
     /// <summary>
     /// Shows <paramref name="text"/> for <paramref name="value"/>, rolling when <paramref name="animate"/>. The same
-    /// text as shown does nothing, so a repeat render doesn't restart a roll; a non-rolling change stops one.
+    /// text as shown doesn't restart a roll; any non-rolling render, repeat or not, stops one.
     /// </summary>
     public void Run(string text, int value, bool animate, Style style)
     {
         _current.Style = style;
         if (text == _text)
+        {
+            // A new device at the same value must not keep showing the last device's outgoing number.
+            if (!animate)
+                _roll.Stop();
             return;
+        }
         var (oldText, oldValue) = (_text, _value);
         (_text, _value) = (text, value);
 
