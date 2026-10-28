@@ -140,9 +140,9 @@ this file and know what to build next. History of *why* lives in [DECISIONS.md](
   1. **Spike** `spikes/TaskbarWheelProbe` (answers Q6, Q7): log every wheel notch with the hit zone (tasks /
      tray / none) and the window under the cursor, on the primary and a secondary taskbar, auto-hide on, the
      taskbar at 100 %/125 %. Also: does Windows itself change the volume on a wheel over the speaker icon,
-     and does a wheel over task buttons do anything native. Done 2026-10-28: `dump` + `auto` → Q6 answered by
-     rects on one vertical taskbar (X-009 for what failed). Left: `watch` with a real wheel (raw input sees
-     physical notches? native volume on the speaker icon? Q7), and a secondary / horizontal / auto-hide taskbar.
+     and does a wheel over task buttons do anything native. Done 2026-10-28 (one vertical taskbar, unlocked, wheel
+     mods off): Q6 by rects, Q7 only the speaker icon reacts natively (X-009 for the bad runs). Not seen: a physical
+     wheel through raw input (`watch`), a secondary / horizontal / auto-hide taskbar — check these in step 2.
   2. **Volume** (`feat/taskbar-wheel-volume`): `TaskbarWheelSource` (Core/Input) → `TaskbarZone` hit test →
      `WheelAction` per zone from settings → output volume ± step per notch (`IAudioEndpointVolume`); the
      existing volume-changed rule pops the OSD. Settings: a "Mouse wheel" card with two pickers (Over the
@@ -153,7 +153,7 @@ this file and know what to build next. History of *why* lives in [DECISIONS.md](
      cursor; "Change brightness" added to the tray picker (its default then); a brightness OSD layout
      (sun glyph, %, monitor name). Coalesce DDC/CI writes on a worker (slow, ~50 ms+).
 
-**Next step:** Plan D step 1, the spike (above). Unrelated, still pending from before: look at the new toggle in Settings and turn it on for a day: a track change in Spotify/Chromium
+**Next step:** Plan D step 2, wheel volume (above), with an optional modifier per action and the speaker icon left to Windows (D-035). The user has a Windhawk taskbar-volume mod: it must be off while testing (X-009). Unrelated, still pending from before: look at the new toggle in Settings and turn it on for a day: a track change in Spotify/Chromium
 pops once (log `show MediaPlayback`), a media key doesn't pop twice visibly, browser videos don't spam.
 Then: the next feat/fix merge is the first automatic release (D-031): check its Release run and
 that the daily driver (0.3.0 in `%LOCALAPPDATA%\DazeMediaOsdApp`) downloads it within a day (log

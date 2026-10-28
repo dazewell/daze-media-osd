@@ -64,11 +64,12 @@ here (an option rejected on paper belongs in the "Why not" of a decision). Forma
 - Evidence: run 40163907848 on `main` 4a5f64b, 2026-10-25.
 - Retry only if: never; any handled non-zero native exit sets `$global:LASTEXITCODE = 0`.
 
-## X-009 · 2026-10-28 · Taskbar hit test by `WindowFromPoint`; probing the wheel with `SendInput`
-- Tried: `WindowFromPoint` + `GetAncestor(GA_ROOT)` to see if the cursor is on `Shell_TrayWnd`; UIA `ElementFromPoint`;
-  injecting wheel notches with `SendInput` over each taskbar button to look for a native reaction (Q7).
-- Failed because: over the taskbar `WindowFromPoint` returns a top-level, non-cloaked `Windows.UI.Core.CoreWindow`
-  laid over it, never the taskbar; UIA stops at the `Shell_TrayWnd` pane. `SendInput` failed with error 5 (UIPI)
-  for most notches, so "no volume change" from injected notches proves nothing.
-- Evidence: 26300, `spikes/TaskbarWheelProbe auto` (4 of 57 notches sent; all 4 seen by the raw-input sink).
-- Retry only if: never for the hit test (use the rects, Q6); `SendInput` only from a context without UIPI limits.
+## X-009 · 2026-10-28 · Probing the taskbar wheel while the screen is locked, or with a wheel mod running
+- Tried: `spikes/TaskbarWheelProbe auto` (injected notches over each taskbar button) while the session was locked,
+  then with the user's Windhawk taskbar-volume mod enabled.
+- Failed because: locked, the input desktop is the lock screen: `SendInput` fails with 5 and `WindowFromPoint`
+  returns the lock screen's `CoreWindow`. With the mod on, every notch anywhere on the taskbar changed the volume,
+  which looked native.
+- Evidence: 26300; locked run 4 of 57 sent; mod run 74 → 76 % on Start, Widgets and the clock.
+- Retry only if: never: run probes unlocked, with Windhawk/AutoHotkey wheel mods off; Mouse Without Borders may move
+  the cursor during a run (ignore notches whose zone is `none`).

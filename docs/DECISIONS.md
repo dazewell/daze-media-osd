@@ -567,17 +567,19 @@ Status: accepted
 - Revisit if: fades feel slow during quick skips, or the user wants rows to animate in.
 
 ## D-035 · 2026-10-28 · Wheel over the taskbar: raw-input mouse sink, two zones, one action per zone
-Status: accepted (planned; Q6/Q7 spike first)
+Status: accepted (Q6/Q7 answered by the spike, 2026-10-28)
 - Decision: a `TaskbarWheelSource` on its own thread registers raw mouse input (`RIDEV_INPUTSINK`, usage 0x01/0x02)
   and acts only on `RI_MOUSE_WHEEL`; it hit-tests the cursor into `TaskbarZone.Tasks` / `Tray` / none (Q6) and
   posts the notch to the UI thread. Each zone has its own `WheelAction` in settings (Volume, Off; Brightness
   after step 3), each with an optional modifier (none / Ctrl / Shift / Alt, read with `GetAsyncKeyState` at the notch).
-  Fallback if Q6 finds no reliable split: one zone, actions told apart by modifier only (user, 2026-10-28). Deltas accumulate to 120 per step, so high-resolution wheels step evenly. Brightness targets
+  Fallback if Q6 finds no reliable split: one zone, actions told apart by modifier only (user, 2026-10-28).
+  Zones by rect: taskbar rect minus its `TrayNotifyWnd` rect = tasks (Q6). Over the speaker icon we do nothing: Windows
+  already steps the volume there and our OSD follows through the volume-changed rule (Q7). Deltas accumulate to 120 per step, so high-resolution wheels step evenly. Brightness targets
   the monitor under the cursor (WMI for internal panels, DDC/CI for external).
 - Why: the user wants tasks and tray separate so the tray can do brightness (2026-10-28). Raw input is how
   `RawInputKeySource` already listens: no hook, no added input latency, no injection (D-002), no admin. Own
   thread so mouse-move `WM_INPUT` floods never delay the key path.
 - Why not `WH_MOUSE_LL`: every mouse event in the system waits on our callback, and Windows drops a slow hook
   silently (same reasons as D-005's keyboard-hook rejection). Its only gain is swallowing the native wheel action.
-- Revisit if: Q7 shows a native wheel action we must suppress and the user wants it suppressed, or the hit test
-  needs UIA calls on the wheel path.
+- Revisit if: the user wants our action (e.g. brightness) on the speaker icon too, which needs swallowing the native
+  wheel (`WH_MOUSE_LL`), or the hit test needs UIA calls on the wheel path.

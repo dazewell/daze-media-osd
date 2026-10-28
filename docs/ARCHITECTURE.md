@@ -312,8 +312,10 @@ unit-tested with fakes. App never P/Invokes directly; window styling goes throug
   `spikes/TaskbarWheelProbe dump/auto`): cursor in a `Shell_TrayWnd` / `Shell_SecondaryTrayWnd` rect → tasks, unless
   also in its child `TrayNotifyWnd` rect → tray. `TrayNotifyWnd` matched the drawn tray exactly (Show Hidden Icons
   → Show Desktop, 490 px); Widgets sits in the tasks part. `ReBarWindow32`/`MSTaskSwWClass` rects are stale — don't use
-  them. `WindowFromPoint` is useless here (X-009). Still open: a secondary taskbar, a horizontal one, auto-hide, and a
+  them. `WindowFromPoint` also works when unlocked, but the rects are enough (X-009). Still open: a secondary taskbar, a horizontal one, auto-hide, and a
   fullscreen window over the taskbar (the rect test alone would still fire).
-- **Q7 (Plan D):** does a wheel over the taskbar already do something natively (the speaker icon changes the
-  volume on recent builds)? Raw input can't swallow it, so we'd double the step there. If so: leave the
-  quick-settings button out of our tray zone, or ask the user about a `WH_MOUSE_LL` hook (D-035 Revisit).
+- **Q7 (Plan D):** answered on 26300 (2026-10-28, `auto`, 57 injected notches, no wheel mods running): the only native
+  wheel action on the taskbar is the speaker icon (`SystemTray.OmniButtonCenter`, name "Volume …"): ±2 % per notch,
+  with or without Ctrl/Shift. Nothing else reacts. The raw-input sink saw every notch. So over the speaker icon our
+  action must stand aside (D-035); its rect comes from a cached UIA lookup, never on the wheel path.
+
