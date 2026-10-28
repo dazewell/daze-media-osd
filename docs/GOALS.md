@@ -34,11 +34,14 @@ this file and know what to build next. History of *why* lives in [DECISIONS.md](
   and input rows, and **quick switching** of the default output/input device. Then **a hotkey per
   device**: one press makes that device the default (user, 2026-10-23). A press on a paired Bluetooth
   device that isn't connected connects it first (user, 2026-10-23).
+- Plan D, mouse wheel over the taskbar (user, 2026-10-28; D-035): the wheel over the task buttons and the
+  wheel over the tray (notification area + clock) are **separate** settings, each with its own action.
+  First both can change the volume. Then the tray gets **brightness** of the monitor under the cursor.
 
 ## Later (not v1)
 
 - v2: code signing (SmartScreen, D-029).
-- Brightness / airplane-mode / keyboard-layout flyouts.
+- Airplane-mode / keyboard-layout flyouts. Brightness keys (Q4); the brightness OSD from Plan D may cover them.
 - Per-app volume in the OSD.
 
 ## Non-goals
@@ -130,7 +133,22 @@ this file and know what to build next. History of *why* lives in [DECISIONS.md](
 - [x] Changes in a visible OSD fade through (user liked the cover fade, 2026-10-24; D-034): track text, play
   state, device names, mute icons. Volume stays instant. Not seen yet: on screen
 
-**Next step:** look at the new toggle in Settings and turn it on for a day: a track change in Spotify/Chromium
+- [ ] Plan D (wheel over the taskbar, D-035), three PRs in order:
+  1. **Spike** `spikes/TaskbarWheelProbe` (answers Q6, Q7): log every wheel notch with the hit zone (tasks /
+     tray / none) and the window under the cursor, on the primary and a secondary taskbar, auto-hide on, the
+     taskbar at 100 %/125 %. Also: does Windows itself change the volume on a wheel over the speaker icon,
+     and does a wheel over task buttons do anything native.
+  2. **Volume** (`feat/taskbar-wheel-volume`): `TaskbarWheelSource` (Core/Input) → `TaskbarZone` hit test →
+     `WheelAction` per zone from settings → output volume ± step per notch (`IAudioEndpointVolume`); the
+     existing volume-changed rule pops the OSD. Settings: a "Mouse wheel" card with two pickers (Over the
+     taskbar apps / Over the tray: Change volume, Do nothing) + step size. Tests: delta accumulation,
+     zone → action mapping, settings round-trip.
+  3. **Brightness** (`feat/tray-wheel-brightness`): `Brightness` service (internal panel via WMI
+     `WmiMonitorBrightnessMethods`, external via DDC/CI `SetMonitorBrightness`), target = monitor under the
+     cursor; "Change brightness" added to the tray picker (its default then); a brightness OSD layout
+     (sun glyph, %, monitor name). Coalesce DDC/CI writes on a worker (slow, ~50 ms+).
+
+**Next step:** Plan D step 1, the spike (above). Unrelated, still pending from before: look at the new toggle in Settings and turn it on for a day: a track change in Spotify/Chromium
 pops once (log `show MediaPlayback`), a media key doesn't pop twice visibly, browser videos don't spam.
 Then: the next feat/fix merge is the first automatic release (D-031): check its Release run and
 that the daily driver (0.3.0 in `%LOCALAPPDATA%\DazeMediaOsdApp`) downloads it within a day (log
