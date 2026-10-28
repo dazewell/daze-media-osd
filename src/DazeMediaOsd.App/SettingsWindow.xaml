@@ -54,6 +54,11 @@
                         <FontIcon Glyph="&#xE765;" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
+                <NavigationViewItem Content="Mouse wheel" Tag="Wheel">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE962;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
             </NavigationView.MenuItems>
             <NavigationView.FooterMenuItems>
                 <NavigationViewItem Content="About" Tag="About">
@@ -300,6 +305,76 @@
                                 <TextBlock Text="Add shortcut" />
                             </StackPanel>
                         </Button>
+                    </StackPanel>
+
+                    <StackPanel x:Name="WheelPage" Grid.Row="1" Spacing="4" Visibility="Collapsed">
+                        <TextBlock Text="Mouse wheel" Style="{StaticResource TitleTextBlockStyle}" Margin="0,0,0,4" />
+                        <TextBlock Text="Scroll over the taskbar to change things without opening anything."
+                                   Style="{StaticResource SettingsCardDescription}" />
+
+                        <TextBlock Text="Volume" Style="{StaticResource SettingsSection}" />
+                        <Grid Style="{StaticResource SettingsCard}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <FontIcon Glyph="&#xE767;" Style="{StaticResource SettingsCardIcon}" />
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock Text="Where to scroll" />
+                                <TextBlock Text="The speaker icon always changes the volume: Windows does that itself."
+                                           Style="{StaticResource SettingsCardDescription}" />
+                            </StackPanel>
+                            <!-- Item order = SettingsViewModel.WheelAreaOrder. -->
+                            <ComboBox Grid.Column="2" MinWidth="200" VerticalAlignment="Center"
+                                      AutomationProperties.Name="Where scrolling changes the volume"
+                                      SelectedIndex="{x:Bind ViewModel.WheelVolumeAreaIndex, Mode=TwoWay}">
+                                <x:String>Anywhere on the taskbar (default)</x:String>
+                                <x:String>Over the apps</x:String>
+                                <x:String>Over the tray icons and clock</x:String>
+                                <x:String>Nowhere</x:String>
+                            </ComboBox>
+                        </Grid>
+                        <Grid Style="{StaticResource SettingsCard}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <FontIcon Glyph="&#xE765;" Style="{StaticResource SettingsCardIcon}" />
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock Text="Key to hold" />
+                                <TextBlock Text="Only change the volume while you hold this key" Style="{StaticResource SettingsCardDescription}" />
+                            </StackPanel>
+                            <!-- Item order = WheelModifier. -->
+                            <ComboBox Grid.Column="2" MinWidth="200" VerticalAlignment="Center"
+                                      AutomationProperties.Name="Key to hold while scrolling"
+                                      IsEnabled="{x:Bind ViewModel.WheelVolumeOn, Mode=OneWay}"
+                                      SelectedIndex="{x:Bind ViewModel.WheelVolumeModifierIndex, Mode=TwoWay}">
+                                <x:String>None (default)</x:String>
+                                <x:String>Ctrl</x:String>
+                                <x:String>Shift</x:String>
+                                <x:String>Alt</x:String>
+                            </ComboBox>
+                        </Grid>
+                        <Grid Style="{StaticResource SettingsCard}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <FontIcon Glyph="&#xE9E9;" Style="{StaticResource SettingsCardIcon}" />
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock Text="Step" />
+                                <TextBlock Text="Percent per wheel click. Volume keys use 2." Style="{StaticResource SettingsCardDescription}" />
+                            </StackPanel>
+                            <NumberBox Grid.Column="2" MinWidth="200" VerticalAlignment="Center"
+                                       AutomationProperties.Name="Volume step (percent)"
+                                       SpinButtonPlacementMode="Inline" SmallChange="1" LargeChange="2"
+                                       Minimum="1" Maximum="10"
+                                       IsEnabled="{x:Bind ViewModel.WheelVolumeOn, Mode=OneWay}"
+                                       Value="{x:Bind ViewModel.WheelVolumeStep, Mode=TwoWay}" />
+                        </Grid>
                     </StackPanel>
 
                     <StackPanel x:Name="AboutPage" Grid.Row="1" Spacing="4" Visibility="Collapsed">

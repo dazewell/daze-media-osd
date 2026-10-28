@@ -112,6 +112,19 @@ public sealed class CoreAudioService : IAudioService
         });
     }
 
+    public void StepOutputVolume(float delta) => Post(() => StepVolume(delta));
+
+    private unsafe void StepVolume(float delta)
+    {
+        if (_output.Volume is not { } volume)
+            return; // no output device
+        volume.GetMasterVolumeLevelScalar(out var level);
+        var next = Math.Clamp(MathF.Round((level + delta) * 100) / 100, 0, 1);
+        volume.SetMasterVolumeLevelScalar(next, null);
+        if (delta > 0)
+            volume.SetMute(false, null);
+    }
+
     public ConnectResult Connect(string id)
     {
         ArgumentNullException.ThrowIfNull(id);

@@ -567,7 +567,7 @@ Status: accepted
 - Revisit if: fades feel slow during quick skips, or the user wants rows to animate in.
 
 ## D-035 · 2026-10-28 · Wheel over the taskbar: raw-input mouse sink, two zones, one action per zone
-Status: accepted (Q6/Q7 answered by the spike, 2026-10-28)
+Status: accepted; per-zone settings superseded by D-036 (Q6/Q7 answered by the spike, 2026-10-28)
 - Decision: a `TaskbarWheelSource` on its own thread registers raw mouse input (`RIDEV_INPUTSINK`, usage 0x01/0x02)
   and acts only on `RI_MOUSE_WHEEL`; it hit-tests the cursor into `TaskbarZone.Tasks` / `Tray` / none (Q6) and
   posts the notch to the UI thread. Each zone has its own `WheelAction` in settings (Volume, Off; Brightness
@@ -583,3 +583,15 @@ Status: accepted (Q6/Q7 answered by the spike, 2026-10-28)
   silently (same reasons as D-005's keyboard-hook rejection). Its only gain is swallowing the native wheel action.
 - Revisit if: the user wants our action (e.g. brightness) on the speaker icon too, which needs swallowing the native
   wheel (`WH_MOUSE_LL`), or the hit test needs UIA calls on the wheel path.
+
+## D-036 · 2026-10-28 · Wheel settings per action: where (taskbar / apps / tray / off) + key to hold
+Status: accepted
+Supersedes: D-035 (only "each zone has its own action": the source, zones and speaker-icon rule stand)
+- Decision: each wheel action owns `Area` (Taskbar, Apps, Tray, Off) and `Modifier` (None, Ctrl, Shift, Alt); a
+  notch fires an action only when its zone is in the area and the held keys are exactly that modifier (Win held →
+  nothing). Volume first: default anywhere on the taskbar, plain wheel, 2 % per notch like the keys; a step up
+  unmutes. A notch at 0/100 % still shows the OSD (`OsdReason.Wheel`). Settings page "Mouse wheel".
+- Why: covers both of the user's shapes (2026-10-28) with one model: tray = brightness / apps = volume, or
+  wheel = volume / Ctrl+wheel = brightness anywhere. Exact-key match keeps Ctrl+wheel free for the other action.
+- Why not one action per zone (D-035's plan): can't express "modifier picks the action" on the same zone.
+- Revisit if: brightness lands and two actions claim the same area + key — then the settings must refuse it.

@@ -33,6 +33,8 @@ public sealed partial class App : Application, IDisposable
     private SettingsWindow? _settingsWindow;
     private GlobalHotkey? _hotkey;
     private DeviceConnector? _connector;
+    private TaskbarWheelSource? _wheel;
+    private WheelVolume? _wheelVolume;
     private volatile IReadOnlyList<Shortcut> _shortcuts = []; // read on the hotkey thread
 
     public App(LaunchArgs args)
@@ -89,6 +91,17 @@ public sealed partial class App : Application, IDisposable
         catch (InvalidOperationException e)
         {
             Log.Error("hotkey window failed to start; running without the hotkey", e);
+        }
+        // Optional too: without it the wheel over the taskbar does nothing (D-036).
+        try
+        {
+            _wheel = new TaskbarWheelSource(() => _audio.Current.Output?.Name);
+            _wheelVolume = new WheelVolume(_wheel, _audio, () => _settings.Current);
+            _wheelVolume.Stepped += (_, _) => ui.TryEnqueue(() => Show(_osd.Snapshot(OsdReason.Wheel)));
+        }
+        catch (InvalidOperationException e)
+        {
+            Log.Error("taskbar wheel failed to start; running without it", e);
         }
         // Raised on the UI thread (the settings window edits it). Show the result right away.
         _settings.Changed += (_, settings) =>
@@ -246,7 +259,9 @@ public sealed partial class App : Application, IDisposable
             if (state.Device is { Answer: PressAnswer.None })
                 state = state with { Device = null }; // a default switch still shows, without the event line
         }
-        Log.Info($"show {state.Describe()}");
+        // Each notch would log a line: the volume change that follows is the record.
+        if (state.Reason != OsdReason.Wheel)
+            Log.Info($"show {state.Describe()}");
         _window?.Show(state);
     }
 
@@ -258,6 +273,8 @@ public sealed partial class App : Application, IDisposable
         _updates?.Dispose();
         _tray?.Dispose();
         _hotkey?.Dispose();
+        _wheelVolume?.Dispose();
+        _wheel?.Dispose();
         _connector?.Dispose();
         _osd?.Dispose();
         _keys?.Dispose();
