@@ -1,6 +1,8 @@
+using DazeMediaOsd.Core.NativeFlyout;
 using Windows.Win32;
 using Windows.Win32.Foundation;
 using Windows.Win32.Graphics.Dwm;
+using Windows.Win32.Graphics.Gdi;
 using Windows.Win32.UI.WindowsAndMessaging;
 
 namespace DazeMediaOsd.Core.Windowing;
@@ -35,6 +37,29 @@ public static class OverlayWindow
     public static bool ShowAt(nint hwnd, int x, int y, int width, int height) =>
         PInvoke.SetWindowPos((HWND)hwnd, HWND.HWND_TOPMOST, x, y, width, height,
             SET_WINDOW_POS_FLAGS.SWP_NOACTIVATE | SET_WINDOW_POS_FLAGS.SWP_SHOWWINDOW);
+
+    /// <summary>Whether the window currently has <c>WS_EX_TOPMOST</c>.</summary>
+    public static bool IsTopmost(nint hwnd) =>
+        ((WINDOW_EX_STYLE)PInvoke.GetWindowLong((HWND)hwnd, WINDOW_LONG_PTR_INDEX.GWL_EXSTYLE) & WINDOW_EX_STYLE.WS_EX_TOPMOST) != 0;
+
+    /// <summary>
+    /// What might keep the OSD from being topmost, for the log (D-038): the foreground window's process, class,
+    /// whether it is itself topmost and covers its whole monitor, and the monitor count.
+    /// </summary>
+    public static unsafe string ForegroundContext()
+    {
+        var foreground = PInvoke.GetForegroundWindow();
+        var monitors = PInvoke.GetSystemMetrics(SYSTEM_METRICS_INDEX.SM_CMONITORS);
+        if (foreground == HWND.Null)
+            return $"foreground none, {monitors} monitor(s)";
+        var info = new MONITORINFO { cbSize = (uint)sizeof(MONITORINFO) };
+        var fullscreen = PInvoke.GetWindowRect(foreground, out var window)
+            && PInvoke.GetMonitorInfo(PInvoke.MonitorFromWindow(foreground, MONITOR_FROM_FLAGS.MONITOR_DEFAULTTONEAREST), ref info)
+            && window.left <= info.rcMonitor.left && window.top <= info.rcMonitor.top
+            && window.right >= info.rcMonitor.right && window.bottom >= info.rcMonitor.bottom;
+        return $"foreground {FlyoutHost.ProcessName(foreground)} {FlyoutHost.ClassName(foreground)} topmost={IsTopmost(foreground)} "
+            + $"fullscreen={fullscreen}, {monitors} monitor(s)";
+    }
 
     /// <summary>Window size minus client size, in physical pixels: what the non-client frame takes.</summary>
     public static (int Width, int Height) FrameSize(nint hwnd)

@@ -271,7 +271,7 @@ Status: accepted
 - Revisit if: a device reports a misleading form factor (e.g. USB headset as Speakers) often enough.
 
 ## D-018 · 2026-10-23 · OSD topmost through `OverlappedPresenter.IsAlwaysOnTop`, plus SetWindowPos
-Status: accepted
+Status: accepted; amended by D-038 (setting it once doesn't stick)
 Supersedes: D-008 (only "why not `IsAlwaysOnTop`"; the window design stands)
 - Decision: `OsdWindow` sets `presenter.IsAlwaysOnTop = true`; `ShowAt` keeps `SetWindowPos(HWND_TOPMOST)`.
 - Why: the user saw no OSD while changing volume over a maximized, focused window (2026-10-23). The
@@ -552,7 +552,7 @@ Status: accepted
   old cover under a new title reads as wrong.
 
 ## D-034 · 2026-10-24 · Content changes in a visible OSD fade through; volume stays instant
-Status: accepted
+Status: accepted; the volume % superseded by D-037
 - Decision: `FadeThrough` (out 100 ms ease-in, swap, in 150 ms ease-out, opacity only) for media title/artist,
   play state, output/input name, input icon, the output icon on mute or device-kind change, and "Muted" ↔
   mic level. Only while the OSD (and that row) was already visible and "Animation effects" is on (D-012). Each
@@ -595,3 +595,32 @@ Supersedes: D-035 (only "each zone has its own action": the source, zones and sp
   wheel = volume / Ctrl+wheel = brightness anywhere. Exact-key match keeps Ctrl+wheel free for the other action.
 - Why not one action per zone (D-035's plan): can't express "modifier picks the action" on the same zone.
 - Revisit if: brightness lands and two actions claim the same area + key — then the settings must refuse it.
+
+## D-037 · 2026-10-28 · The volume % rolls to each new value
+Status: accepted
+Supersedes: D-034 (only "the volume % stays instant": the bar and level glyph still step at once)
+- Decision: `NumberRoll` on the output %: the old number slides 8 DIP out and fades (100 ms), the new one
+  slides in from the other side and fades in (150 ms), both ease-out, up when the value grows. A change mid-roll
+  starts the outgoing number from where the incoming one was, so a held key reads as one rolling motion.
+  Same gates as D-034: OSD already visible, same device, "Animation effects" on.
+- Why: the user asked for the number to fade when it changes while shown (2026-10-28). A roll, not D-034's
+  fade-through: it never waits on a fade-out, so it keeps up with a held key (30–60 ms steps) instead of lagging.
+- Why not a count-up tween (66→67→68): steps are only 2 %, nothing to count through.
+- Revisit if: a held key looks blurry (shorten the in-roll) or the user wants the mic level to roll too.
+
+## D-038 · 2026-10-28 · Repair a lost topmost once per show, and log what was in front
+Status: accepted
+Amends: D-018 (setting `IsAlwaysOnTop` once in the constructor)
+- Decision: `Show` from hidden checks `WS_EX_TOPMOST`; when it's gone, toggles `presenter.IsAlwaysOnTop`
+  false → true and logs `osd: was not topmost, re-applied: <result>; foreground <process> <class> topmost=…
+  fullscreen=…, <n> monitor(s)`. One `GetWindowLong` per show, nothing per frame.
+- Why: the user saw the OSD behind every window (2026-10-28). From 15:39 to 15:45 every start was without
+  `WS_EX_TOPMOST` from the first frame on; from 15:54 on, 12 starts of the same code kept it. So the code
+  is fine and something outside drops it. Another process can: `SetWindowPos(HWND_NOTOPMOST)` from outside
+  works, and the presenter doesn't put it back while it still reports `IsAlwaysOnTop` true. Off then on
+  applies it again (verified); a plain second `= true` wasn't tried.
+- Why not every frame (this PR's first version): odd busywork for an unknown cause (user, 2026-10-28); a
+  drop while the OSD is up for 2.5 s is rare enough to wait for the next show.
+- Why not log only: the user would be left with a hidden OSD until the cause is found (user, 2026-10-28).
+- Revisit when the log line shows up: its foreground names the suspect. First lead: in the forced test the
+  foreground was PowerToys `MouseWithoutBordersHelper`, itself topmost (may be coincidence).

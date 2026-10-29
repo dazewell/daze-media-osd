@@ -40,8 +40,10 @@ public sealed partial class OsdWindow : Window
     private Storyboard? _coverFade;
     private Action? _coverFadeEnd;
     private readonly FadeThroughs _fades = new();
+    private readonly NumberRoll _outputPercentRoll;
     private bool? _shownOutputMuted;
     private DeviceKind? _shownOutputKind;
+    private string? _shownOutputId;
     private bool? _shownInputMuted;
     private Storyboard? _eventEntrance;
     private readonly OsdAnimation _animation = new(ShowDuration, HideDuration);
@@ -52,6 +54,7 @@ public sealed partial class OsdWindow : Window
     public OsdWindow(AppSettings settings)
     {
         InitializeComponent();
+        _outputPercentRoll = new NumberRoll(OutputPercent, OutputPercentOld);
         SystemBackdrop = new AlwaysActiveAcrylicBackdrop();
         AppWindow.IsShownInSwitchers = false;
         if (AppWindow.Presenter is OverlappedPresenter presenter)
@@ -98,6 +101,8 @@ public sealed partial class OsdWindow : Window
         var wasHidden = _animation.IsHidden;
         _animation.Show(_animation.IsHidden ? now - FirstFrameLead : now, OverlayWindow.AnimationsEnabled());
         _animation.Tick(now);
+        if (wasHidden)
+            EnsureTopmost();
         RenderDevice(state.Device);
         Render(state, fade: !wasHidden);
         Animate();
@@ -328,8 +333,12 @@ public sealed partial class OsdWindow : Window
         _outputPercent = output?.Percent ?? 0;
         var muted = output is not { Muted: false };
         OutputFill.Style = (Style)Root.Resources[muted ? "OsdFillMuted" : "OsdFill"];
-        OutputPercent.Style = (Style)Root.Resources[muted ? "OsdValueMuted" : "OsdValue"];
-        OutputPercent.Text = output is null ? "" : _outputPercent.ToString(CultureInfo.CurrentCulture);
+        var percent = output is null ? "" : _outputPercent.ToString(CultureInfo.CurrentCulture);
+        // Rolls on every level step, held key included (D-037); a new device just shows its level.
+        var sameDevice = output?.Id == _shownOutputId;
+        _shownOutputId = output?.Id;
+        _outputPercentRoll.Run(percent, _outputPercent, fade && sameDevice,
+            (Style)Root.Resources[muted ? "OsdValueMuted" : "OsdValue"]);
         // The device type where it says more than "speaker"; a speaker shows its level, as the native flyout
         // does. Mute wins over both: the state matters more than the type (D-017).
         var glyph = output switch
@@ -341,7 +350,7 @@ public sealed partial class OsdWindow : Window
             { Percent: < 67 } => "\uE994",        // Volume2
             _ => "\uE995",                        // Volume3
         };
-        // Mute and a device of another kind fade; a level step stays instant, it follows a held key (D-034).
+        // Mute and a device of another kind fade; the level glyph steps at once with the bar (D-034).
         var kindOrMute = (muted, output?.Kind) != (_shownOutputMuted, _shownOutputKind);
         (_shownOutputMuted, _shownOutputKind) = (muted, output?.Kind);
         _fades.Get(OutputIcon).Run(glyph, fade && kindOrMute, () => OutputIcon.Glyph = glyph);
@@ -452,5 +461,18 @@ public sealed partial class OsdWindow : Window
         _ = OverlayWindow.SetAlpha(_hwnd, (byte)Math.Round(255 * visibility));
         if (!OverlayWindow.ShowAt(_hwnd, x, fromTop ? y - slide : y + slide, width, height))
             Log.Error($"OSD not shown at {x},{y} {width}x{height}", new Win32Exception());
+    }
+
+    // Topmost holds once set (D-018), but users have seen it gone with unchanged code (D-038): repair it per show
+    // and log what was in front, to find the cause.
+    private void EnsureTopmost()
+    {
+        if (OverlayWindow.IsTopmost(_hwnd) || AppWindow.Presenter is not OverlappedPresenter presenter)
+            return;
+        var context = OverlayWindow.ForegroundContext();
+        // Off and on again: the presenter still reports it on, and a real change is what makes it apply.
+        presenter.IsAlwaysOnTop = false;
+        presenter.IsAlwaysOnTop = true;
+        Log.Info($"osd: was not topmost, re-applied: {OverlayWindow.IsTopmost(_hwnd)}; {context}");
     }
 }
