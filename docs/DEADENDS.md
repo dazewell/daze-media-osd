@@ -73,3 +73,11 @@ here (an option rejected on paper belongs in the "Why not" of a decision). Forma
 - Evidence: 26300; locked run 4 of 57 sent; mod run 74 → 76 % on Start, Widgets and the clock.
 - Retry only if: never: run probes unlocked, with Windhawk/AutoHotkey wheel mods off; Mouse Without Borders may move
   the cursor during a run (ignore notches whose zone is `none`).
+
+## X-010 · 2026-10-28 · Catching "no default endpoint" with CsWin32's `HRESULT.E_NOTFOUND`
+- Tried: `catch (COMException e) when (e.HResult == (int)HRESULT.E_NOTFOUND)` around `GetDefaultAudioEndpoint` / `GetDevice`.
+- Failed because: that constant is 0x8000100D; Core Audio answers HRESULT_FROM_WIN32(ERROR_NOT_FOUND) = 0x80070490, so the
+  catch never matched. On a PC with no active output (or input) the app died at start, 0.6.0 on another PC, launcher
+  looped "app exited with 0".
+- Evidence: user log 2026-10-28 22:32-22:35, `Core Audio initialization failed ... 0x80070490` from `DefaultDevice`.
+- Retry only if: never; compare against the literal `ElementNotFound` (0x80070490).

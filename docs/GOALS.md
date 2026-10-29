@@ -137,6 +137,8 @@ this file and know what to build next. History of *why* lives in [DECISIONS.md](
 
 - [x] The volume % rolls to each new value while the OSD is up (user, 2026-10-28; D-037)
 - [x] OSD behind every window: repaired per show and logged, cause unknown (user saw it, 2026-10-28; D-038)
+- [x] 0.6.1: start no longer dies on a PC with no default audio output/input (wrong HRESULT in the catch, X-010); user log from another PC, 2026-10-28. Not seen: on that PC
+
 - [ ] Plan D (wheel over the taskbar, D-035, D-036), three PRs in order:
   1. **Spike** `spikes/TaskbarWheelProbe` (answers Q6, Q7): log every wheel notch with the hit zone (tasks /
      tray / none) and the window under the cursor, on the primary and a secondary taskbar, auto-hide on, the

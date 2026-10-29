@@ -21,7 +21,6 @@ IAudioEndpointVolume
 IAudioEndpointVolumeCallback
 PKEY_Device_FriendlyName
 PropVariantClear
-E_NOTFOUND
 CreateWindowEx
 DefWindowProc
 DestroyWindow
