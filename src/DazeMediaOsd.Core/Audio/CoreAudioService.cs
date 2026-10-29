@@ -416,6 +416,10 @@ public sealed class CoreAudioService : IAudioService
 
     private Endpoint EndpointFor(EndpointFlow flow) => flow == EndpointFlow.Output ? _output : _input;
 
+    // HRESULT_FROM_WIN32(ERROR_NOT_FOUND), what Core Audio answers for "no such endpoint". CsWin32's
+    // HRESULT.E_NOTFOUND is a different value (0x8000100D) and never matched (X-010).
+    private const int ElementNotFound = unchecked((int)0x80070490);
+
     private IMMDevice? DefaultDevice(EndpointFlow flow)
     {
         try
@@ -424,7 +428,7 @@ public sealed class CoreAudioService : IAudioService
             _enumerator!.GetDefaultAudioEndpoint(dataFlow, ERole.eConsole, out var device);
             return device;
         }
-        catch (COMException e) when (e.HResult == (int)HRESULT.E_NOTFOUND)
+        catch (COMException e) when (e.HResult == ElementNotFound)
         {
             return null; // no endpoint of this flow, e.g. no microphone
         }
@@ -439,7 +443,7 @@ public sealed class CoreAudioService : IAudioService
             _enumerator!.GetDevice(id, out var device);
             return device;
         }
-        catch (COMException e) when (e.HResult == (int)HRESULT.E_NOTFOUND)
+        catch (COMException e) when (e.HResult == ElementNotFound)
         {
             return null; // gone again before we got to it; a later notification follows
         }
