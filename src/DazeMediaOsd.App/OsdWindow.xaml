@@ -114,7 +114,7 @@
             <FontIcon x:Name="MediaPlayback" Grid.Column="2" Style="{StaticResource OsdIcon}" HorizontalAlignment="Right" />
         </Grid>
 
-        <Grid Style="{StaticResource OsdRow}">
+        <Grid x:Name="OutputRow" Style="{StaticResource OsdRow}">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto" MinWidth="20" />
                 <ColumnDefinition Width="*" />
@@ -147,6 +147,28 @@
             <FontIcon x:Name="InputIcon" Style="{StaticResource OsdIcon}" />
             <TextBlock x:Name="InputName" Grid.Column="1" VerticalAlignment="Center" Style="{StaticResource OsdName}" />
             <TextBlock x:Name="InputStatus" Grid.Column="2" Style="{StaticResource OsdValue}" />
+        </Grid>
+
+        <!-- Brightness (D-040): shown instead of every row above, on the same column grid. -->
+        <Grid x:Name="BrightnessRow" Style="{StaticResource OsdRow}" Visibility="Collapsed">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" MinWidth="20" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" MinWidth="44" />
+            </Grid.ColumnDefinitions>
+            <FontIcon Glyph="&#xE706;" Style="{StaticResource OsdIcon}" />
+            <StackPanel Grid.Column="1" Spacing="8" VerticalAlignment="Center">
+                <TextBlock x:Name="BrightnessName" Style="{StaticResource OsdName}" />
+                <Grid x:Name="BrightnessTrack" Height="4" CornerRadius="2"
+                      Background="{ThemeResource ControlStrongFillColorDisabledBrush}">
+                    <Border x:Name="BrightnessFill" Style="{StaticResource OsdFill}" />
+                </Grid>
+            </StackPanel>
+            <Grid Grid.Column="2">
+                <TextBlock x:Name="BrightnessPercent" Style="{StaticResource OsdValue}" />
+                <TextBlock x:Name="BrightnessPercentOld" Style="{StaticResource OsdValue}" Opacity="0"
+                           AutomationProperties.AccessibilityView="Raw" />
+            </Grid>
         </Grid>
     </StackPanel>
 </Window>

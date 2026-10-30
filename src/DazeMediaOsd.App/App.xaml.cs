@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using DazeMediaOsd.App.ViewModels;
 using DazeMediaOsd.Core.Audio;
+using DazeMediaOsd.Core.Brightness;
 using DazeMediaOsd.Core.Diagnostics;
 using DazeMediaOsd.Core.Input;
 using DazeMediaOsd.Core.Lifecycle;
@@ -35,6 +36,8 @@ public sealed partial class App : Application, IDisposable
     private DeviceConnector? _connector;
     private TaskbarWheelSource? _wheel;
     private WheelVolume? _wheelVolume;
+    private BrightnessService? _brightness;
+    private WheelBrightness? _wheelBrightness;
     private volatile IReadOnlyList<Shortcut> _shortcuts = []; // read on the hotkey thread
 
     public App(LaunchArgs args)
@@ -98,6 +101,11 @@ public sealed partial class App : Application, IDisposable
             _wheel = new TaskbarWheelSource(() => _audio.Current.Output?.Name);
             _wheelVolume = new WheelVolume(_wheel, _audio, () => _settings.Current);
             _wheelVolume.Stepped += (_, _) => ui.TryEnqueue(() => Show(_osd.Snapshot(OsdReason.Wheel)));
+            // The screen is only touched once a notch or the settings page asks for it (D-041).
+            _brightness = new BrightnessService(new WmiBrightnessBackend());
+            _brightness.Changed += (_, state) =>
+                ui.TryEnqueue(() => Show(_osd.Snapshot(OsdReason.Brightness) with { Brightness = state }));
+            _wheelBrightness = new WheelBrightness(_wheel, _brightness, () => _settings.Current);
         }
         catch (InvalidOperationException e)
         {
@@ -227,7 +235,7 @@ public sealed partial class App : Application, IDisposable
     {
         if (_settingsWindow is null)
         {
-            _settingsWindow = new SettingsWindow(new SettingsViewModel(_settings!, new Autostart(), Environment.ProcessPath!, _hotkey, _audio!), _updates!, RestartToUpdate);
+            _settingsWindow = new SettingsWindow(new SettingsViewModel(_settings!, new Autostart(), Environment.ProcessPath!, _hotkey, _audio!, _brightness), _updates!, RestartToUpdate);
             _settingsWindow.Closed += (_, _) => _settingsWindow = null;
             _settingsWindow.Activate();
         }
@@ -259,8 +267,8 @@ public sealed partial class App : Application, IDisposable
             if (state.Device is { Answer: PressAnswer.None })
                 state = state with { Device = null }; // a default switch still shows, without the event line
         }
-        // Each notch would log a line: the volume change that follows is the record.
-        if (state.Reason != OsdReason.Wheel)
+        // Each notch would log a line: the volume change (or the brightness service's line per burst) is the record.
+        if (state.Reason is not (OsdReason.Wheel or OsdReason.Brightness))
             Log.Info($"show {state.Describe()}");
         _window?.Show(state);
     }
@@ -274,6 +282,7 @@ public sealed partial class App : Application, IDisposable
         _tray?.Dispose();
         _hotkey?.Dispose();
         _wheelVolume?.Dispose();
+        _wheelBrightness?.Dispose();
         _wheel?.Dispose();
         _connector?.Dispose();
         _osd?.Dispose();
@@ -282,6 +291,7 @@ public sealed partial class App : Application, IDisposable
         _audio?.Dispose();
         _suppressor?.Dispose();
         _suppressor = null;
+        _brightness?.Dispose(); // after the restore: a hung WMI call may hold this for up to 3 s (D-006, D-041)
         _launcher?.Dispose();
     }
 }
