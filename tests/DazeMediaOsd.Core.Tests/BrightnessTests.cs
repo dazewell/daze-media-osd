@@ -419,6 +419,32 @@ public sealed class BrightnessServiceTests : IDisposable
     }
 
     [Fact]
+    public void AReadBackThatKeepsFailingIsOneOutageUntilAStepGetsThrough()
+    {
+        _backend.FailReadBacks = true;
+        var service = Start();
+
+        service.Adjust(5);
+        Assert.Equal(55, Next().Percent);
+        service.Adjust(5);
+        Assert.Equal(60, Next().Percent);
+        service.Adjust(5);
+        Assert.Equal(65, Next().Percent);
+        Assert.Equal(3, _backend.Resets);
+        Assert.Equal(1, service.Outages); // the write worked each time, yet nothing got through its read-back
+
+        _backend.FailReadBacks = false;
+        service.Adjust(5);
+        Assert.Equal(70, Next().Percent);
+        _backend.FailReadBacks = true;
+        service.Adjust(5);
+        Assert.Equal(75, Next().Percent);
+        Finish();
+
+        Assert.Equal(2, service.Outages);
+    }
+
+    [Fact]
     public void ZeroPointsAreNotAStep()
     {
         var service = Start();
@@ -514,5 +540,30 @@ public sealed class BrightnessServiceTests : IDisposable
         Assert.True(_backend.Disposed);
         Assert.Equal(0, _backend.Reads);
         Assert.Empty(_backend.Writes);
+    }
+
+    [Fact]
+    public void StepsRacingDisposeNeverReachAClosedScreen()
+    {
+        for (var round = 0; round < 200; round++)
+        {
+            var backend = new FakeBrightnessBackend();
+            var service = new BrightnessService(backend);
+            var stop = 0;
+            var wheel = new Thread(() =>
+            {
+                while (Volatile.Read(ref stop) == 0)
+                    service.Adjust(1);
+            }) { IsBackground = true };
+            wheel.Start();
+            Assert.True(SpinWait.SpinUntil(() => backend.Reads > 0, Patience));
+
+            service.Dispose();
+            Volatile.Write(ref stop, 1);
+            Assert.True(wheel.Join(Patience));
+
+            Assert.True(backend.Disposed);
+            Assert.False(backend.UsedAfterDispose, $"round {round}");
+        }
     }
 }

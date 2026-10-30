@@ -127,6 +127,8 @@ unit-tested with fakes. App never P/Invokes directly; window styling goes throug
   adds to an `Interlocked` counter and queues one `Drain`; `Changed` and `ScreenChanged` are raised on the worker, so
   App and `SettingsViewModel` marshal with `DispatcherQueue.TryEnqueue`. A WMI call that never returns can't hold the
   exit: the thread is a background one, `Dispose` waits ≤ 3 s, and App disposes it after the flyout restore (D-006, D-041).
+  `Dispose` only closes the queue; the worker closes the WMI connection after the last queued call, so a step racing
+  the exit never reaches a closed connection.
 - GSMTC events and `GsmtcMediaService.Changed` arrive on thread-pool (MTA) threads; reads happen in
   its single refresh loop.
 - `OsdController.ShowRequested` / `RefreshRequested` therefore arrive on any of those threads: App

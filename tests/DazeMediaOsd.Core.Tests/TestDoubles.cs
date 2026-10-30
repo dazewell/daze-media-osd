@@ -167,12 +167,15 @@ internal sealed class FakeBrightnessBackend : IBrightnessBackend
     private Exception? _writeError;
     private bool _ignoreWrites;
     private bool _failReadsAfterWrite;
+    private bool _failReadBacks;
+    private bool _readBackDue;
     private int _staleReads;
     private int _staleReadsLeft;
     private int _staleLevel;
     private int _reads;
     private int _resets;
     private bool _disposed;
+    private bool _usedAfterDispose;
 
     /// <summary>A screen that takes every percent unless <paramref name="levels"/> says otherwise.</summary>
     public static BrightnessPanel Panel(int level, IReadOnlyList<int>? levels = null) =>
@@ -211,6 +214,13 @@ internal sealed class FakeBrightnessBackend : IBrightnessBackend
         set { lock (_lock) _failReadsAfterWrite = value; }
     }
 
+    /// <summary>The first read after each write fails; the reads before the next write work.</summary>
+    public bool FailReadBacks
+    {
+        get { lock (_lock) return _failReadBacks; }
+        set { lock (_lock) _failReadBacks = value; }
+    }
+
     /// <summary>After a write, this many reads still show the old level (D-041).</summary>
     public int StaleReads
     {
@@ -247,13 +257,25 @@ internal sealed class FakeBrightnessBackend : IBrightnessBackend
         get { lock (_lock) return _disposed; }
     }
 
+    /// <summary>Something read, wrote or reset after <see cref="Dispose"/>.</summary>
+    public bool UsedAfterDispose
+    {
+        get { lock (_lock) return _usedAfterDispose; }
+    }
+
     public BrightnessPanel? Read()
     {
         lock (_lock)
         {
             _reads++;
+            _usedAfterDispose |= _disposed;
             if (_readError is { } error)
                 throw error;
+            if (_readBackDue)
+            {
+                _readBackDue = false;
+                throw new IOException("the screen didn't answer the read-back");
+            }
             if (_screen is not null && _staleReadsLeft > 0)
             {
                 _staleReadsLeft--;
@@ -269,8 +291,10 @@ internal sealed class FakeBrightnessBackend : IBrightnessBackend
         lock (_lock)
         {
             _writes.Add((id, level));
+            _usedAfterDispose |= _disposed;
             if (_writeError is { } error)
                 throw error;
+            _readBackDue = _failReadBacks;
             if (_ignoreWrites || _screen is null)
                 return;
             _staleLevel = _screen.Level;
@@ -284,7 +308,10 @@ internal sealed class FakeBrightnessBackend : IBrightnessBackend
     public void Reset()
     {
         lock (_lock)
+        {
             _resets++;
+            _usedAfterDispose |= _disposed;
+        }
     }
 
     public void Dispose()

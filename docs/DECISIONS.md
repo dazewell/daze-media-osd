@@ -669,7 +669,8 @@ Status: accepted
     `Drain`), so a fast scroll is a few writes however slow the screen is. Each step reads first and writes only
     after a valid read (level 0–100, an id, a level list); no read, no write.
   - A failed read or write: drop the step and whatever piled up, `Reset()` the connection, log once per failure
-    streak, no retry; the next step connects afresh and logs "works again".
+    streak, no retry; the next step connects afresh, and "works again" is logged only once a step gets through its
+    read-back (a write alone doesn't end the streak).
   - After a write, re-read every 5 ms (≤ 300 ms) until it moves: a read lags a write by up to ~20 ms (measured), and
     the OSD shows what the screen reports.
   - Nothing runs at start: the first WMI call is a notch or the settings page's `Refresh` (seen: no brightness line in

@@ -34,6 +34,9 @@ public sealed class BrightnessService : IBrightnessService
     private long _lastLogged;
     private bool _logged;
 
+    // Failure streaks logged so far; read by tests once the worker has stopped.
+    internal int Outages { get; private set; }
+
     public BrightnessService(IBrightnessBackend backend, TimeSpan? settleTimeout = null)
     {
         _backend = backend ?? throw new ArgumentNullException(nameof(backend));
@@ -107,16 +110,16 @@ public sealed class BrightnessService : IBrightnessService
         }
         LogStep(panel, target);
         _backend.Write(panel.Id, target);
-        Recovered();
         return new BrightnessState(panel.Name, ReadBack(panel, target));
     }
 
     // A read just after a write can still show the old level for a few milliseconds (D-041), so wait until it moves.
     // The OSD says what the screen reports, not what was asked for. If that can't be read the write still happened,
-    // so the level asked for is the best there is.
+    // so the level asked for is the best there is. Only a step that got through its read-back counts as working again.
     private int ReadBack(BrightnessPanel before, int asked)
     {
         var start = Stopwatch.GetTimestamp();
+        var shown = asked;
         try
         {
             while (_backend.Read() is { } after && after.Id == before.Id && after.Level is >= 0 and <= 100)
@@ -128,14 +131,17 @@ public sealed class BrightnessService : IBrightnessService
                 }
                 if (after.Level != asked)
                     Log.Info($"brightness: asked for {asked}, the screen reports {after.Level}");
-                return after.Level;
+                shown = after.Level;
+                break;
             }
         }
         catch (Exception e) when (e is not OutOfMemoryException)
         {
             FailStep("reading the brightness back", e);
+            return asked;
         }
-        return asked;
+        Recovered();
+        return shown;
     }
 
     // The one place a screen is read before a write: anything it says that can't be true is a failure, so no write follows.
@@ -213,6 +219,7 @@ public sealed class BrightnessService : IBrightnessService
         if (_failing)
             return;
         _failing = true;
+        Outages++;
         Log.Error($"brightness: {what} failed; the next failures are not logged until it works again", e);
     }
 
@@ -251,13 +258,22 @@ public sealed class BrightnessService : IBrightnessService
                 Log.Error("brightness", e);
             }
         }
+        // The queue is closed and empty: an Add that raced CompleteAdding either ran above or was refused, so
+        // nothing can reach the backend after this.
+        try
+        {
+            _backend.Dispose();
+        }
+        catch (Exception e) when (e is not OutOfMemoryException)
+        {
+            Log.Error("brightness: closing the connection", e);
+        }
     }
 
     public void Dispose()
     {
         if (Interlocked.Exchange(ref _disposed, 1) != 0)
             return;
-        Post(() => _backend.Dispose());
         _work.CompleteAdding();
         // A WMI call that never returns must not hold the app's exit: the thread is a background one.
         if (!_worker.Join(StopTimeout))
