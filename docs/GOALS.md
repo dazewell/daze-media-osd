@@ -38,12 +38,16 @@ this file and know what to build next. History of *why* lives in [DECISIONS.md](
   (notification area + clock) can do **different** things. First volume, then **brightness** of the monitor
   under the cursor, meant for the tray. Each action has an optional key to hold (Ctrl / Shift / Alt / none),
   volume included, so "wheel = volume, wheel + a key = brightness" anywhere on the taskbar works too
-  (user, 2026-10-28). The speaker icon stays Windows' own (it already changes the volume).
+  (user, 2026-10-28). The speaker icon stays Windows' own (it already changes the volume). Brightness v1 is the
+  built-in laptop screen only, its name shown on the settings page so users know what's supported; off until
+  turned on there, Ctrl preselected, volume's default unchanged (user, 2026-10-28; D-039, D-040). Other monitors
+  (DDC/CI) and a monitor-selection field come later.
 
 ## Later (not v1)
 
 - v2: code signing (SmartScreen, D-029).
-- Airplane-mode / keyboard-layout flyouts. Brightness keys (Q4); the brightness OSD from Plan D may cover them.
+- Airplane-mode / keyboard-layout flyouts. Brightness keys (Q4); the brightness OSD (D-040) may cover them.
+- Brightness on external monitors (DDC/CI, the monitor under the cursor) and a monitor-selection field (user, 2026-10-28; D-039).
 - Per-app volume in the OSD.
 
 ## Non-goals
@@ -139,7 +143,7 @@ this file and know what to build next. History of *why* lives in [DECISIONS.md](
 - [x] OSD behind every window: repaired per show and logged, cause unknown (user saw it, 2026-10-28; D-038)
 - [x] 0.6.1: start no longer dies on a PC with no default audio output/input (wrong HRESULT in the catch, X-010); user log from another PC, 2026-10-28. Not seen: on that PC
 
-- [ ] Plan D (wheel over the taskbar, D-035, D-036), three PRs in order:
+- [x] Plan D (wheel over the taskbar, D-035, D-036), three PRs in order:
   1. **Spike** `spikes/TaskbarWheelProbe` (answers Q6, Q7): log every wheel notch with the hit zone (tasks /
      tray / none) and the window under the cursor, on the primary and a secondary taskbar, auto-hide on, the
      taskbar at 100 %/125 %. Also: does Windows itself change the volume on a wheel over the speaker icon,
@@ -151,17 +155,19 @@ this file and know what to build next. History of *why* lives in [DECISIONS.md](
      plain → +2 %, Ctrl/Shift → nothing, speaker icon → +2 % (Windows only, never doubled), OSD shown,
      foreground kept; "Over the apps" live: clock nothing, Start +2 %. Not seen: a physical wheel, a
      high-resolution wheel, a secondary / horizontal / auto-hide taskbar, a fullscreen app over the taskbar.
-  3. **Brightness** (`feat/tray-wheel-brightness`): `Brightness` service (internal panel via WMI
-     `WmiMonitorBrightnessMethods`, external via DDC/CI `SetMonitorBrightness`), target = monitor under the
-     cursor; a second action on the Mouse wheel page with its own area + key (default: tray, no key; volume's
-     default then becomes the apps); refuse two actions on the same area + key (D-036). A brightness OSD layout
-     (sun glyph, %, monitor name). Coalesce DDC/CI writes on a worker (slow, ~50 ms+).
+  3. [x] **Brightness** (0.7.0, D-039, D-040, D-041): the built-in screen only, via WMI (user's scope, 2026-10-28); a
+     second action on the Mouse wheel page (area + key + step like volume; off by default, Ctrl preselected) with a
+     Screen card naming the supported screen; actions that would share a turn are refused; a brightness OSD layout;
+     the safety design (floor 5 %, listed levels only, read before write, one coalescing worker, fail-safe, no
+     startup probe). Seen 2026-10-29 on the left-docked vertical taskbar: Ctrl+wheel and tray wheel, bursts, the
+     5 % floor, both refusals, no native flyout (Q4 narrowed), no log errors. Not seen: lid closed / docked, the
+     level after sleep and resume, a physical wheel, a secondary / auto-hide taskbar, external monitors.
 
 **Next step:** the user tries the volume % roll (D-037) with a held key and the wheel (single steps seen
 in a capture), and greps the log for `osd: was not topmost` now and then: its foreground names what drops our
 topmost (D-038; first lead PowerToys Mouse Without Borders). Then the user scrolls the taskbar with a real wheel for a day (Windhawk's taskbar-volume mod off, X-009) and
 reports back: physical and high-resolution notches, a fullscreen game with the cursor at the bottom edge (must do
-nothing). Then Plan D step 3, brightness (above). Unrelated, still pending from before: look at the new toggle in Settings and turn it on for a day: a track change in Spotify/Chromium
+nothing). Brightness is on and works for the user (Tray, 2026-10-29); still unseen while living with it: a real wheel, the lid closed or a dock (a step should do nothing, not fail), the level after sleep and resume; a `brightness:` log line with `failed` is news. Then decide with the user what comes next for brightness: external monitors through DDC/CI with a monitor-selection field (D-039), or our OSD for the brightness keys (Q4). Unrelated, still pending from before: look at the new toggle in Settings and turn it on for a day: a track change in Spotify/Chromium
 pops once (log `show MediaPlayback`), a media key doesn't pop twice visibly, browser videos don't spam.
 Then: the next feat/fix merge is the first automatic release (D-031): check its Release run and
 that the daily driver (0.3.0 in `%LOCALAPPDATA%\DazeMediaOsdApp`) downloads it within a day (log

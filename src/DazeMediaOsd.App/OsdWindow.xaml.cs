@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Runtime.InteropServices;
 using DazeMediaOsd.Core.Audio;
+using DazeMediaOsd.Core.Brightness;
 using DazeMediaOsd.Core.Diagnostics;
 using DazeMediaOsd.Core.Media;
 using DazeMediaOsd.Core.Osd;
@@ -12,6 +13,7 @@ using Microsoft.UI;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Animation;
 using Microsoft.UI.Xaml.Media.Imaging;
@@ -36,11 +38,13 @@ public sealed partial class OsdWindow : Window
     private readonly DispatcherQueueTimer _hideTimer;
     private AppSettings _settings = AppSettings.Default;
     private int _outputPercent;
+    private int _brightnessPercent;
     private byte[]? _thumbnail;
     private Storyboard? _coverFade;
     private Action? _coverFadeEnd;
     private readonly FadeThroughs _fades = new();
     private readonly NumberRoll _outputPercentRoll;
+    private readonly NumberRoll _brightnessPercentRoll;
     private bool? _shownOutputMuted;
     private DeviceKind? _shownOutputKind;
     private string? _shownOutputId;
@@ -55,6 +59,7 @@ public sealed partial class OsdWindow : Window
     {
         InitializeComponent();
         _outputPercentRoll = new NumberRoll(OutputPercent, OutputPercentOld);
+        _brightnessPercentRoll = new NumberRoll(BrightnessPercent, BrightnessPercentOld);
         SystemBackdrop = new AlwaysActiveAcrylicBackdrop();
         AppWindow.IsShownInSwitchers = false;
         if (AppWindow.Presenter is OverlappedPresenter presenter)
@@ -80,7 +85,8 @@ public sealed partial class OsdWindow : Window
             Animate();
         };
         // Before the first layout the track has no width yet.
-        OutputTrack.SizeChanged += (_, _) => SizeFill();
+        OutputTrack.SizeChanged += (_, _) => SizeFill(OutputTrack, OutputFill, _outputPercent);
+        BrightnessTrack.SizeChanged += (_, _) => SizeFill(BrightnessTrack, BrightnessFill, _brightnessPercent);
     }
 
     /// <summary>Takes effect from the next <see cref="Show"/>. UI thread only.</summary>
@@ -113,11 +119,12 @@ public sealed partial class OsdWindow : Window
     /// <summary>
     /// Re-renders while visible, leaving the hide countdown alone; ignored while hidden. UI thread only.
     /// Keeps the device event line: it belongs to the show, and a disconnect often pauses the player.
+    /// A visible brightness OSD stays as it is: a new track must not turn it into the device rows (D-040).
     /// </summary>
     public void Refresh(OsdState state)
     {
         ArgumentNullException.ThrowIfNull(state);
-        if (!_animation.IsHidden)
+        if (!_animation.IsHidden && BrightnessRow.Visibility != Visibility.Visible)
             Render(state, fade: true);
     }
 
@@ -125,10 +132,32 @@ public sealed partial class OsdWindow : Window
     private void Render(OsdState state, bool fade)
     {
         fade &= OverlayWindow.AnimationsEnabled();
-        RenderMedia(state.Media, fade);
-        RenderOutput(state.Output, fade);
-        RenderInput(state.Input, fade);
+        if (state.Brightness is { } brightness)
+        {
+            RenderBrightness(brightness, fade);
+        }
+        else
+        {
+            BrightnessRow.Visibility = Visibility.Collapsed;
+            OutputRow.Visibility = Visibility.Visible;
+            RenderMedia(state.Media, fade);
+            RenderOutput(state.Output, fade);
+            RenderInput(state.Input, fade);
+        }
         Place();
+    }
+
+    // Replaces the device rows altogether: the wheel changes one screen, nothing else is news (D-040).
+    private void RenderBrightness(BrightnessState brightness, bool fade)
+    {
+        fade &= BrightnessRow.Visibility == Visibility.Visible; // from the device rows there is no number to roll from
+        BrightnessRow.Visibility = Visibility.Visible;
+        MediaRow.Visibility = OutputRow.Visibility = InputRow.Visibility = Visibility.Collapsed;
+        BrightnessName.Text = brightness.Name;
+        _brightnessPercent = brightness.Percent;
+        _brightnessPercentRoll.Run(brightness.Percent.ToString(CultureInfo.CurrentCulture), brightness.Percent, fade,
+            (Style)Root.Resources["OsdValue"]);
+        SizeFill(BrightnessTrack, BrightnessFill, _brightnessPercent);
     }
 
     // Only the show that announces a device has one; every other show clears the line (D-014).
@@ -354,16 +383,16 @@ public sealed partial class OsdWindow : Window
         var kindOrMute = (muted, output?.Kind) != (_shownOutputMuted, _shownOutputKind);
         (_shownOutputMuted, _shownOutputKind) = (muted, output?.Kind);
         _fades.Get(OutputIcon).Run(glyph, fade && kindOrMute, () => OutputIcon.Glyph = glyph);
-        SizeFill();
+        SizeFill(OutputTrack, OutputFill, _outputPercent);
     }
 
     // Set directly, no easing: a held key updates every 30–60 ms and any transition lags or restarts.
     // Nothing at 0 %, at least a round 4×4 cap above it.
-    private void SizeFill()
+    private static void SizeFill(Grid track, Border fill, int percent)
     {
-        var width = Math.Round(OutputTrack.ActualWidth * _outputPercent / 100);
-        OutputFill.Visibility = _outputPercent == 0 ? Visibility.Collapsed : Visibility.Visible;
-        OutputFill.Width = Math.Max(OutputTrack.Height, width);
+        var width = Math.Round(track.ActualWidth * percent / 100);
+        fill.Visibility = percent == 0 ? Visibility.Collapsed : Visibility.Visible;
+        fill.Width = Math.Max(track.Height, width);
     }
 
     private static string? KindGlyph(DeviceKind kind) => kind switch

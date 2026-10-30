@@ -81,3 +81,22 @@ here (an option rejected on paper belongs in the "Why not" of a decision). Forma
   looped "app exited with 0".
 - Evidence: user log 2026-10-28 22:32-22:35, `Core Audio initialization failed ... 0x80070490` from `DefaultDevice`.
 - Retry only if: never; compare against the literal `ElementNotFound` (0x80070490).
+
+## X-011 · 2026-10-29 · WMI "access denied" after `CoSetProxyBlanket` from CsWin32
+- Tried: `PInvoke.CoSetProxyBlanket(services, RPC_C_AUTHN_WINNT, …, RPC_C_AUTHN_LEVEL_CALL, RPC_C_IMP_LEVEL_IMPERSONATE, …)`
+  on the `IWbemServices` from `ConnectServer`, as every WMI client sample does.
+- Failed because: the generated wrapper takes an `object` and marshals it as the identity `IUnknown`, so only that
+  proxy got the blanket. A COM proxy keeps its blanket per interface, so `IWbemServices` (and each enumerator) still
+  ran as anonymous and WMI answered `WBEM_E_ACCESS_DENIED` (0x80041003), at `ExecQuery` itself for a synchronous query.
+- Evidence: probe on build 26300 during the brightness work: denied until the blanket was set on the interface pointer
+  (`Marshal.GetComInterfaceForObject(proxy, typeof(T))`), the `IUnknown` pointer and each enumerator; then no failure.
+- Retry only if: CsWin32 ever emits an overload that blankets an interface pointer; then drop the hand-written
+  `CoSetProxyBlanket` import in `WmiBrightnessBackend`.
+
+## X-012 · 2026-10-29 · Testing the tray wheel with `SetCursorPos` + injected notches
+- Tried: move the cursor over the tray with `SetCursorPos`, inject two notches, expect brightness +10.
+- Failed because: `SetCursorPos` makes no raw input, so `TaskbarWheelSource` never prefetched the speaker-icon lookup
+  (it does that on raw mouse moves) and skips a tray notch while that reading is stale (D-035: unknown → skip, so the
+  icon's own step isn't doubled). The Apps zone doesn't depend on it, so only tray runs looked broken.
+- Evidence: 2026-10-29: 2 notches over the tray gave +5; with a relative `SendInput` move (dx +1 then −1) first, +10.
+- Retry only if: never; make a real relative mouse move after parking the cursor, before the first tray notch.

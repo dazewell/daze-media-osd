@@ -45,6 +45,9 @@ public enum WheelModifier
 /// <param name="WheelVolumeArea">Where the wheel over the taskbar changes the output volume (D-036).</param>
 /// <param name="WheelVolumeModifier">The key to hold for it.</param>
 /// <param name="WheelVolumeStep">Percent per wheel notch; volume keys and the speaker icon use 2.</param>
+/// <param name="WheelBrightnessArea">Where the wheel changes the built-in screen's brightness (D-040); off until the user turns it on, and never the same area and key as the volume.</param>
+/// <param name="WheelBrightnessModifier">The key to hold for it. Ctrl, so that turning it on never clashes with the plain volume wheel.</param>
+/// <param name="WheelBrightnessStep">Percent per wheel notch.</param>
 // Defaults on the constructor, not property initializers: System.Text.Json source-gen sets every init-only
 // property, so a property missing from the file would come back as default(T) instead of our default (X-003).
 // That also makes a new property backward compatible without a version bump.
@@ -60,7 +63,10 @@ public sealed record AppSettings(
     IReadOnlyList<DeviceHotkey>? DeviceHotkeys = null,
     WheelArea WheelVolumeArea = WheelArea.Taskbar,
     WheelModifier WheelVolumeModifier = WheelModifier.None,
-    int WheelVolumeStep = AppSettings.DefaultWheelVolumeStep)
+    int WheelVolumeStep = AppSettings.DefaultWheelVolumeStep,
+    WheelArea WheelBrightnessArea = WheelArea.Off,
+    WheelModifier WheelBrightnessModifier = WheelModifier.Ctrl,
+    int WheelBrightnessStep = AppSettings.DefaultWheelBrightnessStep)
 {
     public IReadOnlyList<DeviceHotkey> DeviceHotkeys { get; init; } = DeviceHotkeys ?? [];
 
@@ -72,23 +78,37 @@ public sealed record AppSettings(
     public const int DefaultWheelVolumeStep = 2;
     public const int MinWheelVolumeStep = 1;
     public const int MaxWheelVolumeStep = 10;
+    public const int DefaultWheelBrightnessStep = 5;
+    public const int MinWheelBrightnessStep = 1;
+    public const int MaxWheelBrightnessStep = 10;
 
     public static AppSettings Default { get; } = new();
 
     /// <summary>Clamps hand-edited or out-of-range values so a bad file can't break the OSD.</summary>
-    public AppSettings Normalize() => this with
+    public AppSettings Normalize()
     {
-        Version = CurrentVersion,
-        Position = Enum.IsDefined(Position) ? Position : Default.Position,
-        HideAfterSeconds = double.IsFinite(HideAfterSeconds)
-            ? Math.Clamp(HideAfterSeconds, MinHideAfterSeconds, MaxHideAfterSeconds)
-            : Default.HideAfterSeconds,
-        CycleOutputHotkey = NormalizeHotkey(CycleOutputHotkey),
-        DeviceHotkeys = NormalizeDeviceHotkeys(NormalizeHotkey(CycleOutputHotkey), DeviceHotkeys),
-        WheelVolumeArea = Enum.IsDefined(WheelVolumeArea) ? WheelVolumeArea : Default.WheelVolumeArea,
-        WheelVolumeModifier = Enum.IsDefined(WheelVolumeModifier) ? WheelVolumeModifier : Default.WheelVolumeModifier,
-        WheelVolumeStep = Math.Clamp(WheelVolumeStep, MinWheelVolumeStep, MaxWheelVolumeStep),
-    };
+        var settings = this with
+        {
+            Version = CurrentVersion,
+            Position = Enum.IsDefined(Position) ? Position : Default.Position,
+            HideAfterSeconds = double.IsFinite(HideAfterSeconds)
+                ? Math.Clamp(HideAfterSeconds, MinHideAfterSeconds, MaxHideAfterSeconds)
+                : Default.HideAfterSeconds,
+            CycleOutputHotkey = NormalizeHotkey(CycleOutputHotkey),
+            DeviceHotkeys = NormalizeDeviceHotkeys(NormalizeHotkey(CycleOutputHotkey), DeviceHotkeys),
+            WheelVolumeArea = Enum.IsDefined(WheelVolumeArea) ? WheelVolumeArea : Default.WheelVolumeArea,
+            WheelVolumeModifier = Enum.IsDefined(WheelVolumeModifier) ? WheelVolumeModifier : Default.WheelVolumeModifier,
+            WheelVolumeStep = Math.Clamp(WheelVolumeStep, MinWheelVolumeStep, MaxWheelVolumeStep),
+            WheelBrightnessArea = Enum.IsDefined(WheelBrightnessArea) ? WheelBrightnessArea : Default.WheelBrightnessArea,
+            WheelBrightnessModifier = Enum.IsDefined(WheelBrightnessModifier) ? WheelBrightnessModifier : Default.WheelBrightnessModifier,
+            WheelBrightnessStep = Math.Clamp(WheelBrightnessStep, MinWheelBrightnessStep, MaxWheelBrightnessStep),
+        };
+        // Two actions never share a wheel turn (D-040). The newer one yields, so a file written before it existed
+        // keeps doing what it did.
+        return Input.WheelRules.Conflict(settings.WheelVolumeArea, settings.WheelVolumeModifier, settings.WheelBrightnessArea, settings.WheelBrightnessModifier)
+            ? settings with { WheelBrightnessArea = WheelArea.Off }
+            : settings;
+    }
 
     // A row without a valid chord stays (a device picked, keys not pressed yet), with "". One chord does one
     // thing: a chord the cycle shortcut or an earlier row already has is dropped from the later row.
@@ -125,7 +145,10 @@ public sealed record AppSettings(
         && DeviceHotkeys.SequenceEqual(other.DeviceHotkeys)
         && WheelVolumeArea == other.WheelVolumeArea
         && WheelVolumeModifier == other.WheelVolumeModifier
-        && WheelVolumeStep == other.WheelVolumeStep;
+        && WheelVolumeStep == other.WheelVolumeStep
+        && WheelBrightnessArea == other.WheelBrightnessArea
+        && WheelBrightnessModifier == other.WheelBrightnessModifier
+        && WheelBrightnessStep == other.WheelBrightnessStep;
 
     // The log line ("settings changed: …") would otherwise print the list's type name.
     private bool PrintMembers(System.Text.StringBuilder builder)
@@ -136,12 +159,15 @@ public sealed record AppSettings(
             $"ShowMedia = {ShowMedia}, ShowOnDeviceConnect = {ShowOnDeviceConnect}, ShowOnMediaChange = {ShowOnMediaChange}, CycleOutputHotkey = {CycleOutputHotkey}, ");
         builder.Append("DeviceHotkeys = [").AppendJoin(", ", DeviceHotkeys).Append("], ");
         builder.Append(System.Globalization.CultureInfo.InvariantCulture,
-            $"WheelVolumeArea = {WheelVolumeArea}, WheelVolumeModifier = {WheelVolumeModifier}, WheelVolumeStep = {WheelVolumeStep}");
+            $"WheelVolumeArea = {WheelVolumeArea}, WheelVolumeModifier = {WheelVolumeModifier}, WheelVolumeStep = {WheelVolumeStep}, ");
+        builder.Append(System.Globalization.CultureInfo.InvariantCulture,
+            $"WheelBrightnessArea = {WheelBrightnessArea}, WheelBrightnessModifier = {WheelBrightnessModifier}, WheelBrightnessStep = {WheelBrightnessStep}");
         return true;
     }
 
     public override int GetHashCode() =>
-        HashCode.Combine(Version, Position, HideAfterSeconds, ShowInput, ShowMedia, HashCode.Combine(ShowOnDeviceConnect, ShowOnMediaChange), CycleOutputHotkey, HashCode.Combine(DeviceHotkeys.Count, WheelVolumeArea, WheelVolumeModifier, WheelVolumeStep));
+        HashCode.Combine(Version, Position, HideAfterSeconds, ShowInput, ShowMedia, HashCode.Combine(ShowOnDeviceConnect, ShowOnMediaChange), CycleOutputHotkey,
+            HashCode.Combine(DeviceHotkeys.Count, WheelVolumeArea, WheelVolumeModifier, WheelVolumeStep, HashCode.Combine(WheelBrightnessArea, WheelBrightnessModifier, WheelBrightnessStep)));
 
     // "" (off) stays off; a hand-edited typo falls back to the default rather than silently turning it off.
     private static string NormalizeHotkey(string? text) =>

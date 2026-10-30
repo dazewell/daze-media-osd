@@ -1,21 +1,25 @@
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using DazeMediaOsd.Core.Audio;
+using DazeMediaOsd.Core.Brightness;
 using DazeMediaOsd.Core.Diagnostics;
 using DazeMediaOsd.Core.Input;
 using DazeMediaOsd.Core.Lifecycle;
 using DazeMediaOsd.Core.Settings;
+using Microsoft.UI.Dispatching;
 
 namespace DazeMediaOsd.App.ViewModels;
 
 /// <summary>Two-way view of <see cref="SettingsStore"/>: every edit is saved at once, no Apply button.</summary>
-public sealed partial class SettingsViewModel : ObservableObject
+public sealed partial class SettingsViewModel : ObservableObject, IDisposable
 {
     private readonly SettingsStore _store;
     private readonly Autostart _autostart;
     private readonly string _exePath;
     private readonly GlobalHotkey? _hotkey;
     private readonly IAudioService _audio;
+    private readonly IBrightnessService? _brightness;
+    private readonly DispatcherQueue? _ui;
     private IReadOnlyList<AudioEndpoint> _outputs = [];
     private IReadOnlyList<AudioEndpoint> _inputs = [];
     private int _recording; // recorder boxes with focus; normally 0 or 1, briefly 2 while focus moves
@@ -23,7 +27,9 @@ public sealed partial class SettingsViewModel : ObservableObject
 
     /// <param name="hotkey">Reports whether each shortcut registered; null when the app runs without it.</param>
     /// <param name="audio">Lists the devices a device shortcut can pick.</param>
-    public SettingsViewModel(SettingsStore store, Autostart autostart, string exePath, GlobalHotkey? hotkey, IAudioService audio)
+    /// <param name="brightness">Names the screen the brightness wheel works on; null when the app runs without it.</param>
+    public SettingsViewModel(SettingsStore store, Autostart autostart, string exePath, GlobalHotkey? hotkey, IAudioService audio,
+        IBrightnessService? brightness)
     {
         ArgumentNullException.ThrowIfNull(audio);
         ArgumentNullException.ThrowIfNull(store);
@@ -33,6 +39,8 @@ public sealed partial class SettingsViewModel : ObservableObject
         _exePath = exePath;
         _hotkey = hotkey;
         _audio = audio;
+        _brightness = brightness;
+        _ui = DispatcherQueue.GetForCurrentThread();
         ReadAutostart();
         var current = store.Current;
         // Each setter saves back the value it just read: Update sees no change and does nothing.
@@ -46,6 +54,9 @@ public sealed partial class SettingsViewModel : ObservableObject
         WheelVolumeAreaIndex = Array.IndexOf(WheelAreaOrder, current.WheelVolumeArea);
         WheelVolumeModifierIndex = (int)current.WheelVolumeModifier;
         WheelVolumeStep = current.WheelVolumeStep;
+        WheelBrightnessAreaIndex = Array.IndexOf(WheelAreaOrder, current.WheelBrightnessArea);
+        WheelBrightnessModifierIndex = (int)current.WheelBrightnessModifier;
+        WheelBrightnessStep = current.WheelBrightnessStep;
         HotkeyNote = RegistrationNote(Shortcuts.CycleOutputId);
         ReadEndpoints();
         foreach (var row in current.DeviceHotkeys)
@@ -54,6 +65,19 @@ public sealed partial class SettingsViewModel : ObservableObject
         SaveDeviceHotkeys();
         // A failure from an earlier, closed window still applies until a save succeeds.
         SaveError = store.SaveError;
+        (BrightnessScreen, BrightnessScreenNote) = ScreenState();
+        if (_brightness is not null)
+        {
+            _brightness.ScreenChanged += OnBrightnessScreenChanged;
+            _brightness.Refresh(); // a lid or a dock may have changed what is there since the last look
+        }
+    }
+
+    /// <summary>The window closed: stop listening to the brightness service, which outlives it.</summary>
+    public void Dispose()
+    {
+        if (_brightness is not null)
+            _brightness.ScreenChanged -= OnBrightnessScreenChanged;
     }
 
     /// <summary>The position ComboBox's items, in screen order (not <see cref="OsdPosition"/>'s, which is stored).</summary>
@@ -146,13 +170,15 @@ public sealed partial class SettingsViewModel : ObservableObject
     partial void OnWheelVolumeAreaIndexChanged(int value)
     {
         if (value >= 0)
-            Update(s => s with { WheelVolumeArea = WheelAreaOrder[value] });
+            ChangeWheel(s => s with { WheelVolumeArea = WheelAreaOrder[value] }, volume: true, AreaChoices[value],
+                () => WheelVolumeAreaIndex = Array.IndexOf(WheelAreaOrder, _store.Current.WheelVolumeArea));
     }
 
     partial void OnWheelVolumeModifierIndexChanged(int value)
     {
         if (value >= 0)
-            Update(s => s with { WheelVolumeModifier = (WheelModifier)value });
+            ChangeWheel(s => s with { WheelVolumeModifier = (WheelModifier)value }, volume: true, KeyChoices[value],
+                () => WheelVolumeModifierIndex = (int)_store.Current.WheelVolumeModifier);
     }
 
     partial void OnWheelVolumeStepChanged(double value)
@@ -165,6 +191,135 @@ public sealed partial class SettingsViewModel : ObservableObject
         }
         Update(s => s with { WheelVolumeStep = (int)Math.Round(value) });
         WheelVolumeStep = _store.Current.WheelVolumeStep; // shows the clamped, whole value
+    }
+
+    /// <summary>Index into the wheel-area ComboBox of the brightness card, see <see cref="WheelAreaOrder"/>.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(WheelBrightnessOn))]
+    public partial int WheelBrightnessAreaIndex { get; set; }
+
+    /// <summary>Index into the key ComboBox: <see cref="WheelModifier"/>'s own order.</summary>
+    [ObservableProperty]
+    public partial int WheelBrightnessModifierIndex { get; set; }
+
+    [ObservableProperty]
+    public partial double WheelBrightnessStep { get; set; }
+
+    /// <summary>The key and step only matter while the wheel does something.</summary>
+    public bool WheelBrightnessOn => WheelBrightnessAreaIndex >= 0 && WheelAreaOrder[WheelBrightnessAreaIndex] != WheelArea.Off;
+
+    partial void OnWheelBrightnessAreaIndexChanged(int value)
+    {
+        if (value >= 0)
+            ChangeWheel(s => s with { WheelBrightnessArea = WheelAreaOrder[value] }, volume: false, AreaChoices[value],
+                () => WheelBrightnessAreaIndex = Array.IndexOf(WheelAreaOrder, _store.Current.WheelBrightnessArea));
+    }
+
+    partial void OnWheelBrightnessModifierIndexChanged(int value)
+    {
+        if (value >= 0)
+            ChangeWheel(s => s with { WheelBrightnessModifier = (WheelModifier)value }, volume: false, KeyChoices[value],
+                () => WheelBrightnessModifierIndex = (int)_store.Current.WheelBrightnessModifier);
+    }
+
+    partial void OnWheelBrightnessStepChanged(double value)
+    {
+        // A cleared NumberBox reports NaN: put the stored value back.
+        if (!double.IsFinite(value))
+        {
+            WheelBrightnessStep = _store.Current.WheelBrightnessStep;
+            return;
+        }
+        Update(s => s with { WheelBrightnessStep = (int)Math.Round(value) });
+        WheelBrightnessStep = _store.Current.WheelBrightnessStep; // shows the clamped, whole value
+    }
+
+    /// <summary>Why the last volume choice was refused: brightness already has that place and key.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasWheelVolumeNote))]
+    public partial string? WheelVolumeNote { get; set; }
+
+    public bool HasWheelVolumeNote => WheelVolumeNote is not null;
+
+    /// <summary>Why the last brightness choice was refused: volume already has that place and key.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasWheelBrightnessNote))]
+    public partial string? WheelBrightnessNote { get; set; }
+
+    public bool HasWheelBrightnessNote => WheelBrightnessNote is not null;
+
+    /// <summary>The wheel boxes' items as the note names them: the area box in <see cref="WheelAreaOrder"/>, the key box in <see cref="WheelModifier"/>'s order.</summary>
+    private static readonly string[] AreaChoices = ["Anywhere on the taskbar", "Over the apps", "Over the tray icons and clock", "Nowhere"];
+
+    private static readonly string[] KeyChoices = ["None", "Ctrl", "Shift", "Alt"];
+
+    // Two actions may not share a wheel turn (D-040), so a choice that would is refused: nothing is saved, the
+    // card that was changed says which choice and why (the other card's older note is about a different choice),
+    // and its box goes back to what is stored. A choice that sticks clears both notes, and so does opening any
+    // wheel box (ClearWheelNotes): picking the stored item again raises no change, so it can't clear them here.
+    private void ChangeWheel(Func<AppSettings, AppSettings> change, bool volume, string choice, Action putBack)
+    {
+        var next = change(_store.Current);
+        if (WheelRules.Conflict(next.WheelVolumeArea, next.WheelVolumeModifier, next.WheelBrightnessArea, next.WheelBrightnessModifier))
+        {
+            WheelVolumeNote = volume ? ClashNote(choice, "Brightness", next.WheelBrightnessArea, next.WheelBrightnessModifier) : null;
+            WheelBrightnessNote = volume ? null : ClashNote(choice, "Volume", next.WheelVolumeArea, next.WheelVolumeModifier);
+            // A box put back from inside its own change keeps showing the refused choice: wait for it to finish.
+            if (_ui?.TryEnqueue(() => putBack()) != true)
+                putBack();
+            return;
+        }
+        var before = _store.Current;
+        Update(change);
+        if (_store.Current != before)
+            WheelVolumeNote = WheelBrightnessNote = null;
+    }
+
+    /// <summary>A wheel box is opening for a new choice: the last refusal is old news.</summary>
+    public void ClearWheelNotes() => WheelVolumeNote = WheelBrightnessNote = null;
+
+    private static string ClashNote(string choice, string other, WheelArea area, WheelModifier key) =>
+        $"“{choice}” wasn't saved: {other} already uses the wheel {Place(area)} {Key(key)}. Pick another place or key here, or change {other} first.";
+
+    private static string Place(WheelArea area) => area switch
+    {
+        WheelArea.Taskbar => "anywhere on the taskbar",
+        WheelArea.Apps => "over the apps",
+        _ => "over the tray icons and clock",
+    };
+
+    private static string Key(WheelModifier key) => key switch
+    {
+        WheelModifier.Ctrl => "while you hold Ctrl",
+        WheelModifier.Shift => "while you hold Shift",
+        WheelModifier.Alt => "while you hold Alt",
+        _ => "without a key",
+    };
+
+    /// <summary>The screen the brightness wheel works on, or what stands in for it.</summary>
+    [ObservableProperty]
+    public partial string BrightnessScreen { get; set; }
+
+    /// <summary>Why the brightness wheel can't work here, or null.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasBrightnessScreenNote))]
+    public partial string? BrightnessScreenNote { get; set; }
+
+    public bool HasBrightnessScreenNote => BrightnessScreenNote is not null;
+
+    // Raised on the brightness thread.
+    private void OnBrightnessScreenChanged(object? sender, EventArgs e) =>
+        _ui?.TryEnqueue(() => (BrightnessScreen, BrightnessScreenNote) = ScreenState());
+
+    private (string Screen, string? Note) ScreenState()
+    {
+        if (_brightness is null)
+            return ("Not available", "Brightness couldn't start. Restart the app, or see the log.");
+        if (!_brightness.Probed)
+            return ("Looking…", null);
+        return _brightness.ScreenName is { } name
+            ? (name, null)
+            : ("None found", "No built-in screen the wheel can change was found, so it does nothing here. If this PC has one, the log says why.");
     }
 
     /// <summary>The cycle-output shortcut, recorded from the keys pressed in its box. "" is off.</summary>

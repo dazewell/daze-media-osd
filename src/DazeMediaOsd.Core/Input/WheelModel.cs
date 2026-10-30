@@ -64,6 +64,17 @@ public static class WheelRules
             WheelModifier.Alt => HeldModifiers.Alt,
             _ => HeldModifiers.None,
         };
+
+    /// <summary>Whether one wheel turn can be in both areas at once: Taskbar holds every other area, which hold only themselves.</summary>
+    public static bool Overlaps(WheelArea a, WheelArea b) =>
+        a != WheelArea.Off && b != WheelArea.Off && (a == b || a == WheelArea.Taskbar || b == WheelArea.Taskbar);
+
+    /// <summary>
+    /// Whether one wheel turn would run both actions: the same key held and areas that touch. Two actions are
+    /// never allowed to share a turn (D-040); an action that is off conflicts with nothing.
+    /// </summary>
+    public static bool Conflict(WheelArea areaA, WheelModifier modifierA, WheelArea areaB, WheelModifier modifierB) =>
+        modifierA == modifierB && Overlaps(areaA, areaB);
 }
 
 /// <summary>

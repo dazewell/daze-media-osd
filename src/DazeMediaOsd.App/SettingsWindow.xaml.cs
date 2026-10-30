@@ -52,7 +52,11 @@ public sealed partial class SettingsWindow : Window
         Handle = Win32Interop.GetWindowFromWindowId(AppWindow.Id);
         var scale = OverlayWindow.Scale(Handle);
         AppWindow.Resize(new SizeInt32((int)(WidthDip * scale), (int)(HeightDip * scale)));
-        Closed += (_, _) => ViewModel.EndRecording();
+        Closed += (_, _) =>
+        {
+            ViewModel.EndRecording();
+            ViewModel.Dispose();
+        };
 
         // Raised on the checking thread; the window may be gone by the time it lands.
         var ui = DispatcherQueue;

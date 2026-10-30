@@ -324,10 +324,15 @@
                                 <TextBlock Text="Where to scroll" />
                                 <TextBlock Text="The speaker icon always changes the volume: Windows does that itself."
                                            Style="{StaticResource SettingsCardDescription}" />
+                                <TextBlock Text="{x:Bind ViewModel.WheelVolumeNote, Mode=OneWay}"
+                                           Visibility="{x:Bind ViewModel.HasWheelVolumeNote, Mode=OneWay}"
+                                           Foreground="{ThemeResource SystemFillColorCautionBrush}"
+                                           Style="{StaticResource CaptionTextBlockStyle}" TextWrapping="Wrap" />
                             </StackPanel>
                             <!-- Item order = SettingsViewModel.WheelAreaOrder. -->
                             <ComboBox Grid.Column="2" MinWidth="200" VerticalAlignment="Center"
                                       AutomationProperties.Name="Where scrolling changes the volume"
+                                      DropDownOpened="{x:Bind ViewModel.ClearWheelNotes}"
                                       SelectedIndex="{x:Bind ViewModel.WheelVolumeAreaIndex, Mode=TwoWay}">
                                 <x:String>Anywhere on the taskbar (default)</x:String>
                                 <x:String>Over the apps</x:String>
@@ -349,6 +354,7 @@
                             <!-- Item order = WheelModifier. -->
                             <ComboBox Grid.Column="2" MinWidth="200" VerticalAlignment="Center"
                                       AutomationProperties.Name="Key to hold while scrolling"
+                                      DropDownOpened="{x:Bind ViewModel.ClearWheelNotes}"
                                       IsEnabled="{x:Bind ViewModel.WheelVolumeOn, Mode=OneWay}"
                                       SelectedIndex="{x:Bind ViewModel.WheelVolumeModifierIndex, Mode=TwoWay}">
                                 <x:String>None (default)</x:String>
@@ -374,6 +380,98 @@
                                        Minimum="1" Maximum="10"
                                        IsEnabled="{x:Bind ViewModel.WheelVolumeOn, Mode=OneWay}"
                                        Value="{x:Bind ViewModel.WheelVolumeStep, Mode=TwoWay}" />
+                        </Grid>
+
+                        <TextBlock Text="Brightness" Style="{StaticResource SettingsSection}" />
+                        <Grid Style="{StaticResource SettingsCard}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <FontIcon Glyph="&#xE7F4;" Style="{StaticResource SettingsCardIcon}" />
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock Text="Screen" />
+                                <TextBlock Text="Only the built-in screen works for now. Other monitors aren't supported yet."
+                                           Style="{StaticResource SettingsCardDescription}" />
+                                <TextBlock Text="{x:Bind ViewModel.BrightnessScreenNote, Mode=OneWay}"
+                                           Visibility="{x:Bind ViewModel.HasBrightnessScreenNote, Mode=OneWay}"
+                                           Foreground="{ThemeResource SystemFillColorCautionBrush}"
+                                           Style="{StaticResource CaptionTextBlockStyle}" TextWrapping="Wrap" />
+                            </StackPanel>
+                            <TextBlock Grid.Column="2" VerticalAlignment="Center" TextAlignment="Right"
+                                       TextWrapping="Wrap" MaxWidth="260" IsTextSelectionEnabled="True"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                       Text="{x:Bind ViewModel.BrightnessScreen, Mode=OneWay}" />
+                        </Grid>
+                        <Grid Style="{StaticResource SettingsCard}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <FontIcon Glyph="&#xE706;" Style="{StaticResource SettingsCardIcon}" />
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock Text="Where to scroll" />
+                                <TextBlock Text="Off until you pick a place. Volume and brightness can't scroll in the same place with the same key."
+                                           Style="{StaticResource SettingsCardDescription}" />
+                                <TextBlock Text="{x:Bind ViewModel.WheelBrightnessNote, Mode=OneWay}"
+                                           Visibility="{x:Bind ViewModel.HasWheelBrightnessNote, Mode=OneWay}"
+                                           Foreground="{ThemeResource SystemFillColorCautionBrush}"
+                                           Style="{StaticResource CaptionTextBlockStyle}" TextWrapping="Wrap" />
+                            </StackPanel>
+                            <!-- Item order = SettingsViewModel.WheelAreaOrder. -->
+                            <ComboBox Grid.Column="2" MinWidth="200" VerticalAlignment="Center"
+                                      AutomationProperties.Name="Where scrolling changes the brightness"
+                                      DropDownOpened="{x:Bind ViewModel.ClearWheelNotes}"
+                                      SelectedIndex="{x:Bind ViewModel.WheelBrightnessAreaIndex, Mode=TwoWay}">
+                                <x:String>Anywhere on the taskbar</x:String>
+                                <x:String>Over the apps</x:String>
+                                <x:String>Over the tray icons and clock</x:String>
+                                <x:String>Nowhere (default)</x:String>
+                            </ComboBox>
+                        </Grid>
+                        <Grid Style="{StaticResource SettingsCard}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <FontIcon Glyph="&#xE765;" Style="{StaticResource SettingsCardIcon}" />
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock Text="Key to hold" />
+                                <TextBlock Text="Only change the brightness while you hold this key" Style="{StaticResource SettingsCardDescription}" />
+                            </StackPanel>
+                            <!-- Item order = WheelModifier. -->
+                            <ComboBox Grid.Column="2" MinWidth="200" VerticalAlignment="Center"
+                                      AutomationProperties.Name="Key to hold while scrolling for brightness"
+                                      DropDownOpened="{x:Bind ViewModel.ClearWheelNotes}"
+                                      IsEnabled="{x:Bind ViewModel.WheelBrightnessOn, Mode=OneWay}"
+                                      SelectedIndex="{x:Bind ViewModel.WheelBrightnessModifierIndex, Mode=TwoWay}">
+                                <x:String>None</x:String>
+                                <x:String>Ctrl (default)</x:String>
+                                <x:String>Shift</x:String>
+                                <x:String>Alt</x:String>
+                            </ComboBox>
+                        </Grid>
+                        <Grid Style="{StaticResource SettingsCard}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <FontIcon Glyph="&#xE9E9;" Style="{StaticResource SettingsCardIcon}" />
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock Text="Step" />
+                                <TextBlock Text="Percent per wheel click. It never goes below 5 %, so the screen can't go dark."
+                                           Style="{StaticResource SettingsCardDescription}" />
+                            </StackPanel>
+                            <NumberBox Grid.Column="2" MinWidth="200" VerticalAlignment="Center"
+                                       AutomationProperties.Name="Brightness step (percent)"
+                                       SpinButtonPlacementMode="Inline" SmallChange="1" LargeChange="2"
+                                       Minimum="1" Maximum="10"
+                                       IsEnabled="{x:Bind ViewModel.WheelBrightnessOn, Mode=OneWay}"
+                                       Value="{x:Bind ViewModel.WheelBrightnessStep, Mode=TwoWay}" />
                         </Grid>
                     </StackPanel>
 

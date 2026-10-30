@@ -6,7 +6,7 @@
   <img src="https://img.shields.io/badge/Windows%2011-24H2%2B-0078D4?logo=windows11&logoColor=white" alt="Windows 11 24H2+">
   <img src="https://img.shields.io/badge/.NET-10-512BD4?logo=dotnet&logoColor=white" alt=".NET 10">
   <img src="https://img.shields.io/badge/WinUI-3-6B4FBB" alt="WinUI 3">
-  <img src="https://img.shields.io/badge/version-0.6.1-F5B83D" alt="Version 0.6.1">
+  <img src="https://img.shields.io/badge/version-0.7.0-F5B83D" alt="Version 0.7.0">
   <img src="https://img.shields.io/badge/no%20admin-fail--open-2EA043" alt="No admin, fail-open">
   <img src="https://img.shields.io/badge/license-GPL--3.0-blue" alt="License: GPL-3.0-or-later">
 </p>
@@ -44,7 +44,7 @@ and <b>which device just connected</b>. It looks like part of Windows 11, and it
 | 🔔 **Device alerts** | Bluetooth, USB or wired: see what connected or disconnected, once, with no noise. |
 | ⌨️ **A shortcut for every device** | `Win+Alt+A` steps through your outputs. Give each device its own keys: one press switches to it, and if it's Bluetooth headphones that are off, it connects them first. |
 | 🖱️ **Switch from the tray** | Right-click the tray icon to pick your output or input. |
-| 🛞 **Scroll the taskbar** | Turn the mouse wheel over the taskbar to change the volume. Pick where: anywhere, over your apps or over the tray, and optionally a key to hold. |
+| 🛞 **Scroll the taskbar** | Turn the mouse wheel over the taskbar to change the volume. Pick where: anywhere, over your apps or over the tray, and optionally a key to hold. On a laptop the same wheel can also dim and brighten the built-in screen: off until you turn it on in Settings, and never below 5 %. |
 | ✨ **Feels native** | Acrylic glass, rounded corners, smooth fade and slide, and it follows your theme and "Animation effects". |
 | 🛡️ **Safe by design** | It never steals focus from your game or call, needs no admin rights and doesn't inject into Windows. If it quits or crashes, Windows' own pop-up comes straight back. |
 
@@ -82,12 +82,12 @@ runs the tests too).
 
 ## Status
 
-**0.6.1**, used every day on the author's machine. What's done and what's next:
+**0.7.0**, used every day on the author's machine. What's done and what's next:
 [docs/GOALS.md](docs/GOALS.md).
 
 ## Under the hood
 
-C# / .NET 10, WinUI 3 (Windows App SDK 2.x), unpackaged and self-contained. Core Audio, raw input and
+C# / .NET 10, WinUI 3 (Windows App SDK 2.x), unpackaged and self-contained. Core Audio, raw input, WMI and
 Global System Media Transport Controls are reached through CsWin32 and CsWinRT.
 
 - Design: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
