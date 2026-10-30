@@ -648,7 +648,9 @@ Amends: D-036 (brightness is its second action; its "Revisit if" came true)
   volume ones, in a Brightness section of the Mouse wheel page. Defaults: area **Off**, key **Ctrl** preselected;
   volume stays Taskbar / None / 2 %. `WheelRules.Conflict` = the same key and areas that touch (`Overlaps`: Taskbar
   holds Apps and Tray, which hold only themselves; Off touches nothing). The page refuses a clashing choice either
-  way: the box snaps back (deferred, from `TryEnqueue`), nothing is saved, only that card shows a note.
+  way: the box snaps back (deferred, from `TryEnqueue`), nothing is saved, only that card shows a note naming the
+  refused choice. Opening any wheel box clears it: re-picking the stored item raises no change event, so a note
+  cleared only by an accepted change stuck (user, 2026-10-29).
   `AppSettings.Normalize` is the net for a hand-edited file: brightness yields to Off. `WheelBrightness` also stands
   aside when the volume rule matches the same turn. The OSD shows brightness alone: sun glyph, the screen's name, %
   (rolls, D-037), bar; the device rows hide.

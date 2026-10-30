@@ -170,14 +170,14 @@ public sealed partial class SettingsViewModel : ObservableObject, IDisposable
     partial void OnWheelVolumeAreaIndexChanged(int value)
     {
         if (value >= 0)
-            ChangeWheel(s => s with { WheelVolumeArea = WheelAreaOrder[value] }, volume: true,
+            ChangeWheel(s => s with { WheelVolumeArea = WheelAreaOrder[value] }, volume: true, AreaChoices[value],
                 () => WheelVolumeAreaIndex = Array.IndexOf(WheelAreaOrder, _store.Current.WheelVolumeArea));
     }
 
     partial void OnWheelVolumeModifierIndexChanged(int value)
     {
         if (value >= 0)
-            ChangeWheel(s => s with { WheelVolumeModifier = (WheelModifier)value }, volume: true,
+            ChangeWheel(s => s with { WheelVolumeModifier = (WheelModifier)value }, volume: true, KeyChoices[value],
                 () => WheelVolumeModifierIndex = (int)_store.Current.WheelVolumeModifier);
     }
 
@@ -211,14 +211,14 @@ public sealed partial class SettingsViewModel : ObservableObject, IDisposable
     partial void OnWheelBrightnessAreaIndexChanged(int value)
     {
         if (value >= 0)
-            ChangeWheel(s => s with { WheelBrightnessArea = WheelAreaOrder[value] }, volume: false,
+            ChangeWheel(s => s with { WheelBrightnessArea = WheelAreaOrder[value] }, volume: false, AreaChoices[value],
                 () => WheelBrightnessAreaIndex = Array.IndexOf(WheelAreaOrder, _store.Current.WheelBrightnessArea));
     }
 
     partial void OnWheelBrightnessModifierIndexChanged(int value)
     {
         if (value >= 0)
-            ChangeWheel(s => s with { WheelBrightnessModifier = (WheelModifier)value }, volume: false,
+            ChangeWheel(s => s with { WheelBrightnessModifier = (WheelModifier)value }, volume: false, KeyChoices[value],
                 () => WheelBrightnessModifierIndex = (int)_store.Current.WheelBrightnessModifier);
     }
 
@@ -248,16 +248,22 @@ public sealed partial class SettingsViewModel : ObservableObject, IDisposable
 
     public bool HasWheelBrightnessNote => WheelBrightnessNote is not null;
 
+    /// <summary>The wheel boxes' items as the note names them: the area box in <see cref="WheelAreaOrder"/>, the key box in <see cref="WheelModifier"/>'s order.</summary>
+    private static readonly string[] AreaChoices = ["Anywhere on the taskbar", "Over the apps", "Over the tray icons and clock", "Nowhere"];
+
+    private static readonly string[] KeyChoices = ["None", "Ctrl", "Shift", "Alt"];
+
     // Two actions may not share a wheel turn (D-040), so a choice that would is refused: nothing is saved, the
-    // card that was changed says why (the other card's older note is about a different choice), and its box goes
-    // back to what is stored. A choice that sticks clears both notes.
-    private void ChangeWheel(Func<AppSettings, AppSettings> change, bool volume, Action putBack)
+    // card that was changed says which choice and why (the other card's older note is about a different choice),
+    // and its box goes back to what is stored. A choice that sticks clears both notes, and so does opening any
+    // wheel box (ClearWheelNotes): picking the stored item again raises no change, so it can't clear them here.
+    private void ChangeWheel(Func<AppSettings, AppSettings> change, bool volume, string choice, Action putBack)
     {
         var next = change(_store.Current);
         if (WheelRules.Conflict(next.WheelVolumeArea, next.WheelVolumeModifier, next.WheelBrightnessArea, next.WheelBrightnessModifier))
         {
-            WheelVolumeNote = volume ? ClashNote("Brightness", next.WheelBrightnessArea, next.WheelBrightnessModifier) : null;
-            WheelBrightnessNote = volume ? null : ClashNote("Volume", next.WheelVolumeArea, next.WheelVolumeModifier);
+            WheelVolumeNote = volume ? ClashNote(choice, "Brightness", next.WheelBrightnessArea, next.WheelBrightnessModifier) : null;
+            WheelBrightnessNote = volume ? null : ClashNote(choice, "Volume", next.WheelVolumeArea, next.WheelVolumeModifier);
             // A box put back from inside its own change keeps showing the refused choice: wait for it to finish.
             if (_ui?.TryEnqueue(() => putBack()) != true)
                 putBack();
@@ -269,8 +275,11 @@ public sealed partial class SettingsViewModel : ObservableObject, IDisposable
             WheelVolumeNote = WheelBrightnessNote = null;
     }
 
-    private static string ClashNote(string other, WheelArea area, WheelModifier key) =>
-        $"{other} already uses the wheel {Place(area)} {Key(key)}. Pick another place or key here, or change {other} first.";
+    /// <summary>A wheel box is opening for a new choice: the last refusal is old news.</summary>
+    public void ClearWheelNotes() => WheelVolumeNote = WheelBrightnessNote = null;
+
+    private static string ClashNote(string choice, string other, WheelArea area, WheelModifier key) =>
+        $"“{choice}” wasn't saved: {other} already uses the wheel {Place(area)} {Key(key)}. Pick another place or key here, or change {other} first.";
 
     private static string Place(WheelArea area) => area switch
     {

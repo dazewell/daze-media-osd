@@ -332,6 +332,7 @@
                             <!-- Item order = SettingsViewModel.WheelAreaOrder. -->
                             <ComboBox Grid.Column="2" MinWidth="200" VerticalAlignment="Center"
                                       AutomationProperties.Name="Where scrolling changes the volume"
+                                      DropDownOpened="{x:Bind ViewModel.ClearWheelNotes}"
                                       SelectedIndex="{x:Bind ViewModel.WheelVolumeAreaIndex, Mode=TwoWay}">
                                 <x:String>Anywhere on the taskbar (default)</x:String>
                                 <x:String>Over the apps</x:String>
@@ -353,6 +354,7 @@
                             <!-- Item order = WheelModifier. -->
                             <ComboBox Grid.Column="2" MinWidth="200" VerticalAlignment="Center"
                                       AutomationProperties.Name="Key to hold while scrolling"
+                                      DropDownOpened="{x:Bind ViewModel.ClearWheelNotes}"
                                       IsEnabled="{x:Bind ViewModel.WheelVolumeOn, Mode=OneWay}"
                                       SelectedIndex="{x:Bind ViewModel.WheelVolumeModifierIndex, Mode=TwoWay}">
                                 <x:String>None (default)</x:String>
@@ -421,6 +423,7 @@
                             <!-- Item order = SettingsViewModel.WheelAreaOrder. -->
                             <ComboBox Grid.Column="2" MinWidth="200" VerticalAlignment="Center"
                                       AutomationProperties.Name="Where scrolling changes the brightness"
+                                      DropDownOpened="{x:Bind ViewModel.ClearWheelNotes}"
                                       SelectedIndex="{x:Bind ViewModel.WheelBrightnessAreaIndex, Mode=TwoWay}">
                                 <x:String>Anywhere on the taskbar</x:String>
                                 <x:String>Over the apps</x:String>
@@ -442,6 +445,7 @@
                             <!-- Item order = WheelModifier. -->
                             <ComboBox Grid.Column="2" MinWidth="200" VerticalAlignment="Center"
                                       AutomationProperties.Name="Key to hold while scrolling for brightness"
+                                      DropDownOpened="{x:Bind ViewModel.ClearWheelNotes}"
                                       IsEnabled="{x:Bind ViewModel.WheelBrightnessOn, Mode=OneWay}"
                                       SelectedIndex="{x:Bind ViewModel.WheelBrightnessModifierIndex, Mode=TwoWay}">
                                 <x:String>None</x:String>
