@@ -54,6 +54,47 @@ public sealed class SettingsStoreTests : IDisposable
     }
 
     [Fact]
+    public void BrightnessSettingsRoundTrip()
+    {
+        new SettingsStore(_directory).Update(s => s with
+        {
+            WheelBrightnessArea = WheelArea.Tray, WheelBrightnessModifier = WheelModifier.Alt, WheelBrightnessStep = 3,
+        });
+
+        var reloaded = new SettingsStore(_directory).Current;
+
+        Assert.Equal(
+            (WheelArea.Tray, WheelModifier.Alt, 3),
+            (reloaded.WheelBrightnessArea, reloaded.WheelBrightnessModifier, reloaded.WheelBrightnessStep));
+    }
+
+    [Fact]
+    public void AFileFromBeforeTheBrightnessWheelLeavesItOff()
+    {
+        Directory.CreateDirectory(_directory);
+        File.WriteAllText(SettingsFile, """{ "wheelVolumeArea": "tray", "wheelVolumeStep": 4 }""");
+
+        var settings = new SettingsStore(_directory).Current;
+
+        Assert.Equal(
+            (WheelArea.Off, WheelModifier.Ctrl, 5),
+            (settings.WheelBrightnessArea, settings.WheelBrightnessModifier, settings.WheelBrightnessStep));
+        Assert.Equal((WheelArea.Tray, 4), (settings.WheelVolumeArea, settings.WheelVolumeStep));
+    }
+
+    [Fact]
+    public void AHandEditedFileCannotMakeBrightnessAndVolumeShareATurn()
+    {
+        Directory.CreateDirectory(_directory);
+        File.WriteAllText(SettingsFile, """{ "wheelBrightnessArea": "taskbar", "wheelBrightnessModifier": "none" }""");
+
+        var settings = new SettingsStore(_directory).Current;
+
+        Assert.Equal(WheelArea.Off, settings.WheelBrightnessArea);
+        Assert.Equal(WheelArea.Taskbar, settings.WheelVolumeArea);
+    }
+
+    [Fact]
     public void EnumsAreWrittenAsNames()
     {
         new SettingsStore(_directory).Update(s => s with { Position = OsdPosition.TopLeft });
