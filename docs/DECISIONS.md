@@ -567,7 +567,7 @@ Status: accepted; the volume % superseded by D-037
 - Revisit if: fades feel slow during quick skips, or the user wants rows to animate in.
 
 ## D-035 · 2026-10-28 · Wheel over the taskbar: raw-input mouse sink, two zones, one action per zone
-Status: accepted; per-zone settings superseded by D-036 (Q6/Q7 answered by the spike, 2026-10-28)
+Status: accepted; per-zone settings superseded by D-036 (Q6/Q7 answered by the spike, 2026-10-28); brightness narrowed to the built-in screen by D-039
 - Decision: a `TaskbarWheelSource` on its own thread registers raw mouse input (`RIDEV_INPUTSINK`, usage 0x01/0x02)
   and acts only on `RI_MOUSE_WHEEL`; it hit-tests the cursor into `TaskbarZone.Tasks` / `Tray` / none (Q6) and
   posts the notch to the UI thread. Each zone has its own `WheelAction` in settings (Volume, Off; Brightness
@@ -585,7 +585,7 @@ Status: accepted; per-zone settings superseded by D-036 (Q6/Q7 answered by the s
   wheel (`WH_MOUSE_LL`), or the hit test needs UIA calls on the wheel path.
 
 ## D-036 · 2026-10-28 · Wheel settings per action: where (taskbar / apps / tray / off) + key to hold
-Status: accepted
+Status: accepted; its revisit (two actions on one area + key) is answered by D-040
 Supersedes: D-035 (only "each zone has its own action": the source, zones and speaker-icon rule stand)
 - Decision: each wheel action owns `Area` (Taskbar, Apps, Tray, Off) and `Modifier` (None, Ctrl, Shift, Alt); a
   notch fires an action only when its zone is in the area and the held keys are exactly that modifier (Win held →
@@ -624,3 +624,56 @@ Amends: D-018 (setting `IsAlwaysOnTop` once in the constructor)
 - Why not log only: the user would be left with a hidden OSD until the cause is found (user, 2026-10-28).
 - Revisit when the log line shows up: its foreground names the suspect. First lead: in the forced test the
   foreground was PowerToys `MouseWithoutBordersHelper`, itself topmost (may be coincidence).
+
+## D-039 · 2026-10-29 · Brightness v1: the built-in screen only, through WMI
+Status: accepted
+Amends: D-035 (only "brightness targets the monitor under the cursor (WMI for internal panels, DDC/CI for external)")
+- Decision: `WmiBrightnessBackend` reads `WmiMonitorBrightness` and calls `WmiMonitorBrightnessMethods.WmiSetBrightness`
+  in `ROOT\WMI` (`Timeout` 0 = until changed, as measured) through CsWin32's `IWbemServices`: no admin. The built-in
+  screen is the first active panel exposing those classes. The Mouse wheel page names it read-only ("Built-in screen
+  (ATNA40HQ05-0)", the EDID model) so users know what is supported. No monitor-selection field, no DDC/CI yet.
+- Why: user, 2026-10-28: "built-in only and let's put its name somewhere in the respective config section for
+  reference so users know which is supported". The dev laptop has no external monitor, so DDC/CI couldn't be tried,
+  and an untried brightness write is the risk the user asked us to avoid.
+- Why not: System.Management (a new package, not AOT-friendly, D-003); `\\.\LCD` IOCTLs (legacy); a PowerShell
+  process per step (slow); dxva2 `SetMonitorBrightness` (DDC/CI, poor on internal panels). The one hand-written
+  import, `CoSetProxyBlanket`, sits beside CsWin32 because its wrapper can't do the job (X-011).
+- Revisit if: external monitors are wanted: DDC/CI writes (~50 ms+), which monitor is under the cursor, and the
+  selection field the user mentioned. The coalescing worker already fits slow writes (D-041).
+
+## D-040 · 2026-10-29 · Wheel brightness: same settings as volume, off until turned on, never two actions on one turn
+Status: accepted
+Amends: D-036 (brightness is its second action; its "Revisit if" came true)
+- Decision: `wheelBrightnessArea` / `wheelBrightnessModifier` / `wheelBrightnessStep` (1–10 %, default 5) beside the
+  volume ones, in a Brightness section of the Mouse wheel page. Defaults: area **Off**, key **Ctrl** preselected;
+  volume stays Taskbar / None / 2 %. `WheelRules.Conflict` = the same key and areas that touch (`Overlaps`: Taskbar
+  holds Apps and Tray, which hold only themselves; Off touches nothing). The page refuses a clashing choice either
+  way: the box snaps back (deferred, from `TryEnqueue`), nothing is saved, only that card shows a note.
+  `AppSettings.Normalize` is the net for a hand-edited file: brightness yields to Off. `WheelBrightness` also stands
+  aside when the volume rule matches the same turn. The OSD shows brightness alone: sun glyph, the screen's name, %
+  (rolls, D-037), bar; the device rows hide.
+- Why: user, 2026-10-28: "Off until turned on in Settings - safest, volume unchanged."
+- Why not: volume → apps and brightness → tray (GOALS' plan): it changes what an existing user's tray scroll does on
+  the next auto-update (D-031). A Ctrl+taskbar default (offered, not chosen). Refusing only the same area: Taskbar
+  vs Tray at one key would still fire both on one notch.
+- Revisit if: a third action arrives (the rule is pairwise), or the user wants both actions on one turn.
+
+## D-041 · 2026-10-29 · Brightness safety: floor, pure planner, read before write, one coalescing worker, fail-safe
+Status: accepted
+- Decision (user, 2026-10-28: "the code should be safe from the start - since it is not easy to change brightness safely"):
+  - `BrightnessPlanner.Plan` is pure: the screen's own listed level nearest to current + step, strictly in the step's
+    direction (a step down never raises, even from below the floor), never below `Floor` 5 %, never outside 0–100.
+  - `BrightnessService`: every WMI call on one MTA worker; the wheel thread only adds to `_pending` (one queued
+    `Drain`), so a fast scroll is a few writes however slow the screen is. Each step reads first and writes only
+    after a valid read (level 0–100, an id, a level list); no read, no write.
+  - A failed read or write: drop the step and whatever piled up, `Reset()` the connection, log once per failure
+    streak, no retry; the next step connects afresh and logs "works again".
+  - After a write, re-read every 5 ms (≤ 300 ms) until it moves: a read lags a write by up to ~20 ms (measured), and
+    the OSD shows what the screen reports.
+  - Nothing runs at start: the first WMI call is a notch or the settings page's `Refresh` (seen: no brightness line in
+    a fresh log). `Changed` also fires at a limit, so the OSD still answers. One log line per burst (`LogGap`).
+- Why: a panel at 0 % can be unreadable, with the wheel the only way back; a stale or invented level or a step that
+  lands late is what makes a screen jump. Reads and writes cost ~3–9 ms, so one worker needs no cleverness.
+- Why not: a startup probe (a WMI call per launch for a feature that is off by default); retrying (late steps are the
+  bug); `current ± step` without the list (the panel's list is its contract; this one has 101 levels, others few).
+- Revisit if: a panel is unreadable above 5 % (make the floor a setting), or DDC/CI joins (same worker).

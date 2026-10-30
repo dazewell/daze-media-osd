@@ -37,6 +37,7 @@ pwsh scripts/stop.ps1
 
 dotnet build DazeMediaOsd.slnx -c Debug
 dotnet test --solution DazeMediaOsd.slnx -c Debug --no-build   # Microsoft.Testing.Platform syntax
+tests\DazeMediaOsd.Core.Tests\bin\Debug\net10.0-windows10.0.26100.0\DazeMediaOsd.Core.Tests.exe -class "DazeMediaOsd.Core.Tests.WheelRulesTests"   # one xUnit v3 class
 dotnet run --project src/DazeMediaOsd.App -c Debug             # starts the launcher, which starts --app
 dotnet publish src/DazeMediaOsd.App -c Release -r win-x64 -o artifacts/publish   # self-contained, ~230 MB
 ```
@@ -89,6 +90,15 @@ Driving it without touching hardware:
   `probe-out/`) moves the cursor over every taskbar button and scrolls one notch plain / Ctrl / Shift, restoring the
   volume each time; with our app running, plain notches change it, keyed ones don't, the speaker icon exactly once.
   Only unlocked (`SendInput` fails with 5 on the lock screen) and with Windhawk/AutoHotkey wheel mods off (X-009).
+- Brightness (D-039..D-041) is the user's real screen: read the level first
+  (`(Get-CimInstance -Namespace root\wmi -ClassName WmiMonitorBrightness).CurrentBrightness`) and put it back after
+  (`Get-CimInstance -Namespace root\wmi -ClassName WmiMonitorBrightnessMethods | Invoke-CimMethod -MethodName
+  WmiSetBrightness -Arguments @{Timeout=0; Brightness=<n>}`). It's off by default: back up `settings.json`, turn it on
+  in Settings → Mouse wheel (or set the three `wheelBrightness*` keys with the app stopped), restore after. Drive it
+  like the volume wheel with the key held: cursor over a task button, `SendInput` Ctrl down, wheel ±120, Ctrl up. Before
+  a notch over the tray make a relative `SendInput` mouse move first: `SetCursorPos` makes no raw input, so the
+  tray zone check can be stale (X-012). The log shows `brightness: <old> -> <new>, <screen>`; a native flyout
+  doesn't appear for WMI-driven changes, so a capture shows only our OSD.
 - `dotnet run --project spikes/FlyoutProbe -- watch` presses Mute twice (net zero) and logs the native
   flyout host. Minimized = tiny rect, no SHOW/HIDE ~2.5 s apart.
 
@@ -125,7 +135,11 @@ can't verify visually, say so explicitly instead of claiming it works.
   `show SettingsPreview`). UI Automation drives the window: post `WM_APP+1` with lParam
   `0x400 | (1 << 16)` (NIN_SELECT, icon 1) to the `DazeMediaOsd.Tray` window to open it (title
   `Daze Media OSD`); toggles are found by their `AutomationProperties.Name` (e.g. "Show now playing"); the nav items are
-  "Pop-up", "Shortcuts", "Mouse wheel", "About".
+  "Pop-up", "Shortcuts", "Mouse wheel", "About". The window can open behind others: capture it with
+  `PrintWindow(hwnd, dc, 2)`. Scroll it with the `ScrollPattern` (`SetScrollPercent`). The UIA tree omits
+  elements that are scrolled out of view, so scroll a card in before looking for its text. A WinUI ComboBox has no
+  `ValuePattern`: read it with `SelectionPattern.GetSelection()`, pick with `ExpandCollapsePattern.Expand()` then
+  `SelectionItemPattern.Select()`.
 - Also check: foreground window unchanged by a show (`GetForegroundWindow`), and `WindowFromPoint`
   over the OSD returns the window below (click-through).
 
@@ -143,3 +157,4 @@ Grow this table when you hit something non-obvious (and record a dead end if a f
 | Native flyout shows again / ours doesn't appear after a Windows update | Host class or band changed: `dotnet run --project spikes/FlyoutProbe -- watch`, compare with ARCHITECTURE → Native flyout and D-006. |
 | Published app crashes at start, 0xC000027B in `Microsoft.UI.Xaml.dll` | Publish folder lacks `DazeMediaOsd.pri`: keep `EnableMsixTooling=true` in the App csproj (X-004). |
 | App starts then exits silently (unpackaged) | Windows App SDK runtime not found: ensure `WindowsAppSDKSelfContained=true` and `WindowsPackageType=None`. |
+| A WMI call fails with `0x80041003` (access denied) | The COM proxy blanket isn't set on the interface pointer, the `IUnknown` pointer and every enumerator; CsWin32's `CoSetProxyBlanket` wrapper doesn't do it (X-011). `WmiBrightnessBackend` has the working one. |

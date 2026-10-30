@@ -21,6 +21,9 @@ core that builds an `OsdState`; the OSD window renders it.
  default device change ─COM cb──► AudioService ───┤   (OsdRules)      (immutable)  no-activate, click-
  device (dis)connect ───COM cb──► AudioService ───┤
  media session (GSMTC) ─WinRT───► MediaService ───┘                                 through, Mica/Acrylic)
+ taskbar wheel ──────raw input───► TaskbarWheelSource ─► WheelVolume ──────► AudioService (volume step)
+                                                     └► WheelBrightness ─► BrightnessService ─WMI─► built-in screen
+                                                                           └ Changed ─► OsdState (brightness) ─► OsdWindow
                                   SettingsStore ◄────────────────── SettingsWindow (MVVM)
                                                                     TrayIcon
 ```
@@ -37,7 +40,7 @@ dotnet-tools.json                pins vpk (Velopack CLI) for scripts/pack.ps1 an
 src/DazeMediaOsd.Core/           no UI; Win32/COM via CsWin32 (NativeMethods.txt). Lifecycle/ (LaunchArgs,
                                  Launcher, AppVersion, Autostart, ExitSignal), Updates/ (UpdateService,
                                  VelopackUpdateClient), NativeFlyout/ (FlyoutHost, FlyoutSuppressor), Audio/
-                                 (CoreAudioService, DeviceChoices, DeviceCycle, DeviceConnector), Input/ (RawInputKeySource, GlobalHotkey, Hotkey, Shortcuts), Osd/ (OsdState, OsdRules,
+                                 (CoreAudioService, DeviceChoices, DeviceCycle, DeviceConnector), Input/ (RawInputKeySource, GlobalHotkey, Hotkey, Shortcuts, TaskbarWheelSource, WheelModel, WheelVolume, WheelBrightness), Brightness/ (BrightnessModel, BrightnessPlanner, BrightnessService, WmiBrightnessBackend), Osd/ (OsdState, OsdRules,
                                  OsdController, DeviceNotice, OsdPlacement, OsdAnimation), Windowing/ (OverlayWindow styles), Tray/
                                  (TrayIcon), Settings/ (AppSettings, DeviceHotkey, SettingsStore), Media/
                                  (GsmtcMediaService, CsWinRT), Diagnostics/Log.
@@ -47,7 +50,7 @@ src/DazeMediaOsd.App/            WinUI 3 exe `DazeMediaOsd.exe`: Program.Main �
                                  DeviceHotkeyRowViewModel); Assets/ app.ico (exe + window),
                                  app.png (About, title bar), tray-dark/light.ico — all from scripts/make-icon.ps1
                                  (D-025; `-PreviewDir` writes a sheet of every frame)
-tests/DazeMediaOsd.Core.Tests/   xUnit v3; logic only, fakes for IAudioService / IKeySource / IMediaService
+tests/DazeMediaOsd.Core.Tests/   xUnit v3; logic only, fakes for IAudioService / IKeySource / IMediaService / IBrightnessBackend
 scripts/                         run.ps1 (stop + build + start), stop.ps1 (safe stop), press-key.ps1
                                  (SendInput volume/media keys), audio-device.ps1 (list / set default output,
                                  dev only), install.ps1 (daily-driver copy), pack.ps1 (Velopack release, D-029)
@@ -74,13 +77,14 @@ unit-tested with fakes. App never P/Invokes directly; window styling goes throug
 | `OsdController` + `OsdRules` | Audio changes + keys → `ShowRequested(OsdState)`; media session changes → `RefreshRequested` (re-render a visible OSD), or a `MediaPlayback` show on a new track / play state (D-032; App refreshes instead unless `showOnMediaChange`); the rules decide what pops the OSD (D-011); device connect/disconnect shows once, 500 ms after a burst (D-013), carrying the burst as one `DeviceNotice` (also on a default switch that cancels it); a burst repeating the device announced < 2 s ago is dropped (D-016) | — (pure, unit-tested) |
 | `NativeFlyout` | Minimize the native flyout host while the app runs, re-minimize a re-created host, restore on exit | `SetWinEventHook` (out-of-context, `EVENT_OBJECT_CREATE`) on explorer.exe, `ShowWindowAsync` |
 | `RawInputKeySource` (`IKeySource`) | Trigger: volume/mute and play-pause/next/previous key downs (`MediaKey`), incl. at 0 %/100 % where the volume doesn't change. Keyboard VKs + Consumer Control HID reports (`ConsumerKeyTracker`: usages 0xE9/0xEA/0xE2, 0xCD/0xB0/0xB1 → PlayPause, 0xB5/0xB6; raise on newly held) | Message-only window, `RegisterRawInputDevices` (0x01/0x06 and 0x0C/0x01) + `RIDEV_INPUTSINK` (passive, no input latency), `HidP_GetUsagesEx` |
-| `TaskbarWheelSource` (`ITaskbarWheelSource`) + `WheelVolume` + `WheelRules` | Wheel over a taskbar → `Wheeled(zone, delta, held keys)`. Zone: root of `WindowFromPoint` must be `Shell_TrayWnd` / `Shell_SecondaryTrayWnd` (so a fullscreen app or the tray overflow popup over it doesn't count); inside its `TrayNotifyWnd` rect → Tray, else Apps (Q6); the speaker icon → VolumeIcon, found by UIA (a `SystemTray.*` button whose name holds the output's name, or starts "Volume"), ~70 ms per lookup, run on the thread pool at start, and when the reading is > 0.5 s old as the cursor reaches the tray (move input, checked ≤ 5×/s) or a notch lands; the wheel thread only reads the cache and never waits. Unknown (not read, > 2 s old, UIA failed) skips the tray notch rather than risk doubling the icon's step: only a cursor that jumps to the tray without moving and scrolls at once loses its first notch. `WheelVolume`: `WheelRules.Matches(area, key, zone, held)` (exact key, never VolumeIcon, D-036), `WheelAccumulator` turns deltas into 120-notches, `IAudioService.StepOutputVolume(notches × step %)`, `Stepped` → App shows `OsdReason.Wheel` (unlogged; the `VolumeChanged` that follows is) | Message-only window, `RegisterRawInputDevices` (0x01/0x02) + `RIDEV_INPUTSINK`, `GetAsyncKeyState`, `IUIAutomation.FindAll` (CsWin32) |
+| `TaskbarWheelSource` (`ITaskbarWheelSource`) + `WheelVolume` + `WheelBrightness` + `WheelRules` | Wheel over a taskbar → `Wheeled(zone, delta, held keys)`. Zone: root of `WindowFromPoint` must be `Shell_TrayWnd` / `Shell_SecondaryTrayWnd` (so a fullscreen app or the tray overflow popup over it doesn't count); inside its `TrayNotifyWnd` rect → Tray, else Apps (Q6); the speaker icon → VolumeIcon, found by UIA (a `SystemTray.*` button whose name holds the output's name, or starts "Volume"), ~70 ms per lookup, run on the thread pool at start, and when the reading is > 0.5 s old as the cursor reaches the tray (move input, checked ≤ 5×/s) or a notch lands; the wheel thread only reads the cache and never waits. Unknown (not read, > 2 s old, UIA failed) skips the tray notch rather than risk doubling the icon's step: only a cursor that jumps to the tray without moving and scrolls at once loses its first notch. `WheelVolume`: `WheelRules.Matches(area, key, zone, held)` (exact key, never VolumeIcon, D-036), `WheelAccumulator` turns deltas into 120-notches, `IAudioService.StepOutputVolume(notches × step %)`, `Stepped` → App shows `OsdReason.Wheel` (unlogged; the `VolumeChanged` that follows is). `WheelBrightness`: the same rule on its own settings (D-040), stands aside when the volume rule matches the same turn, then `IBrightnessService.Adjust(notches × step)`. `WheelRules.Overlaps` / `Conflict` say whether two actions would share a turn (the settings refuse it) | Message-only window, `RegisterRawInputDevices` (0x01/0x02) + `RIDEV_INPUTSINK`, `GetAsyncKeyState`, `IUIAutomation.FindAll` (CsWin32) |
 | `Launcher` | Start `--app`, wait on its handle, restore the native flyout when it exits (D-006) | `Process`, `WaitForSingleObject` |
 | `GsmtcMediaService` (`IMediaService`) | Current session → `MediaState` (app id, title, artist, playing, thumbnail bytes) or null when none / no title. Starts in the background; a GSMTC failure only logs (media is optional). Every event marks dirty; one refresh loop re-reads; a failed read keeps the last state and retries (5 × 200 ms). A new track/play state is published with the previous cover before the new cover is read, then again with it (D-033; a read > 50 ms logs `media thumbnail took …`) | `GlobalSystemMediaTransportControlsSessionManager` (CsWinRT via the TFM), `TryGetMediaPropertiesAsync`, `GetPlaybackInfo`, thumbnail via `DataReader` (≤ 4 MB) |
 | `GlobalHotkey` + `Hotkey` + `Shortcuts` | Every global shortcut (D-022): `Shortcuts.From(settings)` gives id 1 = cycle output (default Win+Alt+A, D-020), 2 + row = device row; `Set(id → chord)` re-registers all and returns `Errors` by id; `Pause` while any Settings recorder has focus (D-021); `Pressed(id)` → App: cycle picks `DeviceCycle.Next`, a device row `Shortcuts.Press` → `SetDefault`, or the OSD (`OsdReason.Hotkey`) when already default / nothing to cycle to. An inactive device goes to `DeviceConnector`; the event line answers with `DeviceNotice.Answer` (`PressAnswer`): "Connecting…", "Couldn't connect" (timeout) or "Not connected" (nothing took the request) | Message-only window, `RegisterHotKey` + `MOD_NOREPEAT`, `SendMessage` to hand over a new chord |
-| `SettingsStore` + `AppSettings` | `%LOCALAPPDATA%\DazeMediaOsd\settings.json` (`version` 1): position, hide-after seconds (1–10), mic row on/off, media row on/off (`showMedia`), pop on device connect (`showOnDeviceConnect`, D-013), pop on track/play-state change (`showOnMediaChange`, off, D-032), cycle-output shortcut (`cycleOutputHotkey`, canonical "Win+Alt+A", "" = off, a typo → default; D-020), device shortcuts (`deviceHotkeys`: id, flow, last-known name, chord; bad or already-used chord → "", D-022), wheel volume (`wheelVolumeArea` Taskbar/Apps/Tray/Off, `wheelVolumeModifier` None/Ctrl/Shift/Alt, `wheelVolumeStep` 1–10 %, D-036); all added without a version bump: missing → constructor default, X-003. Saves on every change (temp file + move); missing → defaults, unparsable → defaults + copy to `settings.invalid.json`; out-of-range values clamped (`Normalize`). A failed save keeps the change for the session, logs the exception and sets `SaveError` ("Couldn't write to <path>."); the settings window shows it in an InfoBar | `System.Text.Json` source-gen (AOT-safe), enums as names (`"TopRight"`), relaxed escaping so `+` stays readable |
-| `OsdWindow` + `OverlayWindow` | Render `OsdState` (device event line, media cover/title/artist/play state, output name/level/mute, mic name/level/mute; row glyph by device kind, D-017), fade/slide in and out (`OsdAnimation`, D-012), content changes fade through (`FadeThrough`, D-034), the volume % rolls (`NumberRoll`, D-037), auto-hide after the configured time, at the configured position in the primary work area (`OsdPlacement`, 24 DIP margin) (D-008) | WinUI 3 `Window`, `OverlappedPresenter.SetBorderAndTitleBar(true,false)`, `DesktopAcrylicController`, `SetWindowPos(SWP_NOACTIVATE)` |
-| `SettingsWindow` | Fluent settings UI, created on open, destroyed on close; one at a time (D-010). Pages Pop-up, Mouse wheel (where, key to hold, step; D-036), Shortcuts (cycle card, device rows: picker from `Endpoints` through `DeviceChoices` plus the row's own device as "Not connected", `HotkeyRecorder`, remove; a chord in use is refused with a note, D-022), About (mark, `AppVersion`, Copy details → clipboard: version, Windows build, .NET + Windows App SDK versions, exe path; app and data folders, open log, report a problem, source code). Icon: `AppWindow.SetIcon(app.ico)` + `AppTitleBar.IconSource` set from code (X-006). The Windows App SDK version comes from an `AssemblyMetadata` stamped from `Directory.Packages.props` (`ReleaseInfo` throws self-contained). `AppSettings` compares `deviceHotkeys` by value (custom `Equals`) | WinUI 3 `NavigationView` + `TitleBar`, Mica, CommunityToolkit.Mvvm partial `[ObservableProperty]` |
+| `BrightnessService` (`IBrightnessService`) + `BrightnessPlanner` + `WmiBrightnessBackend` (`IBrightnessBackend`) | The built-in screen's brightness, safe by construction (D-039, D-041; section Brightness). `Adjust(±points)` from the wheel thread only adds to a counter; one MTA worker reads the panel, `BrightnessPlanner.Plan` picks a level the panel lists (floor 5 %), writes it, re-reads until it moves, then raises `Changed(name, %)` → App shows `OsdReason.Brightness`. `Refresh()` (settings page) only reads; `ScreenName` / `Probed` / `ScreenChanged` name the screen. A failure drops the step, resets the connection and logs once | WMI in `ROOT\WMI` (`WmiMonitorBrightness`, `WmiMonitorBrightnessMethods.WmiSetBrightness`, `WmiMonitorID` for the model) through CsWin32's `IWbemLocator` / `IWbemServices`; hand-written `CoSetProxyBlanket` (X-011) |
+| `SettingsStore` + `AppSettings` | `%LOCALAPPDATA%\DazeMediaOsd\settings.json` (`version` 1): position, hide-after seconds (1–10), mic row on/off, media row on/off (`showMedia`), pop on device connect (`showOnDeviceConnect`, D-013), pop on track/play-state change (`showOnMediaChange`, off, D-032), cycle-output shortcut (`cycleOutputHotkey`, canonical "Win+Alt+A", "" = off, a typo → default; D-020), device shortcuts (`deviceHotkeys`: id, flow, last-known name, chord; bad or already-used chord → "", D-022), wheel volume (`wheelVolumeArea` Taskbar/Apps/Tray/Off, `wheelVolumeModifier` None/Ctrl/Shift/Alt, `wheelVolumeStep` 1–10 %, D-036), wheel brightness (`wheelBrightnessArea` default Off, `wheelBrightnessModifier` default Ctrl, `wheelBrightnessStep` 1–10 %, default 5; a pair that shares a turn with the volume wheel makes `Normalize` set brightness to Off, D-040); all added without a version bump: missing → constructor default, X-003. Saves on every change (temp file + move); missing → defaults, unparsable → defaults + copy to `settings.invalid.json`; out-of-range values clamped (`Normalize`). A failed save keeps the change for the session, logs the exception and sets `SaveError` ("Couldn't write to <path>."); the settings window shows it in an InfoBar | `System.Text.Json` source-gen (AOT-safe), enums as names (`"TopRight"`), relaxed escaping so `+` stays readable |
+| `OsdWindow` + `OverlayWindow` | Render `OsdState` (device event line, media cover/title/artist/play state, output name/level/mute, mic name/level/mute; row glyph by device kind, D-017; or, for `OsdReason.Brightness`, one brightness row instead of all of those, D-040), fade/slide in and out (`OsdAnimation`, D-012), content changes fade through (`FadeThrough`, D-034), the volume and brightness % roll (`NumberRoll`, D-037, D-040), auto-hide after the configured time, at the configured position in the primary work area (`OsdPlacement`, 24 DIP margin) (D-008) | WinUI 3 `Window`, `OverlappedPresenter.SetBorderAndTitleBar(true,false)`, `DesktopAcrylicController`, `SetWindowPos(SWP_NOACTIVATE)` |
+| `SettingsWindow` | Fluent settings UI, created on open, destroyed on close; one at a time (D-010). Pages Pop-up, Mouse wheel (Volume and Brightness sections: where, key to hold, step; the Brightness one starts with a read-only Screen card naming the supported screen, `IBrightnessService.Refresh` on open; a choice that would share a turn with the other action snaps back with a note on that card only; D-036, D-040), Shortcuts (cycle card, device rows: picker from `Endpoints` through `DeviceChoices` plus the row's own device as "Not connected", `HotkeyRecorder`, remove; a chord in use is refused with a note, D-022), About (mark, `AppVersion`, Copy details → clipboard: version, Windows build, .NET + Windows App SDK versions, exe path; app and data folders, open log, report a problem, source code). Icon: `AppWindow.SetIcon(app.ico)` + `AppTitleBar.IconSource` set from code (X-006). The Windows App SDK version comes from an `AssemblyMetadata` stamped from `Directory.Packages.props` (`ReleaseInfo` throws self-contained). `AppSettings` compares `deviceHotkeys` by value (custom `Equals`) | WinUI 3 `NavigationView` + `TitleBar`, Mica, CommunityToolkit.Mvvm partial `[ObservableProperty]` |
 | `TrayIcon` | Notification-area icon + menu: Output / Input submenus (`DeviceChoices`, default checked; pick → `SetDefault`, D-019), Settings (default, bold), Exit (D-009) | `Shell_NotifyIcon` v4, `TrackPopupMenuEx`, uxtheme #135/#136 for the dark menu, `TaskbarCreated` |
 
 ## Native flyout (verified on build 26300; strategy D-006)
@@ -119,6 +123,10 @@ unit-tested with fakes. App never P/Invokes directly; window styling goes throug
 - `TrayIcon` runs its own thread + hidden **top-level** window (a message-only window misses the
   `TaskbarCreated` and `WM_SETTINGCHANGE` broadcasts); `ExitRequested` is raised there. Building the menu
   calls `IAudioService.Endpoints`, which waits (≤ 2 s) on the Core Audio worker — run inline when called from it.
+- `BrightnessService` owns one MTA worker ("Brightness") that makes every WMI call. `Adjust` (the wheel thread) only
+  adds to an `Interlocked` counter and queues one `Drain`; `Changed` and `ScreenChanged` are raised on the worker, so
+  App and `SettingsViewModel` marshal with `DispatcherQueue.TryEnqueue`. A WMI call that never returns can't hold the
+  exit: the thread is a background one, `Dispose` waits ≤ 3 s, and App disposes it after the flyout restore (D-006, D-041).
 - GSMTC events and `GsmtcMediaService.Changed` arrive on thread-pool (MTA) threads; reads happen in
   its single refresh loop.
 - `OsdController.ShowRequested` / `RefreshRequested` therefore arrive on any of those threads: App
@@ -218,6 +226,10 @@ unit-tested with fakes. App never P/Invokes directly; window styling goes throug
   kind, "Muted" ↔ mic level. Instant: volume %, level bar, the output icon's level steps, a row appearing.
 - `Refresh` (media change) re-renders and re-places only while visible and never restarts the hide
   timer; the media row sits on top, cover in place of the icon column, play-state glyph in the value column.
+- Brightness (D-040): when `OsdState.Brightness` is set the media, output and input rows collapse and `BrightnessRow`
+  shows on the same column grid: sun glyph (`E706`) / the screen's name over a 4-px bar / the % (`NumberRoll`, rolling
+  only while a brightness OSD is already visible). `Refresh` (a media change) leaves it alone; any other show brings the
+  device rows back. Seen 2026-10-29 in the user's theme and text size only.
 - Device event line (D-014): topmost, same columns — glyph / name (BodyStrong, trimmed) / status
   ("Connected" accent, "Disconnected" secondary) — then a hairline. Set by `Show` from `OsdState.Device`
   (null clears it); `Refresh` leaves it. Entrance: XAML Storyboard (opacity, glyph scale), skipped when
@@ -233,6 +245,31 @@ unit-tested with fakes. App never P/Invokes directly; window styling goes throug
   switching 4× from Settings, no crash (X-007).
 - Not verified yet: multi-monitor/DPI change, show latency, "Animation effects" off (needs
   changing the user's setting).
+
+## Brightness (verified on build 26300, 2026-10-29; D-039, D-040, D-041)
+
+- Hardware seen: one built-in OLED panel (`SDC422A`, EDID model `ATNA40HQ05-0`, 2880×1800) on an ASUS laptop;
+  `WmiMonitorBrightness` and `WmiMonitorBrightnessMethods` Active; `Level[]` lists every percent 0–100 (101 levels).
+  No external monitor, so DDC/CI is untested.
+- WMI: `ConnectServer("ROOT\WMI")` through CsWin32's COM interfaces, on an MTA thread. The proxy blanket (call level,
+  impersonate) goes on the interface pointer, the `IUnknown` pointer and every enumerator, or calls fail with
+  0x80041003 (X-011). Queries are forward-only, `Next` times out after 5 s, ≤ 256 rows. The model name comes from
+  `WmiMonitorID.UserFriendlyName`, read once per connection ("Built-in screen" when unreadable).
+  `WmiSetBrightness(Timeout=0, Brightness)`: Timeout 0 = until changed, not a revert timer.
+- Timing, warm: read 3–5 ms, write 4–9 ms; a read right after a write can show the old level for up to ~20 ms, hence
+  the settle poll (D-041).
+- Flow: notch → `WheelBrightness` → `Adjust` → worker: read, plan, write, settle → `Changed` → App shows
+  `OsdReason.Brightness`. The first step after start logs the screen once (`brightness: built-in screen "…"`), then
+  one `brightness: 76 -> 81, <name>` line per burst; failures log once per streak.
+- A WMI-driven change shows no native flyout (two full-screen captures ~200 ms after a step: only our OSD).
+- Seen on the user's PC (left-docked vertical taskbar, one screen): Ctrl+wheel over the apps → brightness only, plain
+  wheel over the apps → volume only, plain wheel over the tray with brightness set to the tray → brightness only; a
+  3-notch burst moves ±15 (every notch applied); a 16-notch burst down stops at exactly 5 %; no startup probe; both
+  conflict refusals on the settings page and the accepted non-overlapping pair (volume Apps, brightness Tray); no
+  ERROR/WARN in `app.log`.
+- Not verified: lid closed or docked (expected: no active panel, so a step finds no screen, shows nothing and logs
+  `no built-in screen found`); whether a level set through WMI survives sleep or a power-plan change; Ctrl+wheel on a
+  secondary or auto-hide taskbar (Q6); a physical or high-resolution wheel; external monitors; the brightness keys (Q4).
 
 ## Tray icon (verified on build 26300, 2026-10-22; D-009)
 
@@ -304,13 +341,17 @@ unit-tested with fakes. App never P/Invokes directly; window styling goes throug
   suppression; if either fails, the app logs it and exits with Windows untouched.
 - OSD window never takes focus or activation (would steal focus from games/apps on every key press).
 - No admin rights required.
+- **Brightness safety (D-041):** nothing is written without a valid read of the screen in the same step; only a level
+  the screen lists, never below 5 %, never against the step's direction; a failure drops the step, resets the
+  connection and isn't retried; nothing touches WMI before a wheel step or the settings page asks.
 
 ## Open questions
 
-- **Q4:** the same host very likely also shows the brightness / airplane-mode / other hardware-key
+- **Q4:** the same host very likely also shows the brightness-key / airplane-mode / other hardware-key
   flyouts, so minimizing it probably hides those too. Not tested: brightness keys aren't scriptable on
-  the dev machine. If confirmed, ask the user: accept, or show those in our OSD (brightness is already
-  "Later" in GOALS). UIA can't read the island content (X-001).
+  the dev machine (a WMI-driven change, our wheel, shows no native flyout: seen 2026-10-29). If confirmed, ask the
+  user: accept, or show those in our OSD (the brightness OSD exists now, D-040; an untried lead for the trigger:
+  the `WmiMonitorBrightnessEvent` class in `ROOT\WMI`). UIA can't read the island content (X-001).
 - **Q6 (Plan D, D-035):** tray vs tasks. Answered on 26300 (one monitor, vertical taskbar on the left, 2026-10-28,
   `spikes/TaskbarWheelProbe dump/auto`): cursor in a `Shell_TrayWnd` / `Shell_SecondaryTrayWnd` rect → tasks, unless
   also in its child `TrayNotifyWnd` rect → tray. `TrayNotifyWnd` matched the drawn tray exactly (Show Hidden Icons
