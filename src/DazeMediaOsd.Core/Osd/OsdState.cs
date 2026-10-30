@@ -1,5 +1,6 @@
 using System.Globalization;
 using DazeMediaOsd.Core.Audio;
+using DazeMediaOsd.Core.Brightness;
 using DazeMediaOsd.Core.Media;
 
 namespace DazeMediaOsd.Core.Osd;
@@ -34,14 +35,18 @@ public enum OsdReason
     Hotkey,
     /// <summary>The wheel over the taskbar stepped the volume (D-036); like a volume key, it shows even at the limits.</summary>
     Wheel,
+    /// <summary>The wheel stepped the built-in screen's brightness (D-040); the show carries <see cref="OsdState.Brightness"/>.</summary>
+    Brightness,
 }
 
 /// <summary>
 /// Everything the OSD window renders. Immutable: a new instance per show, the window just rebinds.
 /// <paramref name="Device"/> is the device that came or went, only on the show that announces it (D-014).
+/// <paramref name="Brightness"/> turns the OSD into the brightness layout instead of the devices (D-040).
 /// </summary>
 public sealed record OsdState(
-    EndpointState? Output, EndpointState? Input, MediaState? Media, OsdReason Reason, DeviceNotice? Device = null)
+    EndpointState? Output, EndpointState? Input, MediaState? Media, OsdReason Reason, DeviceNotice? Device = null,
+    BrightnessState? Brightness = null)
 {
     public static OsdState From(AudioSnapshot audio, MediaState? media, OsdReason reason)
     {
@@ -59,7 +64,8 @@ public sealed record OsdState(
             PressAnswer.ConnectFailed => "connect failed",
             _ => Device.Connected ? "connected" : "disconnected",
         }}"
-            + $"{(Device.Bluetooth ? " bt" : "")}{(Device.Kind == DeviceKind.Other ? "" : " " + Device.Kind)}{(Device.Others > 0 ? " +" + Device.Others.ToString(CultureInfo.InvariantCulture) : "")}");
+            + $"{(Device.Bluetooth ? " bt" : "")}{(Device.Kind == DeviceKind.Other ? "" : " " + Device.Kind)}{(Device.Others > 0 ? " +" + Device.Others.ToString(CultureInfo.InvariantCulture) : "")}")
+        + (Brightness is null ? "" : string.Create(CultureInfo.InvariantCulture, $" brightness=\"{Brightness.Name}\" {Brightness.Percent}"));
 
     public static string Describe(AudioSnapshot audio)
     {
