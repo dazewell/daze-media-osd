@@ -193,12 +193,14 @@ public sealed partial class OsdWindow : Window
             OsdCauseKind.Microphone => "", // Microphone
             _ => "",                       // Volume
         };
+        EventName.Style = (Style)Root.Resources["OsdEventNameCause"];
         EventIcon.Style = (Style)Root.Resources["OsdEventIconGone"];
         EventStatus.Style = (Style)Root.Resources["OsdEventStatusGone"];
     }
 
     private void RenderDevice(DeviceNotice device)
     {
+        EventName.Style = (Style)Root.Resources["OsdTitle"];
         var name = device.Name.Length == 0 ? "Audio device" : device.Name;
         EventName.Text = device.Others == 0
             ? name
