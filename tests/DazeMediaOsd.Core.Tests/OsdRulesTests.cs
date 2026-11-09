@@ -94,4 +94,50 @@ public class OsdRulesTests
     [MemberData(nameof(MediaChanges))]
     public void MediaChangePopsOnlyForTrackOrPlayState(MediaState? before, MediaState? after, bool shows) =>
         Assert.Equal(shows ? OsdReason.MediaPlayback : null, OsdRules.ReasonToShow(before, after));
+
+    private static OsdCause? Cause(OsdReason reason, MediaState? media = null, bool userJustActed = false,
+        EndpointState? output = null, EndpointState? input = null, DeviceNotice? device = null) =>
+        OsdRules.CauseOf(new OsdState(output ?? Speakers, input ?? Mic, media, reason, device), userJustActed);
+
+    [Fact]
+    public void PlaybackWithArtistNeedsNoCause() =>
+        Assert.Null(Cause(OsdReason.MediaPlayback, Playing));
+
+    [Fact]
+    public void PlaybackWithoutArtistOrAppNameSaysMedia() =>
+        Assert.Equal(new OsdCause(OsdCauseKind.Media, "Media", "Paused"),
+            Cause(OsdReason.MediaPlayback, new MediaState("4556426051E479CA", "Meet - abc", "", false, null)));
+
+    [Fact]
+    public void MuteByAnAppSaysWhichWay() =>
+        Assert.Equal(new OsdCause(OsdCauseKind.Volume, "Sound", "Muted by an app"),
+            Cause(OsdReason.MuteChanged, output: Speakers with { Muted = true }));
+
+    [Fact]
+    public void MicMuteAlwaysSaysSo() =>
+        Assert.Equal(new OsdCause(OsdCauseKind.Microphone, "Microphone", "Unmuted"),
+            Cause(OsdReason.InputMuteChanged, userJustActed: true));
+
+    [Theory]
+    [InlineData(OsdReason.VolumeKey)]
+    [InlineData(OsdReason.MediaKey)]
+    [InlineData(OsdReason.OutputDeviceChanged)]
+    [InlineData(OsdReason.Wheel)]
+    public void OwnActionsAndVisibleChangesNeedNoCause(OsdReason reason) =>
+        Assert.Null(Cause(reason, new MediaState("app", "Song", "", true, null)));
+
+    [Fact]
+    public void UserVolumeChangeNeedsNoCause() =>
+        Assert.Null(Cause(OsdReason.VolumeChanged, userJustActed: true));
+
+    [Fact]
+    public void DeviceLineWinsOverCause() =>
+        Assert.Null(Cause(OsdReason.InputMuteChanged,
+            device: new DeviceNotice("Headset", EndpointFlow.Input, Connected: true, Bluetooth: true)));
+
+    [Theory]
+    [InlineData("Spotify.exe", "Spotify")]
+    [InlineData("4556426051E479CA", "")]
+    [InlineData(@"C:\Apps\player.exe", "")]
+    public void ExeAppIdNamesTheApp(string appId, string name) => Assert.Equal(name, AppNames.FromExe(appId));
 }

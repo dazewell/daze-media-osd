@@ -162,6 +162,19 @@ public sealed class WheelVolumeTests : IDisposable
     }
 
     [Fact]
+    public void SteppedRaisesBeforeTheStep()
+    {
+        using var volume = Create();
+        var stepsWhenRaised = -1;
+        volume.Stepped += (_, _) => stepsWhenRaised = _audio.VolumeSteps.Count;
+
+        _wheel.Turn(TaskbarZone.Apps, 120);
+
+        Assert.Equal(0, stepsWhenRaised); // so the change it makes is known as the user's (D-042)
+        Assert.Single(_audio.VolumeSteps);
+    }
+
+    [Fact]
     public void OutsideTheAreaOrWithoutTheKeyNothingHappens()
     {
         _settings = _settings with { WheelVolumeArea = WheelArea.Apps, WheelVolumeModifier = WheelModifier.Ctrl };

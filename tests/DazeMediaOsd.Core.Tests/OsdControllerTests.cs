@@ -94,6 +94,51 @@ public class OsdControllerTests
         audio.Change(new AudioSnapshot(Speakers with { Volume = 0.52f }, Mic), EndpointFlow.Output, AudioChangeKind.VolumeOrMute);
 
         Assert.Equal([OsdReason.VolumeKey, OsdReason.VolumeChanged], shown.Select(s => s.Reason));
+        Assert.All(shown, s => Assert.Null(s.Cause)); // the change right after a key is the user's
+    }
+
+    [Fact]
+    public void VolumeChangeWithoutKeySaysAnAppDidIt()
+    {
+        using var audio = new FakeAudio { Current = new AudioSnapshot(Speakers with { Volume = 0.5f }, Mic) };
+        using var keys = new FakeKeys();
+        var time = new ManualTime();
+        using var controller = new OsdController(audio, keys, new FakeMedia(), time);
+        var shown = Record(controller);
+
+        keys.Press(MediaKey.VolumeUp);
+        time.Advance(OsdController.UserWindow);
+        audio.Change(new AudioSnapshot(Speakers with { Volume = 0.3f }, Mic), EndpointFlow.Output, AudioChangeKind.VolumeOrMute);
+
+        Assert.Equal(new OsdCause(OsdCauseKind.Volume, "Volume", "Changed by an app"), shown[^1].Cause);
+    }
+
+    [Fact]
+    public void VolumeChangeRightAfterUserActedHasNoCause()
+    {
+        using var audio = new FakeAudio { Current = new AudioSnapshot(Speakers with { Volume = 0.5f }, Mic) };
+        using var keys = new FakeKeys();
+        using var controller = new OsdController(audio, keys, new FakeMedia(), new ManualTime());
+        var shown = Record(controller);
+
+        controller.UserActed(); // a wheel step
+        audio.Change(new AudioSnapshot(Speakers with { Volume = 0.52f }, Mic), EndpointFlow.Output, AudioChangeKind.VolumeOrMute);
+
+        Assert.Null(Assert.Single(shown).Cause);
+    }
+
+    [Fact]
+    public void PlaybackWithoutArtistNamesTheApp()
+    {
+        using var audio = new FakeAudio { Current = new AudioSnapshot(Speakers, Mic) };
+        using var keys = new FakeKeys();
+        using var media = new FakeMedia();
+        using var controller = new OsdController(audio, keys, media);
+        var shown = Record(controller);
+
+        media.Change(new MediaState("MSTeams_8wekyb3d8bbwe!MSTeams", "Weekly sync", "", true, null, "Microsoft Teams"));
+
+        Assert.Equal(new OsdCause(OsdCauseKind.Media, "Microsoft Teams", "Playing"), Assert.Single(shown).Cause);
     }
 
     [Fact]
