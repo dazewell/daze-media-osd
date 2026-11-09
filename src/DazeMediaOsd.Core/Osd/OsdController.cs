@@ -25,6 +25,12 @@ public sealed class OsdController : IDisposable
     /// </summary>
     internal static readonly TimeSpan RepeatWindow = TimeSpan.FromSeconds(2);
 
+    /// <summary>
+    /// A volume change or mute this soon after a volume key or wheel step is the user's own; later, an app or
+    /// Windows made it, and the OSD says so (D-042). The key arrives before Windows applies it.
+    /// </summary>
+    internal static readonly TimeSpan UserWindow = TimeSpan.FromSeconds(1);
+
     private readonly IAudioService _audio;
     private readonly IKeySource _keys;
     private readonly IMediaService _media;
@@ -45,6 +51,7 @@ public sealed class OsdController : IDisposable
     private long _announcedAt;
     private bool _disposed;
     private MediaState? _lastMedia;
+    private long? _userActedAt; // under _gate
 
     public OsdController(IAudioService audio, IKeySource keys, IMediaService media, TimeProvider? time = null)
     {
@@ -71,6 +78,16 @@ public sealed class OsdController : IDisposable
     /// </summary>
     public event EventHandler<OsdState>? RefreshRequested;
 
+    /// <summary>
+    /// The user is changing the volume through something other than a key, e.g. the taskbar wheel: the change
+    /// that follows is theirs, not an app's (D-042). Call it before making the change. Any thread.
+    /// </summary>
+    public void UserActed()
+    {
+        lock (_gate)
+            _userActedAt = _time.GetTimestamp();
+    }
+
     /// <summary>The state as it is now, for a show that doesn't come from a Windows signal.</summary>
     public OsdState Snapshot(OsdReason reason) => OsdState.From(_audio.Current, _media.Current, reason);
 
@@ -94,7 +111,7 @@ public sealed class OsdController : IDisposable
                 }
                 break;
             case { } reason:
-                Request(OsdState.From(e.Current, _media.Current, reason));
+                Request(Explained(OsdState.From(e.Current, _media.Current, reason)));
                 break;
         }
     }
@@ -171,7 +188,11 @@ public sealed class OsdController : IDisposable
     {
         var media = _media.Current;
         if (OsdRules.ReasonToShow(e.Key, media) is { } reason)
+        {
+            if (reason == OsdReason.VolumeKey)
+                UserActed();
             Request(OsdState.From(_audio.Current, media, reason));
+        }
     }
 
     // The show goes out with every qualifying change; App turns it back into a refresh while the setting is
@@ -180,9 +201,17 @@ public sealed class OsdController : IDisposable
     {
         var before = Interlocked.Exchange(ref _lastMedia, media);
         if (OsdRules.ReasonToShow(before, media) is { } reason)
-            Request(OsdState.From(_audio.Current, media, reason));
+            Request(Explained(OsdState.From(_audio.Current, media, reason)));
         else
             RefreshRequested?.Invoke(this, OsdState.From(_audio.Current, media, OsdReason.MediaChanged));
+    }
+
+    private OsdState Explained(OsdState state)
+    {
+        bool userJustActed;
+        lock (_gate)
+            userJustActed = _userActedAt is { } at && _time.GetElapsedTime(at) < UserWindow;
+        return state with { Cause = OsdRules.CauseOf(state, userJustActed) };
     }
 
     // Audio and key sources call in from different threads.

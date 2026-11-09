@@ -179,7 +179,8 @@ public sealed class GsmtcMediaService : IMediaService
             properties?.Artist ?? "",
             playback?.PlaybackStatus == GlobalSystemMediaTransportControlsSessionPlaybackStatus.Playing,
             // Another player's cover under this title would be wrong, not just late.
-            previous?.AppId == appId ? previous.Thumbnail : null);
+            previous?.AppId == appId ? previous.Thumbnail : null,
+            AppNames.Resolve(appId));
         if (properties?.Thumbnail is not { } reference)
             return text with { Thumbnail = null };
         if (previous is null || text with { Thumbnail = null } != previous with { Thumbnail = null })

@@ -680,3 +680,22 @@ Status: accepted
 - Why not: a startup probe (a WMI call per launch for a feature that is off by default); retrying (late steps are the
   bug); `current ± step` without the list (the panel's list is its contract; this one has 101 levels, others few).
 - Revisit if: a panel is unreadable above 5 % (make the floor a setting), or DDC/CI joins (same worker).
+
+## D-042 · 2026-11-08 · The event line says why the OSD popped when nothing else on it does
+Status: accepted
+- Decision: `OsdRules.CauseOf` puts an `OsdCause` (kind, subject, status) on shows whose rows don't explain
+  themselves; the D-014 event line renders it in secondary colour, same columns, same entrance. A device notice or
+  brightness wins (no cause). Cases: `MediaPlayback` with no artist → the player's Start-menu name + "Playing" /
+  "Paused" ("Media" if unknown); `VolumeChanged` / `MuteChanged` more than `UserWindow` (1 s) after a volume key or
+  wheel step → "Volume · Changed by an app" / "Sound · Muted by an app"; `InputMuteChanged` → "Microphone · Muted" /
+  "Unmuted" (no mic key reaches us, so no "by"). The wheel raises `Stepped` before stepping and App marks
+  `UserActed` there, so the change it makes is never blamed on an app. App name: `AppNames.Resolve(AUMID)` via
+  `shell:AppsFolder` (packaged apps and Start-menu AUMIDs, Chromium's hashed ids too: "4556426051E479CA" → "Zen"),
+  else "<x>.exe" → "x"; cached per id, put on `MediaState.AppName`. Log: `cause="Subject: Status"` on the show line.
+- Why: the user couldn't tell why the OSD popped; calls and meetings register as media sessions (user,
+  2026-11-08). A session needs a title (GsmtcMediaService drops untitled ones), so "no details" means no artist.
+- Why not: a line on every show (key presses explain themselves; clutter, D-014's brief); naming the app that
+  changed the volume (endpoint notifications don't say who; per-session peeking guesses); a new row (the event line
+  already has the place and the style).
+- Revisit if: a meeting app sets an artist (then also show the app when the title matches the app's own name), or
+  Windows' own sliders saying "by an app" bothers the user.

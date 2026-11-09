@@ -109,7 +109,7 @@ public sealed partial class OsdWindow : Window
         _animation.Tick(now);
         if (wasHidden)
             EnsureTopmost();
-        RenderDevice(state.Device);
+        RenderEvent(state);
         Render(state, fade: !wasHidden);
         Animate();
         _hideTimer.Stop();
@@ -160,19 +160,47 @@ public sealed partial class OsdWindow : Window
         SizeFill(BrightnessTrack, BrightnessFill, _brightnessPercent);
     }
 
-    // Only the show that announces a device has one; every other show clears the line (D-014).
-    private void RenderDevice(DeviceNotice? device)
+    // Only the show that announces a device, or says why it popped, has the line; every other show clears it
+    // (D-014, D-042).
+    private void RenderEvent(OsdState state)
     {
         // Explicitly fully visible: with "Animation effects" now off, no entrance runs to set it.
         _eventEntrance?.Stop();
         EventRow.Opacity = 1;
         EventIconScale.ScaleX = EventIconScale.ScaleY = 1;
-        if (device is null)
+        if (state.Device is { } device)
+            RenderDevice(device);
+        else if (state.Cause is { } cause)
+            RenderCause(cause);
+        else
         {
             EventRow.Visibility = Visibility.Collapsed;
             return;
         }
         EventRow.Visibility = Visibility.Visible;
+        if (OverlayWindow.AnimationsEnabled())
+            AnimateEventEntrance();
+    }
+
+    // Secondary, like a device that went: it explains the show, it isn't news in itself.
+    private void RenderCause(OsdCause cause)
+    {
+        EventName.Text = cause.Subject;
+        EventStatus.Text = cause.Status;
+        EventIcon.Glyph = cause.Kind switch
+        {
+            OsdCauseKind.Media => "",      // Audio, as the cover placeholder
+            OsdCauseKind.Microphone => "", // Microphone
+            _ => "",                       // Volume
+        };
+        EventName.Style = (Style)Root.Resources["OsdEventNameCause"];
+        EventIcon.Style = (Style)Root.Resources["OsdEventIconGone"];
+        EventStatus.Style = (Style)Root.Resources["OsdEventStatusGone"];
+    }
+
+    private void RenderDevice(DeviceNotice device)
+    {
+        EventName.Style = (Style)Root.Resources["OsdTitle"];
         var name = device.Name.Length == 0 ? "Audio device" : device.Name;
         EventName.Text = device.Others == 0
             ? name
@@ -194,8 +222,6 @@ public sealed partial class OsdWindow : Window
             PressAnswer.ConnectFailed => "Couldn't connect",
             _ => device.Connected ? "Connected" : "Disconnected",
         };
-        if (OverlayWindow.AnimationsEnabled())
-            AnimateEventEntrance();
     }
 
     // The line fades in and its glyph settles from a smaller scale; independent animations, so they run on

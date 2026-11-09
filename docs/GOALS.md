@@ -43,6 +43,9 @@ this file and know what to build next. History of *why* lives in [DECISIONS.md](
   turned on there, Ctrl preselected, volume's default unchanged (user, 2026-10-28; D-039, D-040). Other monitors
   (DDC/CI) and a monitor-selection field come later.
 
+- When it isn't obvious why the OSD popped, it says so: calls and meetings act like a media session and
+  trigger it without artist/song details (user, 2026-11-08; D-042).
+
 ## Later (not v1)
 
 - v2: code signing (SmartScreen, D-029).
@@ -163,7 +166,15 @@ this file and know what to build next. History of *why* lives in [DECISIONS.md](
      5 % floor, both refusals, no native flyout (Q4 narrowed), no log errors. Not seen: lid closed / docked, the
      level after sleep and resume, a physical wheel, a secondary / auto-hide taskbar, external monitors.
 
-**Next step:** the user tries the volume % roll (D-037) with a held key and the wheel (single steps seen
+- [x] Why it popped (0.8.0, D-042): the event line names the player for a show with no artist ("Zen · Playing"),
+  says "Changed by an app" / "Muted by an app" for volume/mute without a key or wheel, and "Microphone · Muted". Seen
+  2026-11-08 in the log with a browser-pane page titled "Weekly sync" (`cause="Claude: Playing"` / `Paused`, the
+  packaged app's name resolved). Not seen: the line on screen (captures came out black), a real Teams/Zoom/Meet
+  call, a volume change by an app.
+
+**Next step:** the user looks at the "why" line (D-042) during a real call: does it name the meeting app, and are
+"Changed by an app" / "Microphone · Muted" right or noisy? A call that still pops without a line: grep the log
+for its `show` line and `media:` line. Then the user tries the volume % roll (D-037) with a held key and the wheel (single steps seen
 in a capture), and greps the log for `osd: was not topmost` now and then: its foreground names what drops our
 topmost (D-038; first lead PowerToys Mouse Without Borders). Then the user scrolls the taskbar with a real wheel for a day (Windhawk's taskbar-volume mod off, X-009) and
 reports back: physical and high-resolution notches, a fullscreen game with the cursor at the bottom edge (must do

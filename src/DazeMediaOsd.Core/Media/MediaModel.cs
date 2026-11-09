@@ -3,9 +3,10 @@ namespace DazeMediaOsd.Core.Media;
 /// <summary>
 /// The current media session (what the native flyout's media panel shows). <paramref name="Thumbnail"/> is
 /// the encoded image (PNG/JPEG) as the player supplied it, or null. Records compare arrays by reference:
-/// <see cref="GsmtcMediaService"/> keeps the same array while the image is unchanged.
+/// <see cref="GsmtcMediaService"/> keeps the same array while the image is unchanged. <paramref name="AppName"/>
+/// is the player as the Start menu names it, empty if unknown (<see cref="AppNames"/>).
 /// </summary>
-public sealed record MediaState(string AppId, string Title, string Artist, bool IsPlaying, byte[]? Thumbnail);
+public sealed record MediaState(string AppId, string Title, string Artist, bool IsPlaying, byte[]? Thumbnail, string AppName = "");
 
 public interface IMediaService : IDisposable
 {

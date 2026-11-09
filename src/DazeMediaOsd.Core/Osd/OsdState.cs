@@ -39,14 +39,28 @@ public enum OsdReason
     Brightness,
 }
 
+/// <summary>What a <see cref="OsdCause"/> line is about; the window picks its glyph.</summary>
+public enum OsdCauseKind
+{
+    Media,
+    Volume,
+    Microphone,
+}
+
+/// <summary>
+/// Why the OSD popped, for a show whose rows don't say (D-042): "Zen · Playing", "Volume · Changed by an app".
+/// </summary>
+public sealed record OsdCause(OsdCauseKind Kind, string Subject, string Status);
+
 /// <summary>
 /// Everything the OSD window renders. Immutable: a new instance per show, the window just rebinds.
 /// <paramref name="Device"/> is the device that came or went, only on the show that announces it (D-014).
 /// <paramref name="Brightness"/> turns the OSD into the brightness layout instead of the devices (D-040).
+/// <paramref name="Cause"/> says why it popped when nothing else on it does (D-042).
 /// </summary>
 public sealed record OsdState(
     EndpointState? Output, EndpointState? Input, MediaState? Media, OsdReason Reason, DeviceNotice? Device = null,
-    BrightnessState? Brightness = null)
+    BrightnessState? Brightness = null, OsdCause? Cause = null)
 {
     public static OsdState From(AudioSnapshot audio, MediaState? media, OsdReason reason)
     {
@@ -65,7 +79,8 @@ public sealed record OsdState(
             _ => Device.Connected ? "connected" : "disconnected",
         }}"
             + $"{(Device.Bluetooth ? " bt" : "")}{(Device.Kind == DeviceKind.Other ? "" : " " + Device.Kind)}{(Device.Others > 0 ? " +" + Device.Others.ToString(CultureInfo.InvariantCulture) : "")}")
-        + (Brightness is null ? "" : string.Create(CultureInfo.InvariantCulture, $" brightness=\"{Brightness.Name}\" {Brightness.Percent}"));
+        + (Brightness is null ? "" : string.Create(CultureInfo.InvariantCulture, $" brightness=\"{Brightness.Name}\" {Brightness.Percent}"))
+        + (Cause is null ? "" : $" cause=\"{Cause.Subject}: {Cause.Status}\"");
 
     public static string Describe(AudioSnapshot audio)
     {

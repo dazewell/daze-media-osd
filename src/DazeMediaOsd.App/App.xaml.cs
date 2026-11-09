@@ -100,7 +100,11 @@ public sealed partial class App : Application, IDisposable
         {
             _wheel = new TaskbarWheelSource(() => _audio.Current.Output?.Name);
             _wheelVolume = new WheelVolume(_wheel, _audio, () => _settings.Current);
-            _wheelVolume.Stepped += (_, _) => ui.TryEnqueue(() => Show(_osd.Snapshot(OsdReason.Wheel)));
+            _wheelVolume.Stepped += (_, _) =>
+            {
+                _osd.UserActed(); // here, before the step: the UI-thread snapshot may come after its change
+                ui.TryEnqueue(() => Show(_osd.Snapshot(OsdReason.Wheel)));
+            };
             // The screen is only touched once a notch or the settings page asks for it (D-041).
             _brightness = new BrightnessService(new WmiBrightnessBackend());
             _brightness.Changed += (_, state) =>

@@ -114,7 +114,11 @@ can't verify visually, say so explicitly instead of claiming it works.
   scaled-down top-left part of the screen. The OSD is a layered window (D-012): a screen copy without
   `CAPTUREBLT` leaves it out and shows what's under it. `CopyFromScreen` rejects that flag; P/Invoke `BitBlt`
   from `GetDC(0)` with `0x40CC0020` (SRCCOPY | CAPTUREBLT). That catches mid-animation frames too;
-  `PrintWindow(hwnd, hdc, 2)` only renders final XAML values, without the acrylic.
+  `PrintWindow(hwnd, hdc, 2)` only renders final XAML values, without the acrylic. On 2026-11-08 (4K screen,
+  unlocked) both gave the OSD's frame with a black body; cause unknown. If that happens, say so and ask the user
+  to look rather than claiming it was seen.
+  Timing a capture: read the log's line count first and pass it in, then trigger; the script waits for a new
+  `INFO show` line past it (starting the script, then triggering, races its 1–2 s startup).
 - If the OSD shows behind other windows, check its ex style for `WS_EX_TOPMOST` (0x8); the log says
   `osd: was not topmost` (with the foreground window) when a show had to put it back (D-038).
   To test that path: `SetWindowPos(osd, HWND_NOTOPMOST, …, SWP_NOMOVE|SWP_NOSIZE|SWP_NOACTIVATE)` from

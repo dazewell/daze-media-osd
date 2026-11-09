@@ -21,8 +21,9 @@ public sealed class WheelVolume : IDisposable
     }
 
     /// <summary>
-    /// A step was asked for. Raised on the source thread; show the OSD, like a volume key: at 0 % or 100 % no
-    /// volume change follows to show it.
+    /// A step was asked for. Raised on the source thread right before the step, so the volume change that
+    /// follows is known as the user's (D-042). Show the OSD, like a volume key: at 0 % or 100 % no volume change
+    /// follows to show it.
     /// </summary>
     public event EventHandler? Stepped;
 
@@ -34,7 +35,6 @@ public sealed class WheelVolume : IDisposable
         var notches = _notches.Add(e.Delta);
         if (notches == 0)
             return;
-        _audio.StepOutputVolume(notches * settings.WheelVolumeStep / 100f);
         try
         {
             Stepped?.Invoke(this, EventArgs.Empty);
@@ -43,6 +43,7 @@ public sealed class WheelVolume : IDisposable
         {
             Log.Error("wheel volume handler", ex);
         }
+        _audio.StepOutputVolume(notches * settings.WheelVolumeStep / 100f);
     }
 
     public void Dispose() => _source.Wheeled -= OnWheeled;

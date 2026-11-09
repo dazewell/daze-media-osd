@@ -66,6 +66,10 @@
             <Style x:Key="OsdEventStatusGone" TargetType="TextBlock" BasedOn="{StaticResource OsdEventStatus}">
                 <Setter Property="Foreground" Value="{ThemeResource TextFillColorSecondaryBrush}" />
             </Style>
+            <!-- Why it popped (D-042): the whole line secondary, it explains the show rather than being news. -->
+            <Style x:Key="OsdEventNameCause" TargetType="TextBlock" BasedOn="{StaticResource OsdTitle}">
+                <Setter Property="Foreground" Value="{ThemeResource TextFillColorSecondaryBrush}" />
+            </Style>
         </StackPanel.Resources>
 
         <!-- Device event line, only on the show that announces a connect/disconnect (D-014). Same grid as

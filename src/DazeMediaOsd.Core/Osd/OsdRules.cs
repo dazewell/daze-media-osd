@@ -52,4 +52,28 @@ public static class OsdRules
         var newTrack = before.Title != after.Title || before.Artist != after.Artist;
         return newTrack || before.IsPlaying != after.IsPlaying ? OsdReason.MediaPlayback : null;
     }
+
+    /// <summary>
+    /// The line that says why the OSD popped, when its rows don't (user, 2026-11-08; D-042): a call or a page
+    /// that registers as a player has a title but no artist, and an app or Windows can change the volume or
+    /// mute the mic without a key. <paramref name="userJustActed"/>: a volume key or wheel step came within
+    /// <see cref="OsdController.UserWindow"/>, so the change is the user's own.
+    /// </summary>
+    public static OsdCause? CauseOf(OsdState state, bool userJustActed)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        if (state.Device is not null || state.Brightness is not null)
+            return null; // those say what happened themselves
+        return state.Reason switch
+        {
+            OsdReason.MediaPlayback when state.Media is { Artist.Length: 0 } media =>
+                new(OsdCauseKind.Media, media.AppName.Length == 0 ? "Media" : media.AppName, media.IsPlaying ? "Playing" : "Paused"),
+            OsdReason.VolumeChanged when !userJustActed => new(OsdCauseKind.Volume, "Volume", "Changed by an app"),
+            OsdReason.MuteChanged when !userJustActed =>
+                new(OsdCauseKind.Volume, "Sound", state.Output is { Muted: true } ? "Muted by an app" : "Unmuted by an app"),
+            OsdReason.InputMuteChanged =>
+                new(OsdCauseKind.Microphone, "Microphone", state.Input is { Muted: true } ? "Muted" : "Unmuted"),
+            _ => null,
+        };
+    }
 }
