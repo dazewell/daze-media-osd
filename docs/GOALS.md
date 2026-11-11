@@ -171,8 +171,13 @@ this file and know what to build next. History of *why* lives in [DECISIONS.md](
   2026-11-08 in the log with a browser-pane page titled "Weekly sync" (`cause="Claude: Playing"` / `Paused`, the
   packaged app's name resolved). Not seen: the line on screen (captures came out black), a real Teams/Zoom/Meet
   call, a volume change by an app.
+- [x] 0.8.1: the OSD keeps its size when a monitor, scaling or resolution changes (D-043): moved onto the target
+  screen before measuring, re-placed while visible. Seen with sent messages on one monitor only.
 
-**Next step:** the user looks at the "why" line (D-042) during a real call: does it name the meeting app, and are
+**Next step:** the user plugs the Dell in and out with the OSD popping (and changes scaling or resolution while it's
+up, if convenient): the OSD must keep its normal size, content not centred in a bigger box (D-043). Grep the log
+for `osd: moved onto` and `osd: re-placed`; a `moved onto` whose "now" equals the old % means the D-043 fallback is
+due. Then the user looks at the "why" line (D-042) during a real call: does it name the meeting app, and are
 "Changed by an app" / "Microphone · Muted" right or noisy? A call that still pops without a line: grep the log
 for its `show` line and `media:` line. Then the user tries the volume % roll (D-037) with a held key and the wheel (single steps seen
 in a capture), and greps the log for `osd: was not topmost` now and then: its foreground names what drops our

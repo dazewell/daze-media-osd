@@ -54,6 +54,8 @@ public sealed partial class OsdWindow : Window
     private readonly Stopwatch _clock = Stopwatch.StartNew();
     private bool _ticking;
     private (int X, int Y, int Width, int Height) _bounds;
+    private readonly DisplayChangeHook _displayChanges;
+    private bool _replacePending;
 
     public OsdWindow(AppSettings settings)
     {
@@ -75,6 +77,8 @@ public sealed partial class OsdWindow : Window
         }
         _hwnd = Win32Interop.GetWindowFromWindowId(AppWindow.Id);
         OverlayWindow.Apply(_hwnd);
+        _displayChanges = new DisplayChangeHook(_hwnd);
+        _displayChanges.Changed += OnDisplayChanged;
 
         _hideTimer = DispatcherQueue.CreateTimer();
         _hideTimer.IsRepeating = false;
@@ -458,16 +462,47 @@ public sealed partial class OsdWindow : Window
     // sizes the client area; the native border sits outside it, else it clips Root's right and bottom edge.
     private void Place()
     {
+        var area = DisplayArea.Primary.WorkArea;
+        MoveOntoScreen(area);
         var scale = OverlayWindow.Scale(_hwnd);
         Root.Measure(new Size(Root.Width, double.PositiveInfinity));
         var (frameWidth, frameHeight) = OverlayWindow.FrameSize(_hwnd);
         var width = (int)Math.Ceiling(Root.Width * scale) + frameWidth;
         var height = (int)Math.Ceiling(Root.DesiredSize.Height * scale) + frameHeight;
-        var area = DisplayArea.Primary.WorkArea;
         var (x, y) = OsdPlacement.Place(new PixelRect(area.X, area.Y, area.Width, area.Height), width, height,
             _settings.Position, (int)Math.Round(MarginDip * scale));
         _bounds = (x, y, width, height);
         ApplyFrame();
+    }
+
+    // The window keeps the DPI of where it was last shown. Sized with that DPI and then moved onto a screen with
+    // another one, WinUI redraws the content at the new scale inside the old-scale size: content centred in a too
+    // big (or clipped in a too small) window, seen after a monitor was plugged in (D-043). Move first, measure after.
+    private void MoveOntoScreen(Windows.Graphics.RectInt32 area)
+    {
+        var target = OverlayWindow.MonitorDpi(area.X, area.Y, area.Width, area.Height);
+        var current = OverlayWindow.Dpi(_hwnd);
+        if (target == 0 || target == current)
+            return;
+        _ = OverlayWindow.MoveTo(_hwnd, area.X + area.Width / 2, area.Y + area.Height / 2);
+        Log.Info($"osd: moved onto a {target * 100 / 96} % screen from {current * 100 / 96} %, now {OverlayWindow.Dpi(_hwnd) * 100 / 96} %");
+    }
+
+    // Scaling, resolution or the screen layout changed: a visible OSD re-measures and re-places (D-043). Deferred:
+    // the hook runs inside the message, before WinUI has re-laid-out at the new scale.
+    private void OnDisplayChanged(object? sender, string reason)
+    {
+        if (_animation.IsHidden || _replacePending)
+            return;
+        _replacePending = true;
+        _ = DispatcherQueue.TryEnqueue(DispatcherQueuePriority.Low, () =>
+        {
+            _replacePending = false;
+            if (_animation.IsHidden)
+                return;
+            Place();
+            Log.Info($"osd: re-placed after {reason}: {_bounds.Width}x{_bounds.Height} at {_bounds.X},{_bounds.Y}");
+        });
     }
 
     // Steps the animation once per composition frame while it runs; idle otherwise.

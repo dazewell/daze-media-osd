@@ -214,6 +214,10 @@ unit-tested with fakes. App never P/Invokes directly; window styling goes throug
   device event line (28 row + 12 + 1 hairline + 12; D-014), taller
   when Windows text size is above 100 %. The border frame is added on top (`OverlayWindow.FrameSize`,
   24 × 12 px at 175 %); sizing the window rect to `Root` clipped its right/bottom edge.
+- Display changes (D-043): the window keeps the DPI of where it was last shown; `Place` moves it onto the target
+  screen first when the DPI differs, then measures. A visible OSD re-places after `WM_DPICHANGED`,
+  `WM_DISPLAYCHANGE` or a work-area change. Seen 2026-11-11 with sent messages on one monitor (re-placed, same
+  size, no loop); a real second monitor or scaling change not seen yet.
 - Layout: 4-px grid, padding 16, rows min 28 high with shared min columns 20 / * / 44 so names, bar and
   values align; text honours the Windows text-size setting (rows/columns grow, never clip). Level bar
   is our own track + fill (X-002), set without animation; nothing drawn at 0 %.
@@ -247,7 +251,7 @@ unit-tested with fakes. App never P/Invokes directly; window styling goes throug
   composition) — not compared with the unanimated build.
 - Theme: follows a live system light/dark switch (acrylic + ThemeResource brushes); seen 2026-10-24
   switching 4× from Settings, no crash (X-007).
-- Not verified yet: multi-monitor/DPI change, show latency, "Animation effects" off (needs
+- Not verified yet: a real DPI change (D-043), show latency, "Animation effects" off (needs
   changing the user's setting).
 
 ## Brightness (verified on build 26300, 2026-10-29; D-039, D-040, D-041)
