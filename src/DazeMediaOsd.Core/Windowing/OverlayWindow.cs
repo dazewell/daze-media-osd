@@ -84,4 +84,24 @@ public static class OverlayWindow
 
     /// <summary>Device pixels per DIP for the monitor the window is on.</summary>
     public static double Scale(nint hwnd) => PInvoke.GetDpiForWindow((HWND)hwnd) / 96.0;
+
+    /// <summary>The window's DPI (96 = 100 %).</summary>
+    public static uint Dpi(nint hwnd) => PInvoke.GetDpiForWindow((HWND)hwnd);
+
+    /// <summary>
+    /// Whether the window is on the monitor that holds most of the given physical-pixel rect. Compares monitors, not
+    /// DPIs: the window's DPI only follows a move, and GetDpiForMonitor is documented as not for PMv2 callers.
+    /// </summary>
+    public static bool IsOnMonitorOf(nint hwnd, int x, int y, int width, int height) =>
+        PInvoke.MonitorFromWindow((HWND)hwnd, MONITOR_FROM_FLAGS.MONITOR_DEFAULTTONEAREST)
+        == PInvoke.MonitorFromRect(new RECT(x, y, x + width, y + height), MONITOR_FROM_FLAGS.MONITOR_DEFAULTTOPRIMARY);
+
+    /// <summary>
+    /// Moves the window's top-left to (x, y) without sizing, showing, activating or changing z-order, so a move
+    /// onto another monitor applies that monitor's DPI (WM_DPICHANGED) and frame before anything is measured.
+    /// </summary>
+    public static bool MoveTo(nint hwnd, int x, int y) =>
+        PInvoke.SetWindowPos((HWND)hwnd, HWND.Null, x, y, 0, 0,
+            SET_WINDOW_POS_FLAGS.SWP_NOSIZE | SET_WINDOW_POS_FLAGS.SWP_NOZORDER | SET_WINDOW_POS_FLAGS.SWP_NOACTIVATE
+            | SET_WINDOW_POS_FLAGS.SWP_FRAMECHANGED);
 }
