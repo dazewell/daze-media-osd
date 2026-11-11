@@ -88,13 +88,13 @@ public static class OverlayWindow
     /// <summary>The window's DPI (96 = 100 %).</summary>
     public static uint Dpi(nint hwnd) => PInvoke.GetDpiForWindow((HWND)hwnd);
 
-    /// <summary>Effective DPI of the monitor that holds most of the given physical-pixel rect; 0 if unknown.</summary>
-    public static uint MonitorDpi(int x, int y, int width, int height)
-    {
-        var monitor = PInvoke.MonitorFromRect(new RECT(x, y, x + width, y + height), MONITOR_FROM_FLAGS.MONITOR_DEFAULTTOPRIMARY);
-        return PInvoke.GetDpiForMonitor(monitor, Windows.Win32.UI.HiDpi.MONITOR_DPI_TYPE.MDT_EFFECTIVE_DPI, out var dpiX, out _).Succeeded
-            ? dpiX : 0;
-    }
+    /// <summary>
+    /// Whether the window is on the monitor that holds most of the given physical-pixel rect. Compares monitors, not
+    /// DPIs: the window's DPI only follows a move, and GetDpiForMonitor is documented as not for PMv2 callers.
+    /// </summary>
+    public static bool IsOnMonitorOf(nint hwnd, int x, int y, int width, int height) =>
+        PInvoke.MonitorFromWindow((HWND)hwnd, MONITOR_FROM_FLAGS.MONITOR_DEFAULTTONEAREST)
+        == PInvoke.MonitorFromRect(new RECT(x, y, x + width, y + height), MONITOR_FROM_FLAGS.MONITOR_DEFAULTTOPRIMARY);
 
     /// <summary>
     /// Moves the window's top-left to (x, y) without sizing, showing, activating or changing z-order, so a move

@@ -480,12 +480,11 @@ public sealed partial class OsdWindow : Window
     // big (or clipped in a too small) window, seen after a monitor was plugged in (D-043). Move first, measure after.
     private void MoveOntoScreen(Windows.Graphics.RectInt32 area)
     {
-        var target = OverlayWindow.MonitorDpi(area.X, area.Y, area.Width, area.Height);
-        var current = OverlayWindow.Dpi(_hwnd);
-        if (target == 0 || target == current)
+        if (OverlayWindow.IsOnMonitorOf(_hwnd, area.X, area.Y, area.Width, area.Height))
             return;
+        var before = OverlayWindow.Dpi(_hwnd);
         _ = OverlayWindow.MoveTo(_hwnd, area.X + area.Width / 2, area.Y + area.Height / 2);
-        Log.Info($"osd: moved onto a {target * 100 / 96} % screen from {current * 100 / 96} %, now {OverlayWindow.Dpi(_hwnd) * 100 / 96} %");
+        Log.Info($"osd: moved onto the primary screen: {before * 100 / 96} % -> {OverlayWindow.Dpi(_hwnd) * 100 / 96} %");
     }
 
     // Scaling, resolution or the screen layout changed: a visible OSD re-measures and re-places (D-043). Deferred:

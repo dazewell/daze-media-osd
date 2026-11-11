@@ -215,7 +215,7 @@ unit-tested with fakes. App never P/Invokes directly; window styling goes throug
   when Windows text size is above 100 %. The border frame is added on top (`OverlayWindow.FrameSize`,
   24 × 12 px at 175 %); sizing the window rect to `Root` clipped its right/bottom edge.
 - Display changes (D-043): the window keeps the DPI of where it was last shown; `Place` moves it onto the target
-  screen first when the DPI differs, then measures. A visible OSD re-places after `WM_DPICHANGED`,
+  screen first when it is on another monitor, then measures. A visible OSD re-places after `WM_DPICHANGED`,
   `WM_DISPLAYCHANGE` or a work-area change. Seen 2026-11-11 with sent messages on one monitor (re-placed, same
   size, no loop); a real second monitor or scaling change not seen yet.
 - Layout: 4-px grid, padding 16, rows min 28 high with shared min columns 20 / * / 44 so names, bar and

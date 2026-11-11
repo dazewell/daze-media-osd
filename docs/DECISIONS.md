@@ -702,11 +702,11 @@ Status: accepted
 
 ## D-043 · 2026-11-11 · The OSD moves onto the target screen before it measures, and re-places on display changes
 Status: accepted
-- Decision: `Place` first moves the window onto the primary work area when that monitor's DPI differs from the
-  window's (`SetWindowPos` without size/show/z-order, `SWP_FRAMECHANGED`), so WinUI applies the new scale and frame
+- Decision: `Place` first moves the window onto the primary work area when it sits on another monitor
+  (`MonitorFromWindow` ≠ `MonitorFromRect`; not `GetDpiForMonitor`, documented as not for PMv2 callers; `SetWindowPos` without size/show/z-order, `SWP_FRAMECHANGED`), so WinUI applies the new scale and frame
   before `Root` is measured and the frame read. A `DisplayChangeHook` (comctl32 subclass, runs after WinUI) catches
   `WM_DPICHANGED`, `WM_DISPLAYCHANGE` and `WM_SETTINGCHANGE`/`SPI_SETWORKAREA`; a visible OSD re-places once, deferred
-  on the dispatcher. Log: `osd: moved onto a <n> % screen`, `osd: re-placed after <reason>`.
+  on the dispatcher. Log: `osd: moved onto the primary screen: <old> % -> <new> %`, `osd: re-placed after <reason>`.
 - Why: the user saw the OSD far too big with its content centred inside (2026-11-11). A plugged/unplugged monitor
   pops the OSD (display audio, D-014) at the moment the layout changes: sized with the DPI of where it was last
   hidden, then moved to a screen with another DPI, WinUI redraws at the new scale inside the old-scale size.
@@ -714,5 +714,5 @@ Status: accepted
 - Why not: computing size and frame for the target DPI ourselves (`AdjustWindowRectExForDpi` would have to match
   WinUI's non-client handling, and XAML would still rescale after the move); `XamlRoot.Changed` (fires on every
   resize too, and doesn't cover a resolution change at the same DPI).
-- Revisit if: the log shows `moved onto` with the "now" DPI unchanged — a hidden window then doesn't take the new
-  DPI on a move, and the size has to be computed for the target DPI instead.
+- Revisit if: the log shows `moved onto` with the new % equal to the old where the screens' scales differ — a
+  hidden window then doesn't take the new DPI on a move, and the size has to be computed for the target DPI instead.

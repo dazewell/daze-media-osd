@@ -120,7 +120,6 @@ RPC_C_AUTHN_LEVEL
 RPC_C_IMP_LEVEL
 EOLE_AUTHENTICATION_CAPABILITIES
 MonitorFromRect
-GetDpiForMonitor
 SetWindowSubclass
 DefSubclassProc
 RemoveWindowSubclass

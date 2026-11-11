@@ -176,8 +176,8 @@ this file and know what to build next. History of *why* lives in [DECISIONS.md](
 
 **Next step:** the user plugs the Dell in and out with the OSD popping (and changes scaling or resolution while it's
 up, if convenient): the OSD must keep its normal size, content not centred in a bigger box (D-043). Grep the log
-for `osd: moved onto` and `osd: re-placed`; a `moved onto` whose "now" equals the old % means the D-043 fallback is
-due. Then the user looks at the "why" line (D-042) during a real call: does it name the meeting app, and are
+for `osd: moved onto` and `osd: re-placed`; a `moved onto` whose new % equals the old where the screens' scales
+differ means the D-043 fallback is due. Then the user looks at the "why" line (D-042) during a real call: does it name the meeting app, and are
 "Changed by an app" / "Microphone · Muted" right or noisy? A call that still pops without a line: grep the log
 for its `show` line and `media:` line. Then the user tries the volume % roll (D-037) with a held key and the wheel (single steps seen
 in a capture), and greps the log for `osd: was not topmost` now and then: its foreground names what drops our
