@@ -175,7 +175,8 @@ this file and know what to build next. History of *why* lives in [DECISIONS.md](
 - [x] 0.8.1: the OSD keeps its size when a monitor, scaling or resolution changes (D-043): moved onto the target
   screen before measuring, re-placed while visible. Seen with sent messages on one monitor only.
 - [x] 0.9.0: renamed to Surtitle, visible name only (D-044). Seen in a Debug build: settings window title, exe
-  FileDescription and ProductName. Not seen: the tray tooltip, About, the Start menu shortcut and the Settings → Apps
+  FileDescription and ProductName, the About page with its new description. README and the GitHub description
+  rewritten in plain words for users, the technical part under "For developers" (user, 2026-11-13). Not seen: the tray tooltip, the Start menu shortcut and the Settings → Apps
   entry after an update from 0.8.1 (Velopack may keep the old shortcut name), the hero image (still the old shots).
 
 **Next step:** after the 0.9.0 update lands on the daily driver, look at the Start menu and Settings → Apps: one
