@@ -24,7 +24,7 @@ if ($LASTEXITCODE -ne 0) { throw "Publish failed ($LASTEXITCODE)." }
 if (-not (Test-Path (Join-Path $publish 'DazeMediaOsd.pri'))) { throw 'Publish has no DazeMediaOsd.pri (X-004).' }
 
 dotnet vpk pack --packId $packId --packVersion $version --packDir $publish --mainExe DazeMediaOsd.exe `
-    --packTitle 'Daze Media OSD' --packAuthors dazewell --icon (Join-Path $root 'src/DazeMediaOsd.App/Assets/app.ico') `
+    --packTitle 'Surtitle' --packAuthors dazewell --icon (Join-Path $root 'src/DazeMediaOsd.App/Assets/app.ico') `
     --shortcuts StartMenuRoot --outputDir $Output
 if ($LASTEXITCODE -ne 0) { throw "vpk pack failed ($LASTEXITCODE)." }
 Write-Host "Packed $version into $Output"

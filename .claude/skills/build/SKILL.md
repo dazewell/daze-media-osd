@@ -132,13 +132,13 @@ can't verify visually, say so explicitly instead of claiming it works.
   from a script, but then its `SetForegroundWindow` fails (foreground lock) and keys go elsewhere:
   pick items with the mouse (`SetCursorPos` + `mouse_event`, physical pixels after the DPI call). A clean stop
   for testing: tray → Exit. Left-click opens the settings window (also `WinUIDesktopWin32WindowClass`,
-  title `Daze Media OSD`).
+  title `Surtitle`).
 - Settings live in `%LOCALAPPDATA%\DazeMediaOsd\settings.json` and hold the user's real settings: copy
   it before a test that changes settings and restore it byte-for-byte afterwards (compare
   `Get-FileHash`), with the app stopped. Never delete it. Every change shows a preview OSD (log
   `show SettingsPreview`). UI Automation drives the window: post `WM_APP+1` with lParam
   `0x400 | (1 << 16)` (NIN_SELECT, icon 1) to the `DazeMediaOsd.Tray` window to open it (title
-  `Daze Media OSD`); toggles are found by their `AutomationProperties.Name` (e.g. "Show now playing"); the nav items are
+  `Surtitle`); toggles are found by their `AutomationProperties.Name` (e.g. "Show now playing"); the nav items are
   "Pop-up", "Shortcuts", "Mouse wheel", "About". The window can open behind others: capture it with
   `PrintWindow(hwnd, dc, 2)`. Scroll it with the `ScrollPattern` (`SetScrollPercent`). The UIA tree omits
   elements that are scrolled out of view, so scroll a card in before looking for its text. A WinUI ComboBox has no

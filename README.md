@@ -1,12 +1,12 @@
 <p align="center">
-  <img src="docs/images/hero.png" alt="Daze Media OSD: the volume pop-up with your speakers, microphone, what's playing and a device alert, in front of its settings window" width="100%">
+  <img src="docs/images/hero.png" alt="Surtitle: the volume pop-up with your speakers, microphone, what's playing and a device alert, in front of its settings window" width="100%">
 </p>
 
 <p align="center">
   <img src="https://img.shields.io/badge/Windows%2011-24H2%2B-0078D4?logo=windows11&logoColor=white" alt="Windows 11 24H2+">
   <img src="https://img.shields.io/badge/.NET-10-512BD4?logo=dotnet&logoColor=white" alt=".NET 10">
   <img src="https://img.shields.io/badge/WinUI-3-6B4FBB" alt="WinUI 3">
-  <img src="https://img.shields.io/badge/version-0.8.1-F5B83D" alt="Version 0.8.1">
+  <img src="https://img.shields.io/badge/version-0.9.0-F5B83D" alt="Version 0.9.0">
   <img src="https://img.shields.io/badge/no%20admin-fail--open-2EA043" alt="No admin, fail-open">
   <img src="https://img.shields.io/badge/license-GPL--3.0-blue" alt="License: GPL-3.0-or-later">
 </p>
@@ -14,7 +14,7 @@
 <h3 align="center">Press a volume key. See everything.</h3>
 
 <p align="center">
-Windows tells you the volume and nothing else. <b>Daze Media OSD</b> replaces that pop-up with one that also
+Windows tells you the volume and nothing else. <b>Surtitle</b> replaces that pop-up with one that also
 shows <b>which speaker or headphones</b> you're on, <b>whether your mic is muted</b>, <b>what's playing</b>,
 and <b>which device just connected</b>. It looks like part of Windows 11, and it never gets in your way.
 </p>
@@ -82,7 +82,7 @@ runs the tests too).
 
 ## Status
 
-**0.8.1**, used every day on the author's machine. What's done and what's next:
+**0.9.0**, used every day on the author's machine. What's done and what's next:
 [docs/GOALS.md](docs/GOALS.md).
 
 ## Under the hood

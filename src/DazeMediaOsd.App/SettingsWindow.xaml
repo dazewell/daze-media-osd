@@ -5,7 +5,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:local="using:DazeMediaOsd.App"
     xmlns:viewModels="using:DazeMediaOsd.App.ViewModels"
-    Title="Daze Media OSD settings">
+    Title="Surtitle settings">
 
     <Grid>
         <Grid.RowDefinitions>
@@ -37,7 +37,7 @@
             </Style>
         </Grid.Resources>
 
-        <TitleBar x:Name="AppTitleBar" Title="Daze Media OSD" Subtitle="Settings" />
+        <TitleBar x:Name="AppTitleBar" Title="Surtitle" Subtitle="Settings" />
 
         <NavigationView x:Name="Navigation" Grid.Row="1"
                         PaneDisplayMode="Left" IsSettingsVisible="False" IsBackButtonVisible="Collapsed"
@@ -488,7 +488,7 @@
                             <Image Source="ms-appx:///Assets/app.png" Width="64" Height="64" VerticalAlignment="Center"
                                    AutomationProperties.AccessibilityView="Raw" />
                             <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
-                                <TextBlock Text="Daze Media OSD" Style="{StaticResource SubtitleTextBlockStyle}" />
+                                <TextBlock Text="Surtitle" Style="{StaticResource SubtitleTextBlockStyle}" />
                                 <TextBlock x:Name="VersionText" IsTextSelectionEnabled="True" />
                                 <TextBlock Text="A volume pop-up that also shows your audio devices and what's playing"
                                            Style="{StaticResource SettingsCardDescription}" />
