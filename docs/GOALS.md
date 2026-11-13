@@ -180,6 +180,7 @@ this file and know what to build next. History of *why* lives in [DECISIONS.md](
   entry after an update from 0.8.1 (Velopack may keep the old shortcut name).
 - [x] README shots re-taken with the new name, light and dark, hero without purple (user, 2026-11-13; build skill →
   README shots; `DAZEMEDIAOSD_THEME` forces the app's theme). Not re-taken: popup-device.png (old, light only).
+- [x] App icon tile recoloured teal (D-045). Seen: About image file, settings title bar. Not seen: taskbar, Start menu, Alt+Tab.
 
 **Next step:** after the 0.9.0 update lands on the daily driver, look at the Start menu and Settings → Apps: one
 entry, named Surtitle (D-044); a leftover "Daze Media OSD" shortcut is news. Then: the user plugs the Dell in and out with the OSD popping (and changes scaling or resolution while it's
