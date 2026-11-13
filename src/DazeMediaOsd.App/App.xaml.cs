@@ -44,6 +44,12 @@ public sealed partial class App : Application, IDisposable
     {
         _args = args;
         InitializeComponent();
+        // For README shots in the theme Windows isn't in (build skill); only settable before a window exists.
+        switch (Environment.GetEnvironmentVariable("DAZEMEDIAOSD_THEME")?.ToLowerInvariant())
+        {
+            case "light": RequestedTheme = ApplicationTheme.Light; break;
+            case "dark": RequestedTheme = ApplicationTheme.Dark; break;
+        }
         // Tray-resident: no window has to be open for the app to keep running.
         DispatcherShutdownMode = DispatcherShutdownMode.OnExplicitShutdown;
         // Logged, not handled: XAML then fail-fasts and the launcher restores the native flyout (D-006).

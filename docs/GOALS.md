@@ -177,7 +177,9 @@ this file and know what to build next. History of *why* lives in [DECISIONS.md](
 - [x] 0.9.0: renamed to Surtitle, visible name only (D-044). Seen in a Debug build: settings window title, exe
   FileDescription and ProductName, the About page with its new description. README and the GitHub description
   rewritten in plain words for users, the technical part under "For developers" (user, 2026-11-13). Not seen: the tray tooltip, the Start menu shortcut and the Settings → Apps
-  entry after an update from 0.8.1 (Velopack may keep the old shortcut name), the hero image (still the old shots).
+  entry after an update from 0.8.1 (Velopack may keep the old shortcut name).
+- [x] README shots re-taken with the new name, light and dark, hero without purple (user, 2026-11-13; build skill →
+  README shots; `DAZEMEDIAOSD_THEME` forces the app's theme). Not re-taken: popup-device.png (old, light only).
 
 **Next step:** after the 0.9.0 update lands on the daily driver, look at the Start menu and Settings → Apps: one
 entry, named Surtitle (D-044); a leftover "Daze Media OSD" shortcut is news. Then: the user plugs the Dell in and out with the OSD popping (and changes scaling or resolution while it's

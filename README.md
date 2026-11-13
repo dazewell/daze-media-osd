@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/images/hero.png" alt="Surtitle's pop-up showing the speakers, the microphone, the song that's playing and a device that just connected, in front of its settings window" width="100%">
+  <picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/hero-dark.png"><img src="docs/images/hero-light.png" alt="Surtitle's pop-up showing the song that's playing, the speakers at 48 and a muted microphone, in front of its settings window" width="100%"></picture>
 </p>
 
 <h1 align="center">Surtitle</h1>
@@ -23,7 +23,7 @@ speakers or the headphones, is my microphone muted, and what is this song?
 
 <table>
   <tr>
-    <td width="50%" align="center"><img src="docs/images/popup-media.png" alt="Pop-up with the song, speakers at 48 and a muted microphone"></td>
+    <td width="50%" align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/popup-media-dark.png"><img src="docs/images/popup-media-light.png" alt="Pop-up with the song, speakers at 48 and a muted microphone"></picture></td>
     <td width="50%" align="center"><img src="docs/images/popup-device.png" alt="Pop-up announcing a device that just connected"></td>
   </tr>
   <tr>
@@ -49,8 +49,8 @@ It looks like the rest of Windows 11, follows your light or dark theme, and disa
 
 <table>
   <tr>
-    <td width="50%" align="center"><img src="docs/images/settings-popup.png" alt="Pop-up settings: position, hide after, what to show, start with Windows"></td>
-    <td width="50%" align="center"><img src="docs/images/settings-shortcuts.png" alt="Shortcut settings: next output and one shortcut per device"></td>
+    <td width="50%" align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/settings-popup-dark.png"><img src="docs/images/settings-popup-light.png" alt="Pop-up settings: position, hide after, what to show, start with Windows"></picture></td>
+    <td width="50%" align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/settings-shortcuts-dark.png"><img src="docs/images/settings-shortcuts-light.png" alt="Shortcut settings: next output and one shortcut per device"></picture></td>
   </tr>
   <tr>
     <td align="center">Choose where the pop-up appears, how long it stays and what's on it. You see each change right away.</td>
