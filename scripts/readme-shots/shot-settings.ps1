@@ -17,13 +17,18 @@ public static class W2 {
   [DllImport("user32.dll")] public static extern void mouse_event(uint f, int dx, int dy, uint d, UIntPtr e);
   [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
   [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr h);
+  [DllImport("user32.dll")] public static extern IntPtr WindowFromPoint(POINT p);
+  [DllImport("user32.dll")] public static extern IntPtr GetAncestor(IntPtr h, uint f);
+  [DllImport("user32.dll")] public static extern bool SetWindowPos(IntPtr h, IntPtr after, int x, int y, int w, int ht, uint f);
   public struct POINT { public int X, Y; }
   public struct RECT { public int L, T, R, B; }
-  public static IntPtr Find(uint pid, string title) { IntPtr f = IntPtr.Zero; EnumWindows((h,l)=>{ uint p; GetWindowThreadProcessId(h, out p); var t=new StringBuilder(256); GetWindowText(h,t,256); if (p==pid && t.ToString()==title) f=h; return true; }, IntPtr.Zero); return f; }
+  public static IntPtr Find(uint pid, string title) { IntPtr f = IntPtr.Zero; EnumWindows((h,l)=>{ uint p; GetWindowThreadProcessId(h, out p); var t=new StringBuilder(256); GetWindowText(h,t,256); if (p==pid && t.ToString().StartsWith(title)) f=h; return true; }, IntPtr.Zero); return f; }
 }
 '@
 [void][W2]::SetProcessDpiAwarenessContext([IntPtr]-4)
 $app = Get-CimInstance Win32_Process -Filter "Name='DazeMediaOsd.exe'" | Where-Object { $_.CommandLine -match '--app' }
+# The settings window's native title is "Surtitle" today (the TitleBar control sets it) and "Surtitle settings" in
+# the XAML; the pop-up's is "DazeMediaOsd". A prefix match finds the settings window either way.
 $h = [W2]::Find([uint32]$app.ProcessId, 'Surtitle')
 if ($h -eq [IntPtr]::Zero) {
   $tray = [W2]::FindWindow('DazeMediaOsd.Tray', $null)
@@ -35,17 +40,28 @@ $root = [System.Windows.Automation.AutomationElement]::FromHandle($h)
 foreach ($page in $Pages) {
   $cond = New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::NameProperty, $page)
   $item = $root.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $cond)
-  $item.GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Select()
+  # A real click on the nav item, at the spot UI Automation reports for it: selecting through UI Automation leaves a
+  # keyboard focus frame on the item whenever the last input was a key, and a click anywhere else on the page moves
+  # focus into the first box (on Shortcuts that starts recording a shortcut). Cursor and foreground are put back.
+  $b = $item.Current.BoundingRectangle
+  $p = New-Object W2+POINT; [void][W2]::GetCursorPos([ref]$p); $fg = [W2]::GetForegroundWindow()
+  # Topmost for the click, and checked: SetForegroundWindow can be refused, and the click must not land elsewhere.
+  [void][W2]::SetWindowPos($h, [IntPtr]-1, 0, 0, 0, 0, 0x0013); [void][W2]::SetForegroundWindow($h)
+  $at = New-Object W2+POINT; $at.X = [int]($b.X + $b.Width / 2); $at.Y = [int]($b.Y + $b.Height / 2)
+  Start-Sleep -Milliseconds 200
+  if ([W2]::GetAncestor([W2]::WindowFromPoint($at), 2) -ne $h) {
+    [void][W2]::SetWindowPos($h, [IntPtr]-2, 0, 0, 0, 0, 0x0013); throw "The settings window isn't under the nav item '$page'; not clicking."
+  }
+  [void][W2]::SetCursorPos($at.X, $at.Y)
+  Start-Sleep -Milliseconds 150
+  [W2]::mouse_event(2, 0, 0, 0, [UIntPtr]::Zero); [W2]::mouse_event(4, 0, 0, 0, [UIntPtr]::Zero)
+  Start-Sleep -Milliseconds 150
+  [void][W2]::SetCursorPos($p.X, $p.Y)
+  [W2]::mouse_event(1, 1, 0, 0, [UIntPtr]::Zero); [W2]::mouse_event(1, -1, 0, 0, [UIntPtr]::Zero)   # so the hover state clears
   Start-Sleep -Milliseconds 1200
   $r = New-Object W2+RECT; [void][W2]::GetWindowRect($h, [ref]$r)
-  # A real click on the page title: selecting by UI Automation leaves a keyboard focus frame on the nav item
-  # whenever the last input was a key. Cursor and foreground window are put back.
-  $p = New-Object W2+POINT; [void][W2]::GetCursorPos([ref]$p); $fg = [W2]::GetForegroundWindow()
-  [void][W2]::SetForegroundWindow($h); [void][W2]::SetCursorPos($r.L + 1100, $r.T + 140)
-  [W2]::mouse_event(2, 0, 0, 0, [UIntPtr]::Zero); [W2]::mouse_event(4, 0, 0, 0, [UIntPtr]::Zero)
-  Start-Sleep -Milliseconds 500
   $bmp = New-Object System.Drawing.Bitmap ($r.R-$r.L), ($r.B-$r.T)
   $g = [System.Drawing.Graphics]::FromImage($bmp); $dc = $g.GetHdc(); [void][W2]::PrintWindow($h, $dc, 2); $g.ReleaseHdc($dc); $g.Dispose()
-  [void][W2]::SetCursorPos($p.X, $p.Y); [void][W2]::SetForegroundWindow($fg)
+  [void][W2]::SetWindowPos($h, [IntPtr]-2, 0, 0, 0, 0, 0x0013); [void][W2]::SetForegroundWindow($fg)
   $out = "$Prefix-$($page.ToLower()).png"; $bmp.Save($out); "$out $($bmp.Width)x$($bmp.Height)"
 }
