@@ -6,8 +6,8 @@ param([string]$OutDir = "$PSScriptRoot/../src/DazeMediaOsd.App/Assets", [string]
 
 Add-Type -AssemblyName System.Drawing
 $sizes = 16, 20, 24, 28, 32, 40, 48, 64, 256
-$top = [System.Drawing.Color]::FromArgb(255, 0x8B, 0x5C, 0xF6)    # violet
-$bottom = [System.Drawing.Color]::FromArgb(255, 0x25, 0x63, 0xEB) # blue
+$top = [System.Drawing.Color]::FromArgb(255, 0x1C, 0xA8, 0xB4)    # teal
+$bottom = [System.Drawing.Color]::FromArgb(255, 0x0A, 0x50, 0x60) # deep teal
 $warm = [System.Drawing.Color]::FromArgb(255, 0xFC, 0xD3, 0x4D)   # amber: the input's level
 
 function Snap([int]$size, [double]$units) { [Math]::Round($units * $size / 16) }

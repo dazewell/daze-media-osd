@@ -75,7 +75,7 @@ public sealed partial class SettingsWindow : Window
         .FirstOrDefault(a => a.Key == "WindowsAppSdkVersion")?.Value ?? "(unknown)";
 
     private static string Details() => string.Join(Environment.NewLine,
-        $"Daze Media OSD {AppVersion.Current}",
+        $"Surtitle {AppVersion.Current}",
         $"Windows {Environment.OSVersion.Version} {RuntimeInformation.OSArchitecture}",
         $"{RuntimeInformation.FrameworkDescription}, Windows App SDK {WindowsAppSdkVersion()}",
         Environment.ProcessPath);

@@ -396,7 +396,7 @@ Status: accepted; releases: the tag must equal `<Version>` (D-029)
 - Revisit if: v2 CI publishes releases — then derive the version from a release tag.
 
 ## D-025 · 2026-10-23 · Own mark for every icon: a flyout card with an output row and an input row
-Status: accepted
+Status: accepted; the tile's colours changed by D-045
 Supersedes: D-009 (only the tray glyph: Segoe "Volume3" → our mark)
 - Decision: `scripts/make-icon.ps1` draws one mark with GDI+: a rounded card with a speaker + level bar
   above a microphone + shorter bar, geometry on a 16-unit grid snapped per size. Colour tile (violet → blue,
@@ -716,3 +716,28 @@ Status: accepted
   resize too, and doesn't cover a resolution change at the same DPI).
 - Revisit if: the log shows `moved onto` with the new % equal to the old where the screens' scales differ — a
   hidden window then doesn't take the new DPI on a move, and the size has to be computed for the target DPI instead.
+
+## D-044 · 2026-11-13 · The app is called Surtitle; only the visible name changes
+Status: accepted
+- Decision: the product name is "Surtitle" (the text shown above an opera stage): Product, `AssemblyTitle`
+  (Task Manager, Startup apps), tray tooltip, settings window, About, Copy details, `--packTitle` (Start menu,
+  Settings → Apps), the release name, README. Everything a running install depends on keeps `DazeMediaOsd`: the
+  exe, packId `DazeMediaOsdApp` and its folder, `%LOCALAPPDATA%\DazeMediaOsd` (settings, logs), the Run value,
+  mutexes, window classes, `DAZEMEDIAOSD_UPDATE_SOURCE`, namespaces, project and solution names, the repo and its URL.
+- Why: the user found "Daze Media OSD" a dull description of what the app does and picked Surtitle from checked
+  shortlists (2026-11-13): the accent is on replacing the pop-up, not on volume. No same-name Windows app in
+  winget, GitHub repo names or a web search; "surtitle" is also the generic word for theatre captioning software.
+  Microsoft Store, trademarks and domains were not checked.
+- Why not rename the ids too: a new packId is a new app to Velopack (installed copies stop updating, a second
+  entry in Settings → Apps), a new data folder or Run value loses settings and autostart without a migration
+  (D-015, D-029), and a repo rename changes the update feed URL (D-030). None of it is visible to the user.
+- Revisit if: the user wants the repo, the exe or the Setup file renamed (then: a migration for the folder and
+  Run value, and a last release under the old packId that points at the new one), or a clash turns up.
+
+## D-045 · 2026-11-13 · The icon tile is teal, not violet to blue
+Status: accepted
+- Decision: `make-icon.ps1` fills the colour tile teal `#1CA8B4` → deep teal `#0A5060`; the amber input level, the
+  mark and the monochrome tray icons stay (D-025). The README hero uses the same teal on warm neutral grounds.
+- Why: the user asked to drop "the typical AI purple" from the hero, then from the icon (2026-11-13). Teal is
+  close to the accent the app's toggles and level bar already show on the user's PC.
+- Revisit if: the tile reads badly at 16/20 px on the taskbar (seen only in the settings title bar at 200 %).

@@ -1,0 +1,17 @@
+<!doctype html><meta charset=utf-8><title>Demo player</title>
+<body style="font:16px sans-serif;background:#111;color:#eee">
+<button id=play style="font-size:32px;padding:20px 40px">Play</button>
+<audio id=a src="quiet.wav" loop></audio>
+<script>
+function cover(){const c=document.createElement('canvas');c.width=c.height=512;const x=c.getContext('2d');
+const g=x.createLinearGradient(0,0,0,512);g.addColorStop(0,'#f6b24a');g.addColorStop(.55,'#e8633a');g.addColorStop(1,'#12343b');
+x.fillStyle=g;x.fillRect(0,0,512,512);
+x.fillStyle='#fde8b0';x.beginPath();x.arc(256,250,92,0,7);x.fill();
+x.fillStyle='#0e2a30';x.beginPath();x.moveTo(0,512);x.lineTo(0,360);x.lineTo(150,270);x.lineTo(260,350);x.lineTo(370,250);x.lineTo(512,360);x.lineTo(512,512);x.fill();
+x.fillStyle='#081c20';x.beginPath();x.moveTo(0,512);x.lineTo(0,430);x.lineTo(200,380);x.lineTo(512,440);x.lineTo(512,512);x.fill();
+return c.toDataURL('image/png');}
+play.onclick=async()=>{await a.play();
+navigator.mediaSession.metadata=new MediaMetadata({title:'Golden Hour Drive',artist:'Neon Harbor',album:'Demo',artwork:[{src:cover(),sizes:'512x512',type:'image/png'}]});
+navigator.mediaSession.setActionHandler('nexttrack',()=>{});navigator.mediaSession.setActionHandler('previoustrack',()=>{});
+play.textContent='Playing';};
+</script>

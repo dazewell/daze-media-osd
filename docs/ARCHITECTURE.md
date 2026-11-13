@@ -57,8 +57,9 @@ scripts/                         run.ps1 (stop + build + start), stop.ps1 (safe 
 .github/workflows/               ci.yml (build + test on PRs and main), release.yml (push to main with an untagged
                                  <Version>, or tag v<Version> → test,
                                  pack, GitHub Release with Setup.exe + update feed, D-029)
-docs/images/                     README art: hero.png and framed shots, captured from the running app (demo
-                                 media page, Stereo Mix as the connected device). Re-shoot after UI changes.
+docs/images/                     README art: hero and framed shots, a `-light` and a `-dark` file each (README picks by
+                                 `prefers-color-scheme`), captured from the running app (demo media page; build skill
+                                 → README shots). popup-device.png is light only. Re-shoot after UI changes.
 spikes/FlyoutProbe/              console probe for the native flyout — re-run after Windows updates.
 spikes/BtProbe/                  every endpoint's state, container, KS filter and BtAudio support; connect /
                                  disconnect one (D-023). Re-run after Windows or audio driver updates.

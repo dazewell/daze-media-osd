@@ -132,13 +132,13 @@ can't verify visually, say so explicitly instead of claiming it works.
   from a script, but then its `SetForegroundWindow` fails (foreground lock) and keys go elsewhere:
   pick items with the mouse (`SetCursorPos` + `mouse_event`, physical pixels after the DPI call). A clean stop
   for testing: tray → Exit. Left-click opens the settings window (also `WinUIDesktopWin32WindowClass`,
-  title `Daze Media OSD`).
+  title `Surtitle`).
 - Settings live in `%LOCALAPPDATA%\DazeMediaOsd\settings.json` and hold the user's real settings: copy
   it before a test that changes settings and restore it byte-for-byte afterwards (compare
   `Get-FileHash`), with the app stopped. Never delete it. Every change shows a preview OSD (log
   `show SettingsPreview`). UI Automation drives the window: post `WM_APP+1` with lParam
   `0x400 | (1 << 16)` (NIN_SELECT, icon 1) to the `DazeMediaOsd.Tray` window to open it (title
-  `Daze Media OSD`); toggles are found by their `AutomationProperties.Name` (e.g. "Show now playing"); the nav items are
+  `Surtitle`); toggles are found by their `AutomationProperties.Name` (e.g. "Show now playing"); the nav items are
   "Pop-up", "Shortcuts", "Mouse wheel", "About". The window can open behind others: capture it with
   `PrintWindow(hwnd, dc, 2)`. Scroll it with the `ScrollPattern` (`SetScrollPercent`). The UIA tree omits
   elements that are scrolled out of view, so scroll a card in before looking for its text. A WinUI ComboBox has no
@@ -146,6 +146,23 @@ can't verify visually, say so explicitly instead of claiming it works.
   `SelectionItemPattern.Select()`.
 - Also check: foreground window unchanged by a show (`GetForegroundWindow`), and `WindowFromPoint`
   over the OSD returns the window below (click-through).
+
+## README shots
+
+`docs/images` holds a `-light` and a `-dark` file per shot; the README picks by `prefers-color-scheme`. To re-shoot
+(scripts in `scripts/readme-shots`, raw captures go to a scratch folder `<raw>`):
+
+1. Demo song: copy `demo.html` (as `index.html`) into a scratch folder with a 30 s near-silent `quiet.wav`, serve it
+   (`python -I -m http.server 8765 --bind 127.0.0.1`), open it in the browser pane, click Play. Pause the user's own
+   player first (key 179) and resume it after; raise the volume only while it is paused, and put level and mute back.
+2. Theme: `$env:DAZEMEDIAOSD_THEME = 'light'` (or `dark`) before `pwsh scripts/run.ps1` forces the app's theme without
+   touching Windows' (read once at start).
+3. `& shot-osd.ps1 -Keys 175,174 -GapMs 250 -DelayMs 1000 -Out <raw>\light-osd.png` presses the keys and copies the
+   pop-up off the screen once the log shows it. Call it with `&`: `pwsh -File` turns the key list into one string.
+   A light pop-up over dark windows comes out grey: put the settings window behind it first.
+4. `& shot-settings.ps1 -Prefix <raw>\light` saves `light-pop-up.png` and `light-shortcuts.png` (`PrintWindow`).
+5. `python -I compose.py <raw> docs/images` (needs Pillow) frames the shots and draws both heroes. No purple in the
+   hero (user, 2026-11-13).
 
 ## Troubleshooting
 
