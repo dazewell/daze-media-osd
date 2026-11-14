@@ -62,7 +62,7 @@ It looks like the rest of Windows 11, follows your light or dark theme, and disa
 
 You need Windows 11, version 24H2 or later.
 
-1. Download `DazeMediaOsdApp-win-Setup.exe` from [Releases](https://github.com/dazewell/Surtitle/releases) and run it. (The file still carries the project's old name.)
+1. Open the [latest release](https://github.com/dazewell/Surtitle/releases/latest), download `Surtitle-…-Setup.exe` (the dots are the version number) and run it.
 2. Windows may warn you that it doesn't recognise the app, because it isn't signed yet. Choose "More info", then "Run anyway".
 3. Look for the Surtitle icon in the tray, next to the clock. It may be hiding behind the `^` arrow. Click it to open the settings, and turn on **Start with Windows** if you want it there every day.
 

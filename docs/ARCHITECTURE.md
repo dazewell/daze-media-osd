@@ -53,10 +53,12 @@ src/DazeMediaOsd.App/            WinUI 3 exe `DazeMediaOsd.exe`: Program.Main �
 tests/DazeMediaOsd.Core.Tests/   xUnit v3; logic only, fakes for IAudioService / IKeySource / IMediaService / IBrightnessBackend
 scripts/                         run.ps1 (stop + build + start), stop.ps1 (safe stop), press-key.ps1
                                  (SendInput volume/media keys), audio-device.ps1 (list / set default output,
-                                 dev only), install.ps1 (daily-driver copy), pack.ps1 (Velopack release, D-029)
+                                 dev only), install.ps1 (daily-driver copy), pack.ps1 (Velopack release, D-029),
+                                 name-release-downloads.ps1 (public file names on a release, D-047)
 .github/workflows/               ci.yml (build + test on PRs and main), release.yml (push to main with an untagged
                                  <Version>, or tag v<Version> → test,
-                                 pack, GitHub Release with Setup.exe + update feed, D-029)
+                                 pack, GitHub Release with Setup.exe + update feed, D-029; downloads
+                                 renamed to Surtitle-<version>-*, D-047)
 docs/images/                     README art: hero and framed shots, a `-light` and a `-dark` file each (README picks by
                                  `prefers-color-scheme`), captured from the running app (demo media page; build skill
                                  → README shots). popup-device.png is light only. Re-shoot after UI changes.
