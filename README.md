@@ -8,7 +8,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/Windows%2011-24H2%2B-0078D4?logo=windows11&logoColor=white" alt="Windows 11 24H2+">
-  <img src="https://img.shields.io/badge/version-0.9.1-F5B83D" alt="Version 0.9.1">
+  <img src="https://img.shields.io/badge/version-0.9.2-F5B83D" alt="Version 0.9.2">
   <img src="https://img.shields.io/badge/license-GPL--3.0-blue" alt="License: GPL-3.0-or-later">
 </p>
 
@@ -105,7 +105,7 @@ it, go to Windows Settings → Apps.
 
 ## How it's going
 
-Version **0.9.1**. The author uses it every day. What's done and what's planned is in
+Version **0.9.2**. The author uses it every day. What's done and what's planned is in
 [docs/GOALS.md](docs/GOALS.md). Found a problem? [Open an issue](https://github.com/dazewell/Surtitle/issues/new);
 the About page in the settings has a "Copy details" button that gathers what's useful to include.
 
