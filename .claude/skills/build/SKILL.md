@@ -1,6 +1,6 @@
 ---
 name: build
-description: Build, run, test and publish the daze-media-osd WinUI 3 / .NET 10 app on the local Windows machine, including prerequisite checks and fixes for common build failures. Use whenever you need to compile, run the app to see a change, run tests, produce a publish folder, set up the dev environment, or when a dotnet/MSBuild/XAML/Windows App SDK error appears — even if the user just says "try it" or "does it work".
+description: Build, run, test and publish this repo's WinUI 3 / .NET 10 tray app on the local Windows machine, including prerequisite checks and fixes for common build failures. Use whenever you need to compile, run the app to see a change, run tests, produce a publish folder, set up the dev environment, or when a dotnet/MSBuild/XAML/Windows App SDK error appears — even if the user just says "try it" or "does it work".
 ---
 
 # Build
@@ -132,13 +132,13 @@ can't verify visually, say so explicitly instead of claiming it works.
   from a script, but then its `SetForegroundWindow` fails (foreground lock) and keys go elsewhere:
   pick items with the mouse (`SetCursorPos` + `mouse_event`, physical pixels after the DPI call). A clean stop
   for testing: tray → Exit. Left-click opens the settings window (also `WinUIDesktopWin32WindowClass`,
-  title `Surtitle`).
+  its title starts with the product name, `<Product>` in `Directory.Build.props`).
 - Settings live in `%LOCALAPPDATA%\DazeMediaOsd\settings.json` and hold the user's real settings: copy
   it before a test that changes settings and restore it byte-for-byte afterwards (compare
   `Get-FileHash`), with the app stopped. Never delete it. Every change shows a preview OSD (log
   `show SettingsPreview`). UI Automation drives the window: post `WM_APP+1` with lParam
-  `0x400 | (1 << 16)` (NIN_SELECT, icon 1) to the `DazeMediaOsd.Tray` window to open it (title
-  `Surtitle`); toggles are found by their `AutomationProperties.Name` (e.g. "Show now playing"); the nav items are
+  `0x400 | (1 << 16)` (NIN_SELECT, icon 1) to the `DazeMediaOsd.Tray` window to open it (title:
+  the product name); toggles are found by their `AutomationProperties.Name` (e.g. "Show now playing"); the nav items are
   "Pop-up", "Shortcuts", "Mouse wheel", "About". The window can open behind others: capture it with
   `PrintWindow(hwnd, dc, 2)`. Scroll it with the `ScrollPattern` (`SetScrollPercent`). The UIA tree omits
   elements that are scrolled out of view, so scroll a card in before looking for its text. A WinUI ComboBox has no
@@ -161,7 +161,10 @@ can't verify visually, say so explicitly instead of claiming it works.
    pop-up off the screen once the log shows it. Call it with `&`: `pwsh -File` turns the key list into one string.
    A light pop-up over dark windows comes out grey: put the settings window behind it first.
 4. `& shot-settings.ps1 -Prefix <raw>\light` saves `light-pop-up.png` and `light-shortcuts.png` (`PrintWindow`).
-5. `python -I compose.py <raw> docs/images` (needs Pillow) frames the shots and draws both heroes. No purple in the
+   `-Pages 'Mouse wheel'` adds that page (`light-mouse wheel.png`).
+5. `python -I compose.py <raw> docs/images` (needs Pillow) frames the shots and draws both heroes. A third argument
+   limits it to some outputs (`settings-wheel`, `hero,popup-media`): the hero's grain is random, so redrawing it
+   changes the file. No purple in the
    hero (user, 2026-11-13).
 
 ## Troubleshooting

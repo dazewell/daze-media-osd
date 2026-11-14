@@ -753,3 +753,17 @@ Status: accepted
 - Seen 2026-11-13: an installed 0.8.1 asked the old URL after the rename and logged `updates: downloading 0.9.0`,
   so the redirect serves existing installs.
 
+## D-047 · 2026-11-14 · Release downloads are named Surtitle-<version>-Setup.exe / -Portable.zip
+Status: accepted
+- Decision: after `vpk upload … --publish`, the release workflow runs `scripts/name-release-downloads.ps1`: it uploads
+  copies of `DazeMediaOsdApp-win-Setup.exe` and `-Portable.zip` as `Surtitle-<version>-Setup.exe` and
+  `Surtitle-<version>-Portable.zip`, then removes the two old names. The update feed (`*.nupkg`,
+  `releases.win.json`, `RELEASES`) keeps Velopack's names. `pack.ps1` and `install.ps1` are unchanged (local files
+  keep the packId names). README links to `releases/latest` and names the file with "…" for the version.
+- Why: the user doesn't want the old project name on the download and wants the version in it (2026-11-14). vpk
+  names files after the packId and has no option for it; the packId can't change (D-044).
+- Why after publishing, not on a draft: a failed rename then leaves a complete release under the old names. On a
+  draft it would leave nothing published, and the next push would have to redo the whole release.
+- Why not a fixed name for a `releases/latest/download/<file>` link: the user wants the version in the name.
+- Revisit if: vpk gets an option for the installer's file name, or something starts reading the Setup by its old name.
+

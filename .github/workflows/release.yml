@@ -1,4 +1,4 @@
-# Publishes a GitHub Release with the Velopack Setup.exe, portable zip and update feed (D-029) for the
+# Publishes a GitHub Release with the Velopack Setup.exe, portable zip (renamed, D-047) and update feed (D-029) for the
 # <Version> in Directory.Build.props (D-024), from either trigger (D-031):
 # - a push to main whose <Version> has no published release yet: publishing creates the tag on that commit,
 #   so a failed run leaves at most a draft (deleted on retry) and the next push to main retries. (A tag pushed
@@ -101,3 +101,10 @@ jobs:
           dotnet vpk upload github --repoUrl https://github.com/${{ github.repository }} --token ${{ secrets.GITHUB_TOKEN }}
           -o artifacts/releases --tag v${{ env.VERSION }} --targetCommitish ${{ github.sha }}
           --releaseName "Surtitle ${{ env.VERSION }}" --publish
+
+      # After publishing on purpose: if this fails, the release is complete, only under Velopack's file names (D-047).
+      - name: Name the downloads Surtitle-<version>
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: ./scripts/name-release-downloads.ps1 -Version $env:VERSION -Repo $env:GITHUB_REPOSITORY

@@ -184,6 +184,10 @@ this file and know what to build next. History of *why* lives in [DECISIONS.md](
 - [x] 0.9.1: update address, About and README links point at github.com/dazewell/Surtitle (D-046). Seen: the
   installed 0.8.1 found 0.9.0 through the old URL's redirect (`updates: downloading 0.9.0`). Not seen: 0.9.0 applied
   at the next start, and 0.9.0 finding 0.9.1.
+- [x] Release downloads named `Surtitle-<version>-Setup.exe` / `-Portable.zip` (D-047); skills no longer name the
+  project. Seen: the script's upload half against v0.9.1 (run with `-KeepOld`: both names are
+  on that release). Not seen: the removal of the old names, the workflow step in a real release run (the next version).
+- [x] README: a "Scroll the taskbar" section on the wheel zones with a Mouse wheel settings shot, light and dark (user, 2026-11-14).
 
 **Next step:** after the 0.9.0 update lands on the daily driver, look at the Start menu and Settings → Apps: one
 entry, named Surtitle (D-044); a leftover "Daze Media OSD" shortcut is news. Then: the user plugs the Dell in and out with the OSD popping (and changes scaling or resolution while it's

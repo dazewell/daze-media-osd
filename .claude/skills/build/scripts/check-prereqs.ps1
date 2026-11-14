@@ -1,4 +1,4 @@
-# Checks the local machine can build daze-media-osd. Read-only: prints problems and fixes, installs nothing.
+# Checks the local machine can build this repo. Read-only: prints problems and fixes, installs nothing.
 $ok = $true
 
 $sdks = @(dotnet --list-sdks 2>$null)
