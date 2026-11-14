@@ -40,10 +40,36 @@ speakers or the headphones, is my microphone muted, and what is this song?
 - **Tells you when devices come and go.** Bluetooth, USB or wired: one short line when something connects or disconnects.
 - **Switches devices from the keyboard.** `Win+Alt+A` moves to your next output. You can also give each device its own shortcut. If that device is a pair of Bluetooth headphones that isn't connected, the shortcut connects it first.
 - **Switches devices from the tray.** Right-click the tray icon and pick an output or input.
-- **Changes the volume with the mouse wheel.** Scroll over the taskbar to turn the volume up or down. On a laptop the wheel can also change the screen brightness; that one is off until you turn it on.
+- **Turns the taskbar into a volume and brightness dial.** Put the mouse over the taskbar and turn the wheel. [More below.](#scroll-the-taskbar)
 - **Says why it showed up.** If a call or an app changed something without you pressing a key, the pop-up says so.
 
 It looks like the rest of Windows 11, follows your light or dark theme, and disappears after a couple of seconds.
+
+## Scroll the taskbar
+
+Put the mouse over the taskbar and turn the wheel: the volume changes, and the pop-up shows the new level. You
+don't have to open or click anything, and the window you're working in stays in front.
+
+<p align="center">
+  <picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/settings-wheel-dark.png"><img src="docs/images/settings-wheel-light.png" alt="Mouse wheel settings: volume over the apps, brightness over the tray icons and clock, each with a key to hold and a step" width="75%"></picture>
+</p>
+
+The taskbar has two zones, and each can do something different:
+
+- **Over the apps**: the Start button and your app icons.
+- **Over the tray icons and clock**: the corner with the clock.
+
+The setup in the picture uses both: scroll over the apps for volume, scroll over the clock for screen brightness.
+If you'd rather have one thing everywhere, pick **Anywhere on the taskbar**.
+
+- **A key to hold.** Each action can ask for Ctrl, Shift or Alt. That way plain scrolling can change the volume and
+  Ctrl + scrolling the brightness, in the same place. It also stops accidental changes if you scroll over the taskbar a lot.
+- **Step.** How much one click of the wheel changes, in percent.
+- **Volume** works out of the box: anywhere on the taskbar, no key, 2 % per click.
+- **Brightness** is off until you choose where it scrolls. It works on a laptop's built-in screen and never goes
+  below 5 %, so the screen can't go black.
+
+All of it is on the **Mouse wheel** page of the settings.
 
 ## Settings
 

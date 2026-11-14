@@ -161,7 +161,10 @@ can't verify visually, say so explicitly instead of claiming it works.
    pop-up off the screen once the log shows it. Call it with `&`: `pwsh -File` turns the key list into one string.
    A light pop-up over dark windows comes out grey: put the settings window behind it first.
 4. `& shot-settings.ps1 -Prefix <raw>\light` saves `light-pop-up.png` and `light-shortcuts.png` (`PrintWindow`).
-5. `python -I compose.py <raw> docs/images` (needs Pillow) frames the shots and draws both heroes. No purple in the
+   `-Pages 'Mouse wheel'` adds that page (`light-mouse wheel.png`).
+5. `python -I compose.py <raw> docs/images` (needs Pillow) frames the shots and draws both heroes. A third argument
+   limits it to some outputs (`settings-wheel`, `hero,popup-media`): the hero's grain is random, so redrawing it
+   changes the file. No purple in the
    hero (user, 2026-11-13).
 
 ## Troubleshooting
