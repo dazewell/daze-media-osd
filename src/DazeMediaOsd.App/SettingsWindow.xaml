@@ -567,7 +567,7 @@
                             </StackPanel>
                             <HyperlinkButton Grid.Column="2" VerticalAlignment="Center" Content="Report on GitHub"
                                              AutomationProperties.Name="Report a problem on GitHub"
-                                             NavigateUri="https://github.com/dazewell/daze-media-osd/issues/new" />
+                                             NavigateUri="https://github.com/dazewell/Surtitle/issues/new" />
                         </Grid>
                         <Grid Style="{StaticResource SettingsCard}">
                             <Grid.ColumnDefinitions>
@@ -581,7 +581,7 @@
                                 <TextBlock Text="Free and open source. The code is written by AI agents." Style="{StaticResource SettingsCardDescription}" />
                             </StackPanel>
                             <HyperlinkButton Grid.Column="2" VerticalAlignment="Center" Content="Open on GitHub"
-                                             NavigateUri="https://github.com/dazewell/daze-media-osd" />
+                                             NavigateUri="https://github.com/dazewell/Surtitle" />
                         </Grid>
                     </StackPanel>
                 </Grid>

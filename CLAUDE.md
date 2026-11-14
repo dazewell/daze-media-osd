@@ -1,6 +1,6 @@
-# daze-media-osd
+# Surtitle
 
-Surtitle (the product name, D-044; ids and the repo keep `DazeMediaOsd`): a Windows 11-only tray app that replaces the native volume/media OSD with one that shows more — first of
+Surtitle (the product and repo name, D-044, D-046; the code and ids keep `DazeMediaOsd`): a Windows 11-only tray app that replaces the native volume/media OSD with one that shows more — first of
 all the current output and input device. C# / .NET 10 + WinUI 3 (D-001). Written entirely by AI agents.
 
 ## The repo is the memory

@@ -7,7 +7,7 @@ this file and know what to build next. History of *why* lives in [DECISIONS.md](
 
 - Extend the Windows 11 media OSD (the flyout shown on volume/media keys) with extra information. The
   first concrete ask: **show the current output and input device when changing volume.**
-- The app is called **Surtitle** (user, 2026-11-13; D-044); `DazeMediaOsd` stays in the code, folders and repo.
+- The app is called **Surtitle** (user, 2026-11-13; D-044), and so is the repo (D-046); `DazeMediaOsd` stays in the code and folders.
 - Windows 11 only. No cross-platform concerns, ever.
 - A configuration UI with a modern design (should feel like a native Windows 11 app). Its wording is
   plain and friendly, not geeky (user, 2026-10-23; D-026).
@@ -181,6 +181,9 @@ this file and know what to build next. History of *why* lives in [DECISIONS.md](
 - [x] README shots re-taken with the new name, light and dark, hero without purple (user, 2026-11-13; build skill →
   README shots; `DAZEMEDIAOSD_THEME` forces the app's theme). Not re-taken: popup-device.png (old, light only).
 - [x] App icon tile recoloured teal (D-045). Seen: About image file, settings title bar. Not seen: taskbar, Start menu, Alt+Tab.
+- [x] 0.9.1: update address, About and README links point at github.com/dazewell/Surtitle (D-046). Seen: the
+  installed 0.8.1 found 0.9.0 through the old URL's redirect (`updates: downloading 0.9.0`). Not seen: 0.9.0 applied
+  at the next start, and 0.9.0 finding 0.9.1.
 
 **Next step:** after the 0.9.0 update lands on the daily driver, look at the Start menu and Settings → Apps: one
 entry, named Surtitle (D-044); a leftover "Daze Media OSD" shortcut is news. Then: the user plugs the Dell in and out with the OSD popping (and changes scaling or resolution while it's
