@@ -2,6 +2,13 @@ import sys
 from PIL import Image, ImageDraw, ImageFilter, ImageFont, ImageChops
 
 SP, OUT = sys.argv[1], sys.argv[2]
+# Optional third argument: only these outputs, e.g. "settings-wheel" or "hero,popup-media" (the hero's grain is
+# random, so redrawing it changes the file every time).
+ONLY = set(sys.argv[3].split(',')) if len(sys.argv) > 3 else None
+
+
+def want(name):
+    return ONLY is None or name in ONLY
 FONT = r'C:\Windows\Fonts\SegUIVar.ttf'
 
 
@@ -41,14 +48,15 @@ def fit(img, width):
     return img.resize((width, round(img.height * width / img.width)), Image.LANCZOS)
 
 
-# Window frame box: PrintWindow leaves pure black where the invisible resize border is.
-ref = Image.open(f'{SP}/light-pop-up.png').convert('RGB')
-box = ImageChops.difference(ref, Image.new('RGB', ref.size, (0, 0, 0))).getbbox()
-print('settings box', box)
+# Window frame box: PrintWindow leaves pure black where the invisible resize border is. Taken from the light shot
+# of the same page (a dark window is too close to black), so pages shot at different scales each get their own.
+def frame_box(page):
+    ref = Image.open(f'{SP}/light-{page}.png').convert('RGB')
+    return ImageChops.difference(ref, Image.new('RGB', ref.size, (0, 0, 0))).getbbox()
 
 
 def settings(theme, page):
-    return rounded(Image.open(f'{SP}/{theme}-{page}.png').convert('RGB').crop(box), 16)
+    return rounded(Image.open(f'{SP}/{theme}-{page}.png').convert('RGB').crop(frame_box(page)), 16)
 
 
 def osd(theme):
@@ -63,10 +71,13 @@ THEMES = {
 
 for theme, c in THEMES.items():
     # framed README shots, transparent so they sit on either GitHub theme
-    with_shadow(fit(osd(theme), 600), 40, 14, 8, c['shadow']).save(f'{OUT}/popup-media-{theme}.png', optimize=True)
-    for page, name in (('pop-up', 'settings-popup'), ('shortcuts', 'settings-shortcuts')):
+    if want('popup-media'):
+        with_shadow(fit(osd(theme), 600), 40, 14, 8, c['shadow']).save(f'{OUT}/popup-media-{theme}.png', optimize=True)
+    for page, name in (('pop-up', 'settings-popup'), ('shortcuts', 'settings-shortcuts'), ('mouse wheel', 'settings-wheel')):
+        if not want(name): continue
         with_shadow(fit(settings(theme, page), 1000), 40, 16, 10, c['shadow']).save(f'{OUT}/{name}-{theme}.png', optimize=True)
 
+    if not want('hero'): continue
     # hero
     W, H = 2400, 1100
     hero = Image.new('RGB', (W, H))
