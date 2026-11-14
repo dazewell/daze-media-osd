@@ -750,5 +750,6 @@ Status: accepted
 - Why: installed copies up to 0.9.0 ask the old URL for updates and reach the repo only through GitHub's redirect,
   which ends if a repo is ever created under the old name. From 0.9.1 on they ask the real one.
 - Never create a repo named `dazewell/daze-media-osd`: it would cut 0.9.0 and older off from updates.
-- Not seen: an update check from an installed 0.9.0 or older through the redirect.
+- Seen 2026-11-13: an installed 0.8.1 asked the old URL after the rename and logged `updates: downloading 0.9.0`,
+  so the redirect serves existing installs.
 
