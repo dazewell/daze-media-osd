@@ -718,7 +718,7 @@ Status: accepted
   hidden window then doesn't take the new DPI on a move, and the size has to be computed for the target DPI instead.
 
 ## D-044 · 2026-11-13 · The app is called Surtitle; only the visible name changes
-Status: accepted
+Status: accepted; the repo was renamed after all (D-046)
 - Decision: the product name is "Surtitle" (the text shown above an opera stage): Product, `AssemblyTitle`
   (Task Manager, Startup apps), tray tooltip, settings window, About, Copy details, `--packTitle` (Start menu,
   Settings → Apps), the release name, README. Everything a running install depends on keeps `DazeMediaOsd`: the
@@ -741,3 +741,14 @@ Status: accepted
 - Why: the user asked to drop "the typical AI purple" from the hero, then from the icon (2026-11-13). Teal is
   close to the accent the app's toggles and level bar already show on the user's PC.
 - Revisit if: the tile reads badly at 16/20 px on the taskbar (seen only in the settings title bar at 200 %).
+
+## D-046 · 2026-11-13 · The repo is github.com/dazewell/Surtitle; URLs in the app follow
+Status: accepted
+- Decision: the user renamed the GitHub repo to `Surtitle` (2026-11-13). `VelopackUpdateClient.RepoUrl`, the About
+  links and the README point at the new URL (0.9.1). Everything else in D-044 stands: exe, packId, folders, Run
+  value, namespaces and the Setup file name keep `DazeMediaOsd`.
+- Why: installed copies up to 0.9.0 ask the old URL for updates and reach the repo only through GitHub's redirect,
+  which ends if a repo is ever created under the old name. From 0.9.1 on they ask the real one.
+- Never create a repo named `dazewell/daze-media-osd`: it would cut 0.9.0 and older off from updates.
+- Not seen: an update check from an installed 0.9.0 or older through the redirect.
+

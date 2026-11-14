@@ -7,7 +7,7 @@ namespace DazeMediaOsd.Core.Updates;
 /// <summary>Velopack against this repo's GitHub Releases (D-029, D-030). Stable releases only, no token.</summary>
 public sealed class VelopackUpdateClient : IUpdateClient
 {
-    public const string RepoUrl = "https://github.com/dazewell/daze-media-osd";
+    public const string RepoUrl = "https://github.com/dazewell/Surtitle";
 
     /// <summary>A local feed folder (vpk pack output) in place of GitHub, for testing updates (build skill).</summary>
     public const string SourceOverrideVariable = "DAZEMEDIAOSD_UPDATE_SOURCE";

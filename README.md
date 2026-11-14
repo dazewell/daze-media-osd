@@ -8,7 +8,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/Windows%2011-24H2%2B-0078D4?logo=windows11&logoColor=white" alt="Windows 11 24H2+">
-  <img src="https://img.shields.io/badge/version-0.9.0-F5B83D" alt="Version 0.9.0">
+  <img src="https://img.shields.io/badge/version-0.9.1-F5B83D" alt="Version 0.9.1">
   <img src="https://img.shields.io/badge/license-GPL--3.0-blue" alt="License: GPL-3.0-or-later">
 </p>
 
@@ -62,7 +62,7 @@ It looks like the rest of Windows 11, follows your light or dark theme, and disa
 
 You need Windows 11, version 24H2 or later.
 
-1. Download `DazeMediaOsdApp-win-Setup.exe` from [Releases](https://github.com/dazewell/daze-media-osd/releases) and run it. (The file still carries the project's old name.)
+1. Download `DazeMediaOsdApp-win-Setup.exe` from [Releases](https://github.com/dazewell/Surtitle/releases) and run it. (The file still carries the project's old name.)
 2. Windows may warn you that it doesn't recognise the app, because it isn't signed yet. Choose "More info", then "Run anyway".
 3. Look for the Surtitle icon in the tray, next to the clock. It may be hiding behind the `^` arrow. Click it to open the settings, and turn on **Start with Windows** if you want it there every day.
 
@@ -79,14 +79,14 @@ it, go to Windows Settings → Apps.
 
 ## How it's going
 
-Version **0.9.0**. The author uses it every day. What's done and what's planned is in
-[docs/GOALS.md](docs/GOALS.md). Found a problem? [Open an issue](https://github.com/dazewell/daze-media-osd/issues/new);
+Version **0.9.1**. The author uses it every day. What's done and what's planned is in
+[docs/GOALS.md](docs/GOALS.md). Found a problem? [Open an issue](https://github.com/dazewell/Surtitle/issues/new);
 the About page in the settings has a "Copy details" button that gathers what's useful to include.
 
 ## For developers
 
-Surtitle is written in C# on .NET 10 with WinUI 3. The code and the repository still use the project's first
-name, `DazeMediaOsd`.
+Surtitle is written in C# on .NET 10 with WinUI 3. The code still uses the project's first name,
+`DazeMediaOsd`.
 
 To build it you need the [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0)
 (`winget install Microsoft.DotNet.SDK.10`).
